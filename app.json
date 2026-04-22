@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "quan-ly-phong",
-    "slug": "quan-ly-phong",
+    "name": "MonkeyRoom",
+    "slug": "monkey-room",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,6 +24,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
