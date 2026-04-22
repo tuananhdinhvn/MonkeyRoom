@@ -32,6 +32,11 @@ const INITIAL_BUILDINGS = [
           messages: [
             { id: 'm1', text: 'Vòi nước bị nhỏ giọt, phiền anh kiểm tra giúp', time: '20/04/2026 09:12', resolved: false },
           ],
+          paymentHistory: [
+            { month: '04/2026', rent: '3,500,000', elecKwh: 45, elecTotal: '135,000', waterM3: 3, waterTotal: '45,000', total: '3,680,000', paid: true, paidAt: '02/04/2026' },
+            { month: '03/2026', rent: '3,500,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,671,000', paid: true, paidAt: '05/03/2026' },
+            { month: '02/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '03/02/2026' },
+          ],
         },
         { id: '102', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'urgent',
           tenant: null, phone: null, sinceDate: null, emptyFrom: '01/04/2026',
@@ -39,11 +44,15 @@ const INITIAL_BUILDINGS = [
           issueHistory: [
             { id: 'h1', title: 'Tường bị ẩm mốc', reportedAt: '10/02/2026 09:00', resolvedAt: '15/02/2026 16:00', resolvedBy: 'Thợ xây Hùng' },
           ],
-          messages: [],
+          messages: [], paymentHistory: [],
         },
         { id: '103', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
           tenant: 'Trần Thị Bích', phone: '0987654321', sinceDate: '15/03/2025',
           emptyFrom: null, currentIssue: null, issueHistory: [], messages: [],
+          paymentHistory: [
+            { month: '04/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 2, waterTotal: '30,000', total: '3,650,000', paid: true, paidAt: '02/04/2026' },
+            { month: '03/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '05/03/2026' },
+          ],
         },
         { id: '104', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'occupied',
           tenant: 'Vũ Thị Lan', phone: '0966333444', sinceDate: '01/02/2026',
@@ -55,6 +64,11 @@ const INITIAL_BUILDINGS = [
             { id: 'm1', text: 'Bồn cầu bị tắc, chị xử lý giúp em với ạ', time: '21/04/2026 22:05', resolved: false },
             { id: 'm2', text: 'Cửa sổ phòng em bị kẹt không mở được', time: '18/04/2026 08:30', resolved: true },
           ],
+          paymentHistory: [
+            { month: '04/2026', rent: '4,800,000', elecKwh: 50, elecTotal: '150,000', waterM3: 4, waterTotal: '60,000', total: '5,010,000', paid: false, paidAt: null },
+            { month: '03/2026', rent: '4,800,000', elecKwh: 48, elecTotal: '144,000', waterM3: 4, waterTotal: '60,000', total: '5,004,000', paid: true, paidAt: '10/03/2026' },
+            { month: '02/2026', rent: '4,800,000', elecKwh: 45, elecTotal: '135,000', waterM3: 3, waterTotal: '45,000', total: '4,980,000', paid: true, paidAt: '05/02/2026' },
+          ],
         },
       ]},
       { floor: 2, rooms: [
@@ -65,6 +79,11 @@ const INITIAL_BUILDINGS = [
             { id: 'h1', title: 'Điều hòa chảy nước', reportedAt: '01/04/2026 14:00', resolvedAt: '02/04/2026 10:00', resolvedBy: 'Thợ điện lạnh Minh' },
           ],
           messages: [],
+          paymentHistory: [
+            { month: '04/2026', rent: '6,000,000', elecKwh: 80, elecTotal: '240,000', waterM3: 5, waterTotal: '75,000', total: '6,315,000', paid: false, paidAt: null },
+            { month: '03/2026', rent: '6,000,000', elecKwh: 75, elecTotal: '225,000', waterM3: 5, waterTotal: '75,000', total: '6,300,000', paid: false, paidAt: null },
+            { month: '02/2026', rent: '6,000,000', elecKwh: 70, elecTotal: '210,000', waterM3: 5, waterTotal: '75,000', total: '6,285,000', paid: true, paidAt: '05/02/2026' },
+          ],
         },
         { id: '202', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'maintenance',
           tenant: null, phone: null, sinceDate: null, emptyFrom: '15/03/2026',
@@ -72,15 +91,19 @@ const INITIAL_BUILDINGS = [
           issueHistory: [
             { id: 'h1', title: 'Cầu dao tự động nhảy liên tục', reportedAt: '10/03/2026 18:30', resolvedAt: null, resolvedBy: null },
           ],
-          messages: [],
+          messages: [], paymentHistory: [],
         },
         { id: '203', type: 'Studio', area: '35m²', price: '6,000,000', status: 'empty',
           tenant: null, phone: null, sinceDate: null, emptyFrom: '01/02/2026',
-          currentIssue: null, issueHistory: [], messages: [],
+          currentIssue: null, issueHistory: [], messages: [], paymentHistory: [],
         },
         { id: '204', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
           tenant: 'Đỗ Hữu Nghĩa', phone: '0944222111', sinceDate: '10/08/2025',
           emptyFrom: null, currentIssue: null, issueHistory: [], messages: [],
+          paymentHistory: [
+            { month: '04/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 2, waterTotal: '30,000', total: '3,650,000', paid: true, paidAt: '03/04/2026' },
+            { month: '03/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '05/03/2026' },
+          ],
         },
       ]},
       { floor: 3, rooms: [
@@ -91,6 +114,11 @@ const INITIAL_BUILDINGS = [
             { id: 'h1', title: 'Bình nóng lạnh hỏng', reportedAt: '20/03/2026 07:00', resolvedAt: '21/03/2026 11:00', resolvedBy: 'Thợ nước Dũng' },
           ],
           messages: [],
+          paymentHistory: [
+            { month: '04/2026', rent: '3,500,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,671,000', paid: true, paidAt: '04/04/2026' },
+            { month: '03/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 3, waterTotal: '45,000', total: '3,665,000', paid: true, paidAt: '05/03/2026' },
+            { month: '02/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '04/02/2026' },
+          ],
         },
         { id: '302', type: 'Phòng VIP', area: '45m²', price: '8,500,000', status: 'occupied',
           tenant: 'Hoàng Đức Minh', phone: '0933222111', sinceDate: '01/11/2024',
@@ -98,10 +126,15 @@ const INITIAL_BUILDINGS = [
           messages: [
             { id: 'm1', text: 'Thang máy tầng 3 thỉnh thoảng kêu tiếng lạ', time: '22/04/2026 10:00', resolved: false },
           ],
+          paymentHistory: [
+            { month: '04/2026', rent: '8,500,000', elecKwh: 120, elecTotal: '360,000', waterM3: 8, waterTotal: '120,000', total: '8,980,000', paid: true, paidAt: '02/04/2026' },
+            { month: '03/2026', rent: '8,500,000', elecKwh: 115, elecTotal: '345,000', waterM3: 8, waterTotal: '120,000', total: '8,965,000', paid: true, paidAt: '05/03/2026' },
+            { month: '02/2026', rent: '8,500,000', elecKwh: 110, elecTotal: '330,000', waterM3: 7, waterTotal: '105,000', total: '8,935,000', paid: true, paidAt: '04/02/2026' },
+          ],
         },
         { id: '303', type: 'Studio', area: '35m²', price: '6,000,000', status: 'empty',
           tenant: null, phone: null, sinceDate: null, emptyFrom: '10/03/2026',
-          currentIssue: null, issueHistory: [], messages: [],
+          currentIssue: null, issueHistory: [], messages: [], paymentHistory: [],
         },
       ]},
     ],
@@ -113,6 +146,10 @@ const INITIAL_BUILDINGS = [
         { id: 'B101', type: 'Phòng đơn', area: '22m²', price: '3,800,000', status: 'occupied',
           tenant: 'Mai Thị Hoa', phone: '0911000111', sinceDate: '10/04/2025',
           emptyFrom: null, currentIssue: null, issueHistory: [], messages: [],
+          paymentHistory: [
+            { month: '04/2026', rent: '3,800,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,971,000', paid: true, paidAt: '03/04/2026' },
+            { month: '03/2026', rent: '3,800,000', elecKwh: 40, elecTotal: '120,000', waterM3: 3, waterTotal: '45,000', total: '3,965,000', paid: true, paidAt: '05/03/2026' },
+          ],
         },
         { id: 'B102', type: 'Phòng đôi', area: '30m²', price: '5,000,000', status: 'occupied',
           tenant: 'Bùi Văn Tài', phone: '0922000222', sinceDate: '05/07/2025',
@@ -121,25 +158,33 @@ const INITIAL_BUILDINGS = [
             { id: 'h1', title: 'Vòi sen bị hỏng', reportedAt: '08/04/2026 08:00', resolvedAt: '09/04/2026 14:00', resolvedBy: 'Thợ nước Dũng' },
           ],
           messages: [],
+          paymentHistory: [
+            { month: '04/2026', rent: '5,000,000', elecKwh: 60, elecTotal: '180,000', waterM3: 4, waterTotal: '60,000', total: '5,240,000', paid: false, paidAt: null },
+            { month: '03/2026', rent: '5,000,000', elecKwh: 58, elecTotal: '174,000', waterM3: 4, waterTotal: '60,000', total: '5,234,000', paid: true, paidAt: '08/03/2026' },
+          ],
         },
         { id: 'B103', type: 'Phòng đơn', area: '22m²', price: '3,800,000', status: 'maintenance',
           tenant: null, phone: null, sinceDate: null, emptyFrom: '20/03/2026',
           currentIssue: { title: 'Sơn lại toàn bộ phòng sau khi khách trả', reportedAt: '20/03/2026 10:00', reportedBy: 'NV Thu' },
-          issueHistory: [], messages: [],
+          issueHistory: [], messages: [], paymentHistory: [],
         },
       ]},
       { floor: 2, rooms: [
         { id: 'B201', type: 'Studio', area: '38m²', price: '6,500,000', status: 'empty',
           tenant: null, phone: null, sinceDate: null, emptyFrom: '15/01/2026',
-          currentIssue: null, issueHistory: [], messages: [],
+          currentIssue: null, issueHistory: [], messages: [], paymentHistory: [],
         },
         { id: 'B202', type: 'Phòng đôi', area: '30m²', price: '5,000,000', status: 'occupied',
           tenant: 'Ngô Thị Kim', phone: '0955000333', sinceDate: '12/10/2025',
           emptyFrom: null, currentIssue: null, issueHistory: [], messages: [],
+          paymentHistory: [
+            { month: '04/2026', rent: '5,000,000', elecKwh: 55, elecTotal: '165,000', waterM3: 4, waterTotal: '60,000', total: '5,225,000', paid: true, paidAt: '04/04/2026' },
+            { month: '03/2026', rent: '5,000,000', elecKwh: 52, elecTotal: '156,000', waterM3: 4, waterTotal: '60,000', total: '5,216,000', paid: true, paidAt: '05/03/2026' },
+          ],
         },
         { id: 'B203', type: 'Studio', area: '38m²', price: '6,500,000', status: 'empty',
           tenant: null, phone: null, sinceDate: null, emptyFrom: '28/03/2026',
-          currentIssue: null, issueHistory: [], messages: [],
+          currentIssue: null, issueHistory: [], messages: [], paymentHistory: [],
         },
       ]},
     ],
@@ -290,6 +335,44 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
                 <TouchableOpacity style={md.callBtn} onPress={() => Linking.openURL(`tel:${room.phone}`)}>
                   <Text style={md.callBtnText}>📞  Gọi điện cho {room.tenant}</Text>
                 </TouchableOpacity>
+              </Section>
+            )}
+
+            {/* ── Lịch sử thanh toán ── */}
+            {room.status === 'occupied' && (room.paymentHistory || []).length > 0 && (
+              <Section title="💰 Lịch sử thanh toán">
+                {room.paymentHistory.map((p, idx) => (
+                  <View key={idx} style={[md.payCard, !p.paid && md.payCardUnpaid]}>
+                    <View style={md.payCardHeader}>
+                      <Text style={md.payMonth}>Tháng {p.month}</Text>
+                      <View style={[md.payStatusBadge, p.paid ? md.payStatusPaid : md.payStatusUnpaid]}>
+                        <Text style={[md.payStatusText, { color: p.paid ? '#2ecc71' : '#e94560' }]}>
+                          {p.paid ? '✅ Đã đóng' : '❌ Chưa đóng'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={md.payRow}>
+                      <Text style={md.payLabel}>Tiền thuê</Text>
+                      <Text style={md.payValue}>{p.rent} ₫</Text>
+                    </View>
+                    <View style={md.payRow}>
+                      <Text style={md.payLabel}>Điện ({p.elecKwh} kWh × 3,000)</Text>
+                      <Text style={md.payValue}>{p.elecTotal} ₫</Text>
+                    </View>
+                    <View style={md.payRow}>
+                      <Text style={md.payLabel}>Nước ({p.waterM3} m³ × 15,000)</Text>
+                      <Text style={md.payValue}>{p.waterTotal} ₫</Text>
+                    </View>
+                    <View style={md.payDivider} />
+                    <View style={md.payRow}>
+                      <Text style={md.payTotalLabel}>Tổng cộng</Text>
+                      <Text style={[md.payTotalVal, { color: p.paid ? '#2ecc71' : '#e94560' }]}>{p.total} ₫</Text>
+                    </View>
+                    {p.paid && p.paidAt && (
+                      <Text style={md.payPaidAt}>📅 Ngày đóng: {p.paidAt}</Text>
+                    )}
+                  </View>
+                ))}
               </Section>
             )}
 
@@ -533,8 +616,8 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
               </Section>
             )}
 
-            {/* ── Lịch sử vấn đề ── */}
-            <Section title="📋 Lịch sử vấn đề">
+            {/* ── Lịch sử giải quyết sự cố ── */}
+            <Section title="📋 Lịch sử giải quyết sự cố">
               {(room.issueHistory || []).length === 0 ? (
                 <View style={md.emptyHistory}>
                   <Text style={md.emptyHistoryText}>✅  Chưa có vấn đề nào được ghi nhận</Text>
@@ -1477,6 +1560,22 @@ const md = StyleSheet.create({
   radioCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#8892b0', justifyContent: 'center', alignItems: 'center' },
   radioSelected: { borderColor: '#2ecc71' },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#2ecc71' },
+  // Payment history
+  payCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  payCardUnpaid: { borderColor: 'rgba(233,69,96,0.3)', backgroundColor: 'rgba(233,69,96,0.03)' },
+  payCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  payMonth: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  payStatusBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  payStatusPaid: { backgroundColor: 'rgba(46,204,113,0.15)' },
+  payStatusUnpaid: { backgroundColor: 'rgba(233,69,96,0.15)' },
+  payStatusText: { fontSize: 12, fontWeight: '700' },
+  payRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  payLabel: { color: '#8892b0', fontSize: 12 },
+  payValue: { color: '#ccd6f6', fontSize: 12, fontWeight: '600' },
+  payDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 8 },
+  payTotalLabel: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  payTotalVal: { fontSize: 14, fontWeight: '800' },
+  payPaidAt: { color: '#8892b0', fontSize: 11, marginTop: 6 },
 });
 
 const pf = StyleSheet.create({

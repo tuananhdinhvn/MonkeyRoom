@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, StatusBar, Modal, Animated, Linking, Dimensions,
-  LayoutAnimation, Platform, UIManager
+  TextInput, StatusBar, Modal, Animated, Linking, Alert,
+  Dimensions, LayoutAnimation, Platform, UIManager
 } from 'react-native';
 
 if (Platform.OS === 'android') {
@@ -12,9 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const SCREEN_H = Dimensions.get('window').height;
+const DEMO_NOW_DISPLAY = '22/04/2026 08:00';
 
-// ─── Dữ liệu khách hàng ──────────────────────────────────
-const buildings = [
+// ─── Dữ liệu ──────────────────────────────────────────────
+const INITIAL_BUILDINGS = [
   {
     id: 'b1', name: 'Nhà A - Green Home', address: '12 Nguyễn Trãi, Q.1',
     customers: [
@@ -34,6 +35,11 @@ const buildings = [
         messages: [
           { id: 'm1', text: 'Anh ơi vòi nước bị nhỏ giọt, phiền anh kiểm tra giúp em', time: '20/04/2026 09:12', resolved: false },
         ],
+        paymentHistory: [
+          { month: '04/2026', rent: '3,500,000', elecKwh: 45, elecTotal: '135,000', waterM3: 3, waterTotal: '45,000', total: '3,680,000', paid: true, paidAt: '02/04/2026' },
+          { month: '03/2026', rent: '3,500,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,671,000', paid: true, paidAt: '05/03/2026' },
+          { month: '02/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '03/02/2026' },
+        ],
         notes: 'Khách thanh toán đúng hạn, ở sạch sẽ, chưa có vi phạm nội quy.',
       },
       {
@@ -45,6 +51,10 @@ const buildings = [
         previousRooms: [],
         issueHistory: [],
         messages: [],
+        paymentHistory: [
+          { month: '04/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 2, waterTotal: '30,000', total: '3,650,000', paid: true, paidAt: '02/04/2026' },
+          { month: '03/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '05/03/2026' },
+        ],
         notes: 'Khách mới lần đầu thuê.',
       },
       {
@@ -59,7 +69,12 @@ const buildings = [
         ],
         messages: [
           { id: 'm1', text: 'Chị ơi bồn cầu bị tắc, chị xử lý giúp em với ạ', time: '21/04/2026 22:05', resolved: false },
-          { id: 'm2', text: 'Cửa sổ phòng em bị kẹt không mở được', time: '18/04/2026 08:30', resolved: true },
+          { id: 'm2', text: 'Cửa sổ phòng em bị kẹt không mở được', time: '18/04/2026 08:30', resolved: true, resolvedBy: 'NV Bảo', resolvedAt: '18/04/2026 14:00', resolveNote: 'Đã tra dầu và chỉnh lại bản lề cửa sổ' },
+        ],
+        paymentHistory: [
+          { month: '04/2026', rent: '4,800,000', elecKwh: 50, elecTotal: '150,000', waterM3: 4, waterTotal: '60,000', total: '5,010,000', paid: false, paidAt: null },
+          { month: '03/2026', rent: '4,800,000', elecKwh: 48, elecTotal: '144,000', waterM3: 4, waterTotal: '60,000', total: '5,004,000', paid: true, paidAt: '10/03/2026' },
+          { month: '02/2026', rent: '4,800,000', elecKwh: 45, elecTotal: '135,000', waterM3: 3, waterTotal: '45,000', total: '4,980,000', paid: true, paidAt: '05/02/2026' },
         ],
         notes: 'Chưa thanh toán tháng 4. Đã nhắc 1 lần ngày 10/04.',
       },
@@ -77,6 +92,11 @@ const buildings = [
           { id: 'i2', title: 'Wifi chập chờn', reportedAt: '10/01/2026', resolvedAt: '11/01/2026', resolvedBy: 'Kỹ thuật viên ISP', status: 'done' },
         ],
         messages: [],
+        paymentHistory: [
+          { month: '04/2026', rent: '6,000,000', elecKwh: 80, elecTotal: '240,000', waterM3: 5, waterTotal: '75,000', total: '6,315,000', paid: false, paidAt: null },
+          { month: '03/2026', rent: '6,000,000', elecKwh: 75, elecTotal: '225,000', waterM3: 5, waterTotal: '75,000', total: '6,300,000', paid: false, paidAt: null },
+          { month: '02/2026', rent: '6,000,000', elecKwh: 70, elecTotal: '210,000', waterM3: 5, waterTotal: '75,000', total: '6,285,000', paid: true, paidAt: '05/02/2026' },
+        ],
         notes: 'Nợ 2 tháng tiền thuê. Cần liên hệ khẩn để thu hồi.',
       },
       {
@@ -88,6 +108,10 @@ const buildings = [
         previousRooms: [],
         issueHistory: [],
         messages: [],
+        paymentHistory: [
+          { month: '04/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 2, waterTotal: '30,000', total: '3,650,000', paid: true, paidAt: '03/04/2026' },
+          { month: '03/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '05/03/2026' },
+        ],
         notes: '',
       },
       {
@@ -101,6 +125,11 @@ const buildings = [
           { id: 'i1', title: 'Bình nóng lạnh hỏng', reportedAt: '20/03/2026', resolvedAt: '21/03/2026', resolvedBy: 'Thợ nước Dũng', status: 'done' },
         ],
         messages: [],
+        paymentHistory: [
+          { month: '04/2026', rent: '3,500,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,671,000', paid: true, paidAt: '04/04/2026' },
+          { month: '03/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 3, waterTotal: '45,000', total: '3,665,000', paid: true, paidAt: '05/03/2026' },
+          { month: '02/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '04/02/2026' },
+        ],
         notes: 'Hợp đồng đã hết hạn — cần gia hạn hoặc xác nhận trả phòng.',
       },
       {
@@ -115,6 +144,11 @@ const buildings = [
         issueHistory: [],
         messages: [
           { id: 'm1', text: 'Thang máy tầng 3 thỉnh thoảng kêu tiếng lạ, anh xem giúp em', time: '22/04/2026 10:00', resolved: false },
+        ],
+        paymentHistory: [
+          { month: '04/2026', rent: '8,500,000', elecKwh: 120, elecTotal: '360,000', waterM3: 8, waterTotal: '120,000', total: '8,980,000', paid: true, paidAt: '02/04/2026' },
+          { month: '03/2026', rent: '8,500,000', elecKwh: 115, elecTotal: '345,000', waterM3: 8, waterTotal: '120,000', total: '8,965,000', paid: true, paidAt: '05/03/2026' },
+          { month: '02/2026', rent: '8,500,000', elecKwh: 110, elecTotal: '330,000', waterM3: 7, waterTotal: '105,000', total: '8,935,000', paid: true, paidAt: '04/02/2026' },
         ],
         notes: 'Khách doanh nhân, thanh toán qua chuyển khoản. Sắp hết HĐ ngày 01/05.',
       },
@@ -132,6 +166,10 @@ const buildings = [
         previousRooms: [],
         issueHistory: [],
         messages: [],
+        paymentHistory: [
+          { month: '04/2026', rent: '3,800,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,971,000', paid: true, paidAt: '03/04/2026' },
+          { month: '03/2026', rent: '3,800,000', elecKwh: 40, elecTotal: '120,000', waterM3: 3, waterTotal: '45,000', total: '3,965,000', paid: true, paidAt: '05/03/2026' },
+        ],
         notes: '',
       },
       {
@@ -145,6 +183,10 @@ const buildings = [
           { id: 'i1', title: 'Vòi sen bị hỏng', reportedAt: '08/04/2026', resolvedAt: '09/04/2026', resolvedBy: 'Thợ nước Dũng', status: 'done' },
         ],
         messages: [],
+        paymentHistory: [
+          { month: '04/2026', rent: '5,000,000', elecKwh: 60, elecTotal: '180,000', waterM3: 4, waterTotal: '60,000', total: '5,240,000', paid: false, paidAt: null },
+          { month: '03/2026', rent: '5,000,000', elecKwh: 58, elecTotal: '174,000', waterM3: 4, waterTotal: '60,000', total: '5,234,000', paid: true, paidAt: '08/03/2026' },
+        ],
         notes: 'Nhắc tiền tháng 4 chưa đóng.',
       },
       {
@@ -156,6 +198,10 @@ const buildings = [
         previousRooms: [],
         issueHistory: [],
         messages: [],
+        paymentHistory: [
+          { month: '04/2026', rent: '5,000,000', elecKwh: 55, elecTotal: '165,000', waterM3: 4, waterTotal: '60,000', total: '5,225,000', paid: true, paidAt: '04/04/2026' },
+          { month: '03/2026', rent: '5,000,000', elecKwh: 52, elecTotal: '156,000', waterM3: 4, waterTotal: '60,000', total: '5,216,000', paid: true, paidAt: '05/03/2026' },
+        ],
         notes: '',
       },
     ],
@@ -166,20 +212,20 @@ const FILTERS = ['Tất cả', 'Đã thanh toán', 'Chưa thanh toán', 'Sắp h
 const DEMO_NOW = new Date(2026, 3, 22);
 
 function daysBetween(dateStr1, dateStr2) {
-  const parse = s => { const [d,m,y] = s.split('/').map(Number); return new Date(y,m-1,d); };
+  const parse = s => { const [d, m, y] = s.split('/').map(Number); return new Date(y, m - 1, d); };
   return Math.floor((parse(dateStr2) - parse(dateStr1)) / 86400000);
 }
 
 function isExpiringSoon(contractEnd) {
-  const [d,m,y] = contractEnd.split('/').map(Number);
-  const end = new Date(y, m-1, d);
+  const [d, m, y] = contractEnd.split('/').map(Number);
+  const end = new Date(y, m - 1, d);
   const diff = (end - DEMO_NOW) / 86400000;
   return diff >= 0 && diff <= 30;
 }
 
 function isExpired(contractEnd) {
-  const [d,m,y] = contractEnd.split('/').map(Number);
-  return new Date(y, m-1, d) < DEMO_NOW;
+  const [d, m, y] = contractEnd.split('/').map(Number);
+  return new Date(y, m - 1, d) < DEMO_NOW;
 }
 
 function countCustomers(customers) {
@@ -191,15 +237,23 @@ function countCustomers(customers) {
   };
 }
 
-// ─── Animated Bottom Sheet Modal ─────────────────────────
-function CustomerDetailModal({ customer, onClose }) {
+// ─── Customer Detail Modal ────────────────────────────────
+function CustomerDetailModal({ customer, staff, onClose, onResolveMessage }) {
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const opacity    = useRef(new Animated.Value(0)).current;
-  const [visible, setVisible] = useState(false);
+  const [visible,        setVisible]        = useState(false);
+  const [resolvingMsgId, setResolvingMsgId] = useState(null);
+  const [msgResolverType,setMsgResolverType]= useState('self');
+  const [msgContractor,  setMsgContractor]  = useState('');
+  const [msgNote,        setMsgNote]        = useState('');
 
   useEffect(() => {
     if (customer) {
       setVisible(true);
+      setResolvingMsgId(null);
+      setMsgResolverType('self');
+      setMsgContractor('');
+      setMsgNote('');
       Animated.parallel([
         Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 18, stiffness: 120 }),
         Animated.timing(opacity,    { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -214,31 +268,44 @@ function CustomerDetailModal({ customer, onClose }) {
     ]).start(() => { setVisible(false); onClose(); });
   };
 
+  const handleConfirmMsgResolve = msgId => {
+    const resolver = msgResolverType === 'self' ? staff.name : msgContractor.trim();
+    if (!resolver) { Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên người xử lý.'); return; }
+    onResolveMessage(customer.id, msgId, resolver, msgNote.trim());
+    setResolvingMsgId(null);
+    setMsgResolverType('self');
+    setMsgContractor('');
+    setMsgNote('');
+  };
+
   if (!customer && !visible) return null;
 
-  const expiring = customer && isExpiringSoon(customer.contractEnd);
-  const expired  = customer && isExpired(customer.contractEnd);
+  const expiring   = customer && isExpiringSoon(customer.contractEnd);
+  const expired    = customer && isExpired(customer.contractEnd);
   const pendingMsg = customer ? (customer.messages || []).filter(m => !m.resolved) : [];
   const rentedDays = customer ? daysBetween(customer.contractStart, '22/04/2026') : 0;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
-      {/* Backdrop */}
       <Animated.View style={[md.backdrop, { opacity }]}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
       </Animated.View>
 
-      {/* Sheet */}
       <Animated.View style={[md.sheet, { transform: [{ translateY }] }]}>
         <View style={md.handle} />
 
         {customer && <>
-          {/* ── Tên & trạng thái ── */}
+          {/* ── Header ── */}
           <View style={md.headerRow}>
             <View style={md.avatarBox}><Text style={md.avatarText}>{customer.avatar}</Text></View>
             <View style={md.headerInfo}>
               <Text style={md.customerName}>{customer.name}</Text>
-              <Text style={md.customerRoom}>Phòng {customer.room} · Tầng {customer.floor}</Text>
+              <View style={md.roomCodeRow}>
+                <View style={md.roomCodeTag}>
+                  <Text style={md.roomCodeText}>Mã phòng: {customer.room}</Text>
+                </View>
+                <Text style={md.floorLabel}>  Tầng {customer.floor}</Text>
+              </View>
               <View style={md.badgeRow}>
                 <View style={[md.payBadge, customer.paid ? md.payBadgePaid : md.payBadgeUnpaid]}>
                   <Text style={[md.payBadgeText, { color: customer.paid ? '#2ecc71' : '#e94560' }]}>
@@ -261,7 +328,7 @@ function CustomerDetailModal({ customer, onClose }) {
 
           <ScrollView style={md.scroll} showsVerticalScrollIndicator={false}>
 
-            {/* ── Gọi điện & nhắn tin ── */}
+            {/* ── Gọi điện & Email ── */}
             <View style={md.actionRow}>
               <TouchableOpacity style={md.actionCall} onPress={() => Linking.openURL(`tel:${customer.phone}`)}>
                 <Text style={md.actionCallIcon}>📞</Text>
@@ -277,7 +344,7 @@ function CustomerDetailModal({ customer, onClose }) {
               )}
             </View>
 
-            {/* ── Thông tin hợp đồng ── */}
+            {/* ── Hợp đồng ── */}
             <Section title="📄 Thông tin hợp đồng">
               <View style={md.contractCard}>
                 <View style={md.contractRow}>
@@ -315,7 +382,45 @@ function CustomerDetailModal({ customer, onClose }) {
               </View>
             </Section>
 
-            {/* ── Tin nhắn cần xử lý ── */}
+            {/* ── Lịch sử thanh toán ── */}
+            {(customer.paymentHistory || []).length > 0 && (
+              <Section title="💰 Lịch sử thanh toán">
+                {customer.paymentHistory.map((p, idx) => (
+                  <View key={idx} style={[md.payCard, !p.paid && md.payCardUnpaid]}>
+                    <View style={md.payCardHeader}>
+                      <Text style={md.payMonth}>Tháng {p.month}</Text>
+                      <View style={[md.payStatusBadge, p.paid ? md.payStatusPaid : md.payStatusUnpaid]}>
+                        <Text style={[md.payStatusText, { color: p.paid ? '#2ecc71' : '#e94560' }]}>
+                          {p.paid ? '✅ Đã đóng' : '❌ Chưa đóng'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={md.payRow}>
+                      <Text style={md.payLabel}>Tiền thuê</Text>
+                      <Text style={md.payValue}>{p.rent} ₫</Text>
+                    </View>
+                    <View style={md.payRow}>
+                      <Text style={md.payLabel}>Điện ({p.elecKwh} kWh × 3,000)</Text>
+                      <Text style={md.payValue}>{p.elecTotal} ₫</Text>
+                    </View>
+                    <View style={md.payRow}>
+                      <Text style={md.payLabel}>Nước ({p.waterM3} m³ × 15,000)</Text>
+                      <Text style={md.payValue}>{p.waterTotal} ₫</Text>
+                    </View>
+                    <View style={md.payDivider} />
+                    <View style={md.payRow}>
+                      <Text style={md.payTotalLabel}>Tổng cộng</Text>
+                      <Text style={[md.payTotalVal, { color: p.paid ? '#2ecc71' : '#e94560' }]}>{p.total} ₫</Text>
+                    </View>
+                    {p.paid && p.paidAt && (
+                      <Text style={md.payPaidAt}>📅 Ngày đóng: {p.paidAt}</Text>
+                    )}
+                  </View>
+                ))}
+              </Section>
+            )}
+
+            {/* ── Tin nhắn từ khách ── */}
             {(customer.messages || []).length > 0 && (
               <Section title="💬 Tin nhắn từ khách" badge={pendingMsg.length > 0 ? `${pendingMsg.length} chờ xử lý` : null}>
                 {customer.messages.map(msg => (
@@ -329,18 +434,113 @@ function CustomerDetailModal({ customer, onClose }) {
                       </View>
                     </View>
                     <Text style={md.msgText}>"{msg.text}"</Text>
+
+                    {/* Resolved info */}
+                    {msg.resolved && msg.resolvedBy && (
+                      <View style={md.msgResolvedInfo}>
+                        <Text style={md.msgResolvedText}>👷 Xử lý bởi: {msg.resolvedBy}</Text>
+                        {msg.resolvedAt  && <Text style={md.msgResolvedDate}>🕐 {msg.resolvedAt}</Text>}
+                        {msg.resolveNote && <Text style={md.msgResolvedNote}>📝 {msg.resolveNote}</Text>}
+                      </View>
+                    )}
+
+                    {/* Action buttons */}
                     {!msg.resolved && (
-                      <TouchableOpacity style={md.callBackBtn} onPress={() => Linking.openURL(`tel:${customer.phone}`)}>
-                        <Text style={md.callBackText}>📞 Gọi lại để xử lý</Text>
-                      </TouchableOpacity>
+                      <>
+                        <View style={md.msgActions}>
+                          <TouchableOpacity
+                            style={md.msgCallBtn}
+                            onPress={() => Linking.openURL(`tel:${customer.phone}`)}
+                          >
+                            <Text style={md.msgCallText}>📞 Gọi xử lý</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[md.msgDoneBtn, resolvingMsgId === msg.id && md.msgDoneBtnActive]}
+                            onPress={() => {
+                              if (resolvingMsgId === msg.id) {
+                                setResolvingMsgId(null);
+                              } else {
+                                setResolvingMsgId(msg.id);
+                                setMsgResolverType('self');
+                                setMsgContractor('');
+                                setMsgNote('');
+                              }
+                            }}
+                          >
+                            <Text style={[md.msgDoneText, resolvingMsgId === msg.id && { color: '#f1c40f' }]}>
+                              {resolvingMsgId === msg.id ? '▲ Thu gọn' : '✓ Xác nhận đã xử lý'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {resolvingMsgId === msg.id && (
+                          <View style={md.msgResolveForm}>
+                            <Text style={md.resolveFormLabel}>Người xử lý vấn đề *</Text>
+                            <View style={md.dropdownBox}>
+                              <TouchableOpacity
+                                style={[md.dropdownOption, msgResolverType === 'self' && md.dropdownSelected]}
+                                onPress={() => setMsgResolverType('self')}
+                              >
+                                <View style={[md.radioCircle, msgResolverType === 'self' && md.radioSelected]}>
+                                  {msgResolverType === 'self' && <View style={md.radioDot} />}
+                                </View>
+                                <View style={md.dropdownOptionContent}>
+                                  <Text style={md.dropdownOptionTitle}>Tự xử lý</Text>
+                                  <Text style={md.dropdownOptionSub}>{staff.avatar}  {staff.name}</Text>
+                                </View>
+                              </TouchableOpacity>
+                              <View style={md.dropdownDivider} />
+                              <TouchableOpacity
+                                style={[md.dropdownOption, msgResolverType === 'contractor' && md.dropdownSelected]}
+                                onPress={() => setMsgResolverType('contractor')}
+                              >
+                                <View style={[md.radioCircle, msgResolverType === 'contractor' && md.radioSelected]}>
+                                  {msgResolverType === 'contractor' && <View style={md.radioDot} />}
+                                </View>
+                                <View style={md.dropdownOptionContent}>
+                                  <Text style={md.dropdownOptionTitle}>Thợ bên ngoài</Text>
+                                  <Text style={md.dropdownOptionSub}>👷  Nhập tên thợ bên dưới</Text>
+                                </View>
+                              </TouchableOpacity>
+                            </View>
+                            {msgResolverType === 'contractor' && (
+                              <TextInput
+                                style={md.resolveInput}
+                                placeholder="Tên thợ / đơn vị xử lý..."
+                                placeholderTextColor="#8892b0"
+                                value={msgContractor}
+                                onChangeText={setMsgContractor}
+                              />
+                            )}
+                            <Text style={[md.resolveFormLabel, { marginTop: 12 }]}>Ghi chú kết quả (tùy chọn)</Text>
+                            <TextInput
+                              style={[md.resolveInput, md.resolveInputMulti]}
+                              placeholder="VD: Đã liên hệ khách, vấn đề đã được xử lý..."
+                              placeholderTextColor="#8892b0"
+                              value={msgNote}
+                              onChangeText={setMsgNote}
+                              multiline
+                              numberOfLines={3}
+                            />
+                            <View style={md.resolveTimestamp}>
+                              <Text style={md.resolveTimestampText}>🕐 Thời gian xác nhận: {DEMO_NOW_DISPLAY}</Text>
+                            </View>
+                            <TouchableOpacity style={md.confirmBtn} onPress={() => handleConfirmMsgResolve(msg.id)}>
+                              <LinearGradient colors={['#2ecc71', '#27ae60']} style={md.confirmGradient}>
+                                <Text style={md.confirmBtnText}>✅  Xác nhận đã xử lý xong</Text>
+                              </LinearGradient>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </>
                     )}
                   </View>
                 ))}
               </Section>
             )}
 
-            {/* ── Lịch sử vấn đề tại phòng ── */}
-            <Section title="🔧 Lịch sử vấn đề phòng">
+            {/* ── Lịch sử giải quyết sự cố ── */}
+            <Section title="🔧 Lịch sử giải quyết sự cố">
               {(customer.issueHistory || []).length === 0 ? (
                 <View style={md.emptyBox}>
                   <Text style={md.emptyBoxText}>✅ Chưa có vấn đề nào được ghi nhận</Text>
@@ -402,20 +602,18 @@ function CustomerDetailModal({ customer, onClose }) {
                   </View>
                 ))
               )}
-              {/* Phòng hiện tại */}
               <View style={[md.prevRoomCard, md.prevRoomCardCurrent]}>
                 <View style={md.prevRoomHeader}>
                   <Text style={md.prevRoomIcon}>📍</Text>
                   <View>
                     <Text style={[md.prevRoomName, { color: '#2ecc71' }]}>Phòng {customer.room} (hiện tại)</Text>
-                    <Text style={md.prevRoomBuilding}>{buildings.find(b => b.customers.some(c => c.id === customer.id))?.name}</Text>
+                    <Text style={md.prevRoomBuilding}>{INITIAL_BUILDINGS.find(b => b.customers.some(c => c.id === customer.id))?.name}</Text>
                   </View>
                 </View>
                 <Text style={md.prevRoomDate}>📅 Từ {customer.contractStart} · {rentedDays} ngày đã ở</Text>
               </View>
             </Section>
 
-            {/* ── Ghi chú ── */}
             {customer.notes ? (
               <Section title="📝 Ghi chú">
                 <View style={md.noteCard}>
@@ -453,7 +651,7 @@ function Row({ label, value, valueColor }) {
   );
 }
 
-// ─── Building Stats Modal ────────────────────────────────
+// ─── Building Stats Modal ─────────────────────────────────
 const STATS_CONFIG = {
   total:    { title: 'Danh sách khách đang thuê', icon: '👥', color: '#4facfe' },
   paid:     { title: 'Đã đóng tiền đúng hạn',    icon: '✅', color: '#2ecc71' },
@@ -487,7 +685,6 @@ function BuildingStatsModal({ data, onClose, onSelectCustomer }) {
   };
 
   const cfg = STATS_CONFIG[data.type];
-
   let list;
   if      (data.type === 'total')    list = data.customers;
   else if (data.type === 'paid')     list = data.customers.filter(c => c.paid);
@@ -495,9 +692,7 @@ function BuildingStatsModal({ data, onClose, onSelectCustomer }) {
   else if (data.type === 'expiring') list = data.customers.filter(c => isExpiringSoon(c.contractEnd) || isExpired(c.contractEnd));
 
   const byFloor = {};
-  if (data.type === 'total') {
-    list.forEach(c => { if (!byFloor[c.floor]) byFloor[c.floor] = []; byFloor[c.floor].push(c); });
-  }
+  list.forEach(c => { if (!byFloor[c.floor]) byFloor[c.floor] = []; byFloor[c.floor].push(c); });
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={handleClose}>
@@ -506,14 +701,13 @@ function BuildingStatsModal({ data, onClose, onSelectCustomer }) {
       </Animated.View>
       <Animated.View style={[md.sheet, { transform: [{ translateY }], maxHeight: '85%' }]}>
         <View style={md.handle} />
-
         <View style={md.headerRow}>
           <View style={[md.avatarBox, { backgroundColor: cfg.color + '22' }]}>
             <Text style={{ fontSize: 24 }}>{cfg.icon}</Text>
           </View>
           <View style={md.headerInfo}>
             <Text style={md.customerName}>{cfg.title}</Text>
-            <Text style={md.customerRoom}>🏢 {data.buildingName}</Text>
+            <Text style={md.floorLabel}>🏢 {data.buildingName}</Text>
           </View>
           <View style={[bs.countBadge, { backgroundColor: cfg.color + '18', borderColor: cfg.color + '44' }]}>
             <Text style={[bs.countNum, { color: cfg.color }]}>{list.length}</Text>
@@ -530,50 +724,22 @@ function BuildingStatsModal({ data, onClose, onSelectCustomer }) {
               <Text style={{ fontSize: 40, marginBottom: 12 }}>✅</Text>
               <Text style={{ color: '#8892b0', fontSize: 14 }}>Không có khách trong danh sách này</Text>
             </View>
-          ) : data.type === 'total' ? (
-            Object.entries(byFloor).sort(([a],[b]) => Number(a) - Number(b)).map(([floor, floorCustomers]) => (
-              <View key={floor} style={{ marginTop: 16 }}>
-                <View style={bs.floorBar}>
-                  <Text style={bs.floorBarText}>Tầng {floor}</Text>
-                  <Text style={bs.floorBarCount}>{floorCustomers.length} phòng có khách</Text>
-                </View>
-                {floorCustomers.map(c => (
-                  <TouchableOpacity key={c.id} style={bs.card} onPress={() => goToCustomer(c)} activeOpacity={0.75}>
-                    <View style={bs.cardAvatar}><Text style={{ fontSize: 22 }}>{c.avatar}</Text></View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={bs.cardName}>{c.name}</Text>
-                      <Text style={bs.cardSub}>Phòng {c.room} · {c.phone}</Text>
-                      <Text style={bs.cardDate}>Thuê từ {c.contractStart} · {c.amount} ₫/tháng</Text>
-                    </View>
-                    <Text style={bs.arrow}>›</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))
           ) : (
-            Object.entries(
-              list.reduce((acc, c) => {
-                if (!acc[c.floor]) acc[c.floor] = [];
-                acc[c.floor].push(c);
-                return acc;
-              }, {})
-            ).sort(([a],[b]) => Number(a) - Number(b)).map(([floor, floorList]) => (
+            Object.entries(byFloor).sort(([a], [b]) => Number(a) - Number(b)).map(([floor, floorList]) => (
               <View key={floor} style={{ marginTop: 16 }}>
                 <View style={bs.floorBar}>
                   <Text style={bs.floorBarText}>Tầng {floor}</Text>
                   <Text style={bs.floorBarCount}>{floorList.length} khách</Text>
                 </View>
                 {floorList.map(c => {
-                  const expired  = isExpired(c.contractEnd);
+                  const exp = isExpired(c.contractEnd);
                   return (
                     <TouchableOpacity key={c.id} style={bs.card} onPress={() => goToCustomer(c)} activeOpacity={0.75}>
                       <View style={bs.cardAvatar}><Text style={{ fontSize: 22 }}>{c.avatar}</Text></View>
                       <View style={{ flex: 1 }}>
                         <Text style={bs.cardName}>{c.name}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                          <View style={bs.roomTag}>
-                            <Text style={bs.roomTagText}>Phòng {c.room}</Text>
-                          </View>
+                          <View style={bs.roomTag}><Text style={bs.roomTagText}>Mã: {c.room}</Text></View>
                           <Text style={{ color: '#8892b0', fontSize: 11 }}>{c.phone}</Text>
                         </View>
                         {data.type === 'unpaid' && (
@@ -585,14 +751,19 @@ function BuildingStatsModal({ data, onClose, onSelectCustomer }) {
                           <Text style={{ color: '#2ecc71', fontSize: 11, marginTop: 4 }}>✅ Đã thanh toán · {c.amount} ₫</Text>
                         )}
                         {data.type === 'expiring' && (
-                          <Text style={{ color: expired ? '#e94560' : '#f1c40f', fontSize: 11, marginTop: 4, fontWeight: '700' }}>
-                            {expired
+                          <Text style={{ color: exp ? '#e94560' : '#f1c40f', fontSize: 11, marginTop: 4, fontWeight: '700' }}>
+                            {exp
                               ? `🔴 Hết hạn ${Math.abs(daysBetween(c.contractEnd, '22/04/2026'))} ngày trước`
                               : `⚠️ Còn ${daysBetween('22/04/2026', c.contractEnd)} ngày`
                             }
                           </Text>
                         )}
-                        <Text style={bs.cardDate}>HĐ: {c.contractStart} → {c.contractEnd}</Text>
+                        {data.type === 'total' && (
+                          <Text style={bs.cardDate}>Thuê từ {c.contractStart} · {c.amount} ₫/tháng</Text>
+                        )}
+                        {data.type !== 'total' && (
+                          <Text style={bs.cardDate}>HĐ: {c.contractStart} → {c.contractEnd}</Text>
+                        )}
                       </View>
                       <Text style={bs.arrow}>›</Text>
                     </TouchableOpacity>
@@ -610,11 +781,13 @@ function BuildingStatsModal({ data, onClose, onSelectCustomer }) {
 
 // ─── Main Screen ──────────────────────────────────────────
 export default function StaffCustomersScreen() {
-  const [search,     setSearch]     = useState('');
-  const [filter,     setFilter]     = useState('Tất cả');
-  const [collapsed,  setCollapsed]  = useState({});
-  const [selected,   setSelected]   = useState(null);
-  const [statsModal, setStatsModal] = useState(null);
+  const [buildings,   setBuildings]   = useState(INITIAL_BUILDINGS);
+  const [search,      setSearch]      = useState('');
+  const [filter,      setFilter]      = useState('Tất cả');
+  const [collapsed,   setCollapsed]   = useState({});
+  const [selected,    setSelected]    = useState(null);
+  const [statsModal,  setStatsModal]  = useState(null);
+  const [staff] = useState({ name: 'Trần Thị Thu', avatar: '👩‍💼' });
 
   const toggleBuilding = id => {
     LayoutAnimation.configureNext({
@@ -626,9 +799,30 @@ export default function StaffCustomersScreen() {
     setCollapsed(p => ({ ...p, [id]: !p[id] }));
   };
 
+  const handleResolveMessage = (customerId, msgId, resolverName, note) => {
+    const update = m => m.id !== msgId ? m : {
+      ...m, resolved: true,
+      resolvedBy: resolverName,
+      resolveNote: note || null,
+      resolvedAt: DEMO_NOW_DISPLAY,
+    };
+    setBuildings(prev => prev.map(b => ({
+      ...b,
+      customers: b.customers.map(c => c.id !== customerId ? c : {
+        ...c, messages: c.messages.map(update),
+      }),
+    })));
+    setSelected(prev => prev && prev.id === customerId
+      ? { ...prev, messages: prev.messages.map(update) }
+      : prev);
+  };
+
   const matchCustomer = c => {
     const q = search.toLowerCase();
-    const matchSearch = !q || c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.room.toLowerCase().includes(q);
+    const matchSearch = !q
+      || c.name.toLowerCase().includes(q)
+      || c.phone.includes(q)
+      || c.room.toLowerCase().includes(q);
     const matchFilter =
       filter === 'Tất cả' ||
       (filter === 'Đã thanh toán'   && c.paid) ||
@@ -640,7 +834,7 @@ export default function StaffCustomersScreen() {
   const groupByFloor = customers => {
     const map = {};
     customers.forEach(c => { if (!map[c.floor]) map[c.floor] = []; map[c.floor].push(c); });
-    return Object.entries(map).sort(([a],[b]) => Number(a) - Number(b));
+    return Object.entries(map).sort(([a], [b]) => Number(a) - Number(b));
   };
 
   const allCustomers  = buildings.flatMap(b => b.customers);
@@ -651,7 +845,12 @@ export default function StaffCustomersScreen() {
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" />
 
-      <CustomerDetailModal customer={selected} onClose={() => setSelected(null)} />
+      <CustomerDetailModal
+        customer={selected}
+        staff={staff}
+        onClose={() => setSelected(null)}
+        onResolveMessage={handleResolveMessage}
+      />
 
       {statsModal && (
         <BuildingStatsModal
@@ -666,7 +865,6 @@ export default function StaffCustomersScreen() {
           <Text style={s.title}>Khách hàng</Text>
         </LinearGradient>
 
-        {/* Alert bar */}
         {(totalUnpaid > 0 || totalExpiring > 0) && (
           <View style={s.alertBar}>
             {totalUnpaid   > 0 && <Text style={s.alertItem}>💸 {totalUnpaid} khách chưa đóng tiền</Text>}
@@ -679,7 +877,7 @@ export default function StaffCustomersScreen() {
           <Text style={s.searchIcon}>🔍</Text>
           <TextInput
             style={s.searchInput}
-            placeholder="Tìm tên, SĐT, số phòng..."
+            placeholder="Tìm tên, SĐT, mã phòng..."
             placeholderTextColor="#8892b0"
             value={search}
             onChangeText={setSearch}
@@ -724,17 +922,17 @@ export default function StaffCustomersScreen() {
                   <Text style={s.pillVal}>{counts.total}</Text>
                   <Text style={s.pillLbl}>Khách ›</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[s.pill,{borderColor:'#2ecc7144'}]} onPress={() => setStatsModal({ type: 'paid', customers: building.customers, buildingName: building.name })}>
-                  <Text style={[s.pillVal,{color:'#2ecc71'}]}>{counts.paid}</Text>
+                <TouchableOpacity style={[s.pill, { borderColor: '#2ecc7144' }]} onPress={() => setStatsModal({ type: 'paid', customers: building.customers, buildingName: building.name })}>
+                  <Text style={[s.pillVal, { color: '#2ecc71' }]}>{counts.paid}</Text>
                   <Text style={s.pillLbl}>Đã đóng ›</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[s.pill,{borderColor:'#e9456044'}]} onPress={() => setStatsModal({ type: 'unpaid', customers: building.customers, buildingName: building.name })}>
-                  <Text style={[s.pillVal,{color:'#e94560'}]}>{counts.unpaid}</Text>
+                <TouchableOpacity style={[s.pill, { borderColor: '#e9456044' }]} onPress={() => setStatsModal({ type: 'unpaid', customers: building.customers, buildingName: building.name })}>
+                  <Text style={[s.pillVal, { color: '#e94560' }]}>{counts.unpaid}</Text>
                   <Text style={s.pillLbl}>Chưa đóng ›</Text>
                 </TouchableOpacity>
                 {counts.expiring > 0 && (
-                  <TouchableOpacity style={[s.pill,{borderColor:'#f1c40f44'}]} onPress={() => setStatsModal({ type: 'expiring', customers: building.customers, buildingName: building.name })}>
-                    <Text style={[s.pillVal,{color:'#f1c40f'}]}>{counts.expiring}</Text>
+                  <TouchableOpacity style={[s.pill, { borderColor: '#f1c40f44' }]} onPress={() => setStatsModal({ type: 'expiring', customers: building.customers, buildingName: building.name })}>
+                    <Text style={[s.pillVal, { color: '#f1c40f' }]}>{counts.expiring}</Text>
                     <Text style={s.pillLbl}>Sắp hết HĐ ›</Text>
                   </TouchableOpacity>
                 )}
@@ -759,7 +957,12 @@ export default function StaffCustomersScreen() {
                         <View style={s.avatar}><Text style={{ fontSize: 22 }}>{c.avatar}</Text></View>
                         <View style={s.custMid}>
                           <Text style={s.custName}>{c.name}</Text>
-                          <Text style={s.custSub}>P{c.room} · {c.phone}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                            <View style={s.roomCodeBadge}>
+                              <Text style={s.roomCodeBadgeText}>Mã: {c.room}</Text>
+                            </View>
+                            <Text style={s.custPhone}>{c.phone}</Text>
+                          </View>
                           <View style={s.custTagRow}>
                             <Text style={s.custDate}>HĐ: {c.contractStart} → {c.contractEnd}</Text>
                           </View>
@@ -797,7 +1000,7 @@ export default function StaffCustomersScreen() {
   );
 }
 
-// ─── List Styles ─────────────────────────────────────────
+// ─── List Styles ──────────────────────────────────────────
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1a1a2e' },
   container: { flex: 1, backgroundColor: '#0d0d1a' },
@@ -835,12 +1038,14 @@ const s = StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   custMid: { flex: 1 },
   custName: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  custSub: { color: '#8892b0', fontSize: 12, marginTop: 2 },
+  custPhone: { color: '#8892b0', fontSize: 12 },
   custTagRow: { marginTop: 3 },
   custDate: { color: '#8892b0', fontSize: 11 },
   expireWarn: { color: '#f1c40f', fontSize: 11, marginTop: 3, fontWeight: '600' },
   msgBadge: { backgroundColor: 'rgba(233,69,96,0.15)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, alignSelf: 'flex-start', marginTop: 4 },
   msgBadgeText: { color: '#e94560', fontSize: 10, fontWeight: '700' },
+  roomCodeBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1 },
+  roomCodeBadgeText: { color: '#4facfe', fontSize: 10, fontWeight: '700' },
   custRight: { alignItems: 'flex-end', gap: 4 },
   payBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   payPaid:   { backgroundColor: 'rgba(46,204,113,0.15)' },
@@ -860,7 +1065,10 @@ const md = StyleSheet.create({
   avatarText: { fontSize: 28 },
   headerInfo: { flex: 1 },
   customerName: { color: '#fff', fontSize: 20, fontWeight: '800' },
-  customerRoom: { color: '#8892b0', fontSize: 13, marginTop: 2, marginBottom: 8 },
+  roomCodeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, marginBottom: 6 },
+  roomCodeTag: { backgroundColor: 'rgba(79,172,254,0.18)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(79,172,254,0.35)' },
+  roomCodeText: { color: '#4facfe', fontSize: 12, fontWeight: '800' },
+  floorLabel: { color: '#8892b0', fontSize: 12 },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   payBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   payBadgePaid: { backgroundColor: 'rgba(46,204,113,0.15)' },
@@ -897,6 +1105,23 @@ const md = StyleSheet.create({
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   infoLabel: { color: '#8892b0', fontSize: 13 },
   infoValue: { color: '#ccd6f6', fontSize: 13, fontWeight: '600' },
+  // Payment history
+  payCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  payCardUnpaid: { borderColor: 'rgba(233,69,96,0.3)', backgroundColor: 'rgba(233,69,96,0.03)' },
+  payCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  payMonth: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  payStatusBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  payStatusPaid: { backgroundColor: 'rgba(46,204,113,0.15)' },
+  payStatusUnpaid: { backgroundColor: 'rgba(233,69,96,0.15)' },
+  payStatusText: { fontSize: 12, fontWeight: '700' },
+  payRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  payLabel: { color: '#8892b0', fontSize: 12 },
+  payValue: { color: '#ccd6f6', fontSize: 12, fontWeight: '600' },
+  payDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 8 },
+  payTotalLabel: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  payTotalVal: { fontSize: 14, fontWeight: '800' },
+  payPaidAt: { color: '#8892b0', fontSize: 11, marginTop: 6 },
+  // Messages
   msgCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   msgCardPending: { borderColor: 'rgba(233,69,96,0.35)', backgroundColor: 'rgba(233,69,96,0.04)' },
   msgTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
@@ -905,8 +1130,37 @@ const md = StyleSheet.create({
   msgTagDone: { backgroundColor: 'rgba(46,204,113,0.15)' },
   msgTagText: { color: '#f1c40f', fontSize: 11, fontWeight: '600' },
   msgText: { color: '#ccd6f6', fontSize: 13, fontStyle: 'italic', lineHeight: 20 },
-  callBackBtn: { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.12)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.3)' },
-  callBackText: { color: '#2ecc71', fontSize: 12, fontWeight: '700' },
+  msgActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  msgCallBtn: { flex: 1, backgroundColor: 'rgba(46,204,113,0.12)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.3)' },
+  msgCallText: { color: '#2ecc71', fontSize: 12, fontWeight: '700' },
+  msgDoneBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  msgDoneBtnActive: { backgroundColor: 'rgba(241,196,15,0.1)', borderColor: 'rgba(241,196,15,0.35)' },
+  msgDoneText: { color: '#ccd6f6', fontSize: 12, fontWeight: '700' },
+  msgResolvedInfo: { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.08)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(46,204,113,0.2)' },
+  msgResolvedText: { color: '#2ecc71', fontSize: 12, fontWeight: '600' },
+  msgResolvedDate: { color: '#8892b0', fontSize: 11, marginTop: 3 },
+  msgResolvedNote: { color: '#ccd6f6', fontSize: 12, marginTop: 4, fontStyle: 'italic' },
+  // Resolve form
+  msgResolveForm: { marginTop: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  resolveFormLabel: { color: '#ccd6f6', fontSize: 13, fontWeight: '600', marginBottom: 10 },
+  dropdownBox: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden', marginBottom: 4 },
+  dropdownOption: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  dropdownSelected: { backgroundColor: 'rgba(79,172,254,0.1)' },
+  radioCircle: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#8892b0', justifyContent: 'center', alignItems: 'center' },
+  radioSelected: { borderColor: '#4facfe' },
+  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4facfe' },
+  dropdownOptionContent: { flex: 1 },
+  dropdownOptionTitle: { color: '#ccd6f6', fontSize: 14, fontWeight: '600' },
+  dropdownOptionSub: { color: '#8892b0', fontSize: 12, marginTop: 2 },
+  dropdownDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+  resolveInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', color: '#fff', padding: 12, fontSize: 13, marginTop: 8 },
+  resolveInputMulti: { minHeight: 80, textAlignVertical: 'top' },
+  resolveTimestamp: { backgroundColor: 'rgba(79,172,254,0.08)', borderRadius: 8, padding: 10, marginTop: 10 },
+  resolveTimestampText: { color: '#4facfe', fontSize: 12 },
+  confirmBtn: { marginTop: 12, borderRadius: 12, overflow: 'hidden' },
+  confirmGradient: { paddingVertical: 14, alignItems: 'center' },
+  confirmBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  // Issue history
   emptyBox: { backgroundColor: 'rgba(46,204,113,0.06)', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.15)' },
   emptyBoxText: { color: '#8892b0', fontSize: 13 },
   timelineItem: { flexDirection: 'row', marginBottom: 6 },
@@ -918,6 +1172,7 @@ const md = StyleSheet.create({
   issueDateRow: { flexDirection: 'row', gap: 6, marginBottom: 4 },
   issueDateLabel: { color: '#8892b0', fontSize: 12, width: 110 },
   issueDateVal: { color: '#ccd6f6', fontSize: 12, flex: 1 },
+  // Room history
   prevRoomCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
   prevRoomCardCurrent: { borderColor: 'rgba(46,204,113,0.3)', backgroundColor: 'rgba(46,204,113,0.05)' },
   prevRoomHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
