@@ -182,10 +182,15 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
   const backdrop   = useRef(new Animated.Value(0)).current;
   const [visible,        setVisible]       = useState(false);
   const [resolving,      setResolving]     = useState(false);
-  const [resolverType,   setResolverType]  = useState('self'); // 'self' | 'contractor'
+  const [resolverType,   setResolverType]  = useState('self');
   const [contractorName, setContractorName]= useState('');
   const [resolveNote,    setResolveNote]   = useState('');
   const [confirmed,      setConfirmed]     = useState(false);
+  // message resolution state
+  const [resolvingMsgId,  setResolvingMsgId]  = useState(null);
+  const [msgResolverType, setMsgResolverType] = useState('self');
+  const [msgContractor,   setMsgContractor]   = useState('');
+  const [msgNote,         setMsgNote]         = useState('');
 
   useEffect(() => {
     if (room) {
@@ -195,6 +200,10 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
       setContractorName('');
       setResolveNote('');
       setConfirmed(false);
+      setResolvingMsgId(null);
+      setMsgResolverType('self');
+      setMsgContractor('');
+      setMsgNote('');
       Animated.parallel([
         Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 130 }),
         Animated.timing(backdrop,   { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -220,6 +229,16 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
     onResolveIssue(room.id, resolverName, resolveNote.trim());
     setConfirmed(true);
     setTimeout(handleClose, 1200);
+  };
+
+  const handleConfirmMsgResolve = msgId => {
+    const resolver = msgResolverType === 'self' ? staff.name : msgContractor.trim();
+    if (!resolver) { Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên người xử lý.'); return; }
+    onResolveMessage(room.id, msgId, resolver, msgNote.trim());
+    setResolvingMsgId(null);
+    setMsgResolverType('self');
+    setMsgContractor('');
+    setMsgNote('');
   };
 
   if (!room && !visible) return null;
@@ -407,17 +426,107 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
                       </View>
                     </View>
                     <Text style={md.msgText}>"{msg.text}"</Text>
-                    {!msg.resolved && (
-                      <View style={md.msgActions}>
-                        {room.phone && (
-                          <TouchableOpacity style={md.msgCallBtn} onPress={() => Linking.openURL(`tel:${room.phone}`)}>
-                            <Text style={md.msgCallText}>📞 Gọi xử lý</Text>
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity style={md.msgDoneBtn} onPress={() => onResolveMessage(room.id, msg.id)}>
-                          <Text style={md.msgDoneText}>✓ Đánh dấu xong</Text>
-                        </TouchableOpacity>
+
+                    {/* Resolved info */}
+                    {msg.resolved && msg.resolvedBy && (
+                      <View style={md.msgResolvedInfo}>
+                        <Text style={md.msgResolvedText}>👷 Xử lý bởi: {msg.resolvedBy}</Text>
+                        {msg.resolvedAt   && <Text style={md.msgResolvedDate}>🕐 {msg.resolvedAt}</Text>}
+                        {msg.resolveNote  && <Text style={md.msgResolvedNote}>📝 {msg.resolveNote}</Text>}
                       </View>
+                    )}
+
+                    {/* Action buttons */}
+                    {!msg.resolved && (
+                      <>
+                        <View style={md.msgActions}>
+                          {room.phone && (
+                            <TouchableOpacity style={md.msgCallBtn} onPress={() => Linking.openURL(`tel:${room.phone}`)}>
+                              <Text style={md.msgCallText}>📞 Gọi xử lý</Text>
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity
+                            style={[md.msgDoneBtn, resolvingMsgId === msg.id && md.msgDoneBtnActive]}
+                            onPress={() => {
+                              if (resolvingMsgId === msg.id) {
+                                setResolvingMsgId(null);
+                              } else {
+                                setResolvingMsgId(msg.id);
+                                setMsgResolverType('self');
+                                setMsgContractor('');
+                                setMsgNote('');
+                              }
+                            }}
+                          >
+                            <Text style={[md.msgDoneText, resolvingMsgId === msg.id && { color: '#f1c40f' }]}>
+                              {resolvingMsgId === msg.id ? '▲ Thu gọn' : '✓ Xác nhận đã xử lý'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Inline resolution form */}
+                        {resolvingMsgId === msg.id && (
+                          <View style={md.msgResolveForm}>
+                            <Text style={md.resolveFormLabel}>Người xử lý vấn đề *</Text>
+                            <View style={md.dropdownBox}>
+                              <TouchableOpacity
+                                style={[md.dropdownOption, msgResolverType === 'self' && md.dropdownSelected]}
+                                onPress={() => setMsgResolverType('self')}
+                              >
+                                <View style={[md.radioCircle, msgResolverType === 'self' && md.radioSelected]}>
+                                  {msgResolverType === 'self' && <View style={md.radioDot} />}
+                                </View>
+                                <View style={md.dropdownOptionContent}>
+                                  <Text style={md.dropdownOptionTitle}>Tự xử lý</Text>
+                                  <Text style={md.dropdownOptionSub}>{staff.avatar}  {staff.name}</Text>
+                                </View>
+                              </TouchableOpacity>
+                              <View style={md.dropdownDivider} />
+                              <TouchableOpacity
+                                style={[md.dropdownOption, msgResolverType === 'contractor' && md.dropdownSelected]}
+                                onPress={() => setMsgResolverType('contractor')}
+                              >
+                                <View style={[md.radioCircle, msgResolverType === 'contractor' && md.radioSelected]}>
+                                  {msgResolverType === 'contractor' && <View style={md.radioDot} />}
+                                </View>
+                                <View style={md.dropdownOptionContent}>
+                                  <Text style={md.dropdownOptionTitle}>Thợ bên ngoài</Text>
+                                  <Text style={md.dropdownOptionSub}>👷  Nhập tên thợ bên dưới</Text>
+                                </View>
+                              </TouchableOpacity>
+                            </View>
+
+                            {msgResolverType === 'contractor' && (
+                              <TextInput
+                                style={md.resolveInput}
+                                placeholder="Tên thợ / đơn vị xử lý..."
+                                placeholderTextColor="#8892b0"
+                                value={msgContractor}
+                                onChangeText={setMsgContractor}
+                              />
+                            )}
+
+                            <Text style={[md.resolveFormLabel, { marginTop: 12 }]}>Ghi chú kết quả (tùy chọn)</Text>
+                            <TextInput
+                              style={[md.resolveInput, md.resolveInputMulti]}
+                              placeholder="VD: Đã liên hệ khách, vấn đề đã được xử lý..."
+                              placeholderTextColor="#8892b0"
+                              value={msgNote}
+                              onChangeText={setMsgNote}
+                              multiline
+                              numberOfLines={3}
+                            />
+                            <View style={md.resolveTimestamp}>
+                              <Text style={md.resolveTimestampText}>🕐 Thời gian xác nhận: {DEMO_NOW_DISPLAY}</Text>
+                            </View>
+                            <TouchableOpacity style={md.confirmBtn} onPress={() => handleConfirmMsgResolve(msg.id)}>
+                              <LinearGradient colors={['#2ecc71', '#27ae60']} style={md.confirmGradient}>
+                                <Text style={md.confirmBtnText}>✅  Xác nhận đã xử lý xong</Text>
+                              </LinearGradient>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </>
                     )}
                   </View>
                 ))}
@@ -486,6 +595,130 @@ function HistoryRow({ label, value, valueColor }) {
       <Text style={md.historyMetaLabel}>{label}</Text>
       <Text style={[md.historyMetaVal, valueColor && { color: valueColor }]}>{value}</Text>
     </View>
+  );
+}
+
+// ─── Building Rooms Modal ─────────────────────────────────
+const ROOMS_MODAL_CFG = {
+  all:         { title: 'Tất cả phòng',        icon: '🏢', color: '#4facfe' },
+  occupied:    { title: 'Phòng đang cho thuê',  icon: '✅', color: '#2ecc71' },
+  empty:       { title: 'Phòng đang trống',     icon: '🔓', color: '#8892b0' },
+  maintenance: { title: 'Phòng đang bảo trì',   icon: '🔧', color: '#f1c40f' },
+  urgent:      { title: 'Phòng khẩn cấp',       icon: '🚨', color: '#e94560' },
+};
+
+function BuildingRoomsModal({ data, onClose, onSelectRoom }) {
+  const translateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const backdrop   = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 130 }),
+      Animated.timing(backdrop,   { toValue: 1, duration: 250, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: SCREEN_H, duration: 300, useNativeDriver: true }),
+      Animated.timing(backdrop,   { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(onClose);
+  };
+
+  const goToRoom = room => {
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: SCREEN_H, duration: 220, useNativeDriver: true }),
+      Animated.timing(backdrop,   { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => onSelectRoom(room));
+  };
+
+  const cfg = ROOMS_MODAL_CFG[data.type];
+  const allRooms = data.building.floors.flatMap(f => f.rooms);
+  const filtered = data.type === 'all' ? allRooms : allRooms.filter(r => r.status === data.type);
+
+  const byFloor = data.building.floors
+    .map(fl => ({ floor: fl.floor, rooms: fl.rooms.filter(r => data.type === 'all' || r.status === data.type) }))
+    .filter(fl => fl.rooms.length > 0)
+    .sort((a, b) => a.floor - b.floor);
+
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={handleClose}>
+      <Animated.View style={[md.backdrop, { opacity: backdrop }]}>
+        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
+      </Animated.View>
+      <Animated.View style={[md.sheet, { transform: [{ translateY }], maxHeight: '85%' }]}>
+        <View style={md.handle} />
+        <View style={[md.header, { borderLeftWidth: 0 }]}>
+          <View style={[md.statusIcon, { backgroundColor: cfg.color + '22' }]}>
+            <Text style={{ fontSize: 22 }}>{cfg.icon}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={md.roomTitle}>{cfg.title}</Text>
+            <Text style={md.roomSub}>🏢 {data.building.name} · {filtered.length} phòng</Text>
+          </View>
+          <TouchableOpacity style={md.closeBtn} onPress={handleClose}>
+            <Text style={md.closeBtnText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={md.scroll} showsVerticalScrollIndicator={false}>
+          {filtered.length === 0 ? (
+            <View style={{ alignItems: 'center', padding: 44 }}>
+              <Text style={{ fontSize: 40, marginBottom: 12 }}>✅</Text>
+              <Text style={{ color: '#8892b0', fontSize: 14 }}>Không có phòng nào trong danh sách này</Text>
+            </View>
+          ) : (
+            byFloor.map(({ floor, rooms }) => (
+              <View key={floor} style={{ marginTop: 16 }}>
+                <View style={rm.floorBar}>
+                  <Text style={rm.floorBarText}>Tầng {floor}</Text>
+                  <Text style={rm.floorBarCount}>{rooms.length} phòng</Text>
+                </View>
+                {rooms.map(room => {
+                  const st = STATUS[room.status];
+                  const pending = (room.messages || []).filter(m => !m.resolved).length;
+                  return (
+                    <TouchableOpacity
+                      key={room.id}
+                      style={[rm.card, { borderLeftColor: st.color }]}
+                      onPress={() => goToRoom(room)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[rm.statusDot, { backgroundColor: st.bg, borderColor: st.border }]}>
+                        <Text style={{ fontSize: 14 }}>{st.icon}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={rm.roomId}>Phòng {room.id}</Text>
+                          <View style={[rm.statusTag, { backgroundColor: st.bg, borderColor: st.border }]}>
+                            <Text style={[rm.statusTagText, { color: st.color }]}>{st.label}</Text>
+                          </View>
+                        </View>
+                        <Text style={rm.roomMeta}>{room.type} · {room.area} · {room.price} ₫/tháng</Text>
+                        {room.tenant && (
+                          <Text style={rm.tenantLine}>👤 {room.tenant}  ·  Từ {room.sinceDate}</Text>
+                        )}
+                        {room.currentIssue && (
+                          <Text style={rm.issueLine} numberOfLines={1}>⚠️ {room.currentIssue.title}</Text>
+                        )}
+                        {!room.tenant && room.emptyFrom && (
+                          <Text style={rm.emptyLine}>🔓 Trống từ {room.emptyFrom} · {daysSince(room.emptyFrom)} ngày</Text>
+                        )}
+                        {pending > 0 && (
+                          <Text style={rm.pendingLine}>💬 {pending} tin nhắn chờ xử lý</Text>
+                        )}
+                      </View>
+                      <Text style={rm.arrow}>›</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))
+          )}
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </Animated.View>
+    </Modal>
   );
 }
 
@@ -710,6 +943,7 @@ export default function StaffRoomsScreen() {
   const [selected,     setSelected]     = useState(null);
   const [showProfile,  setShowProfile]  = useState(false);
   const [showMessages, setShowMessages] = useState(false);
+  const [roomsModal,   setRoomsModal]   = useState(null);
   const [staff, setStaff] = useState({ name: 'Trần Thị Thu', phone: '0912 333 444', avatar: '👩‍💼' });
 
   const toggleBuilding = id => {
@@ -768,21 +1002,23 @@ export default function StaffRoomsScreen() {
   };
 
   // ── Đánh dấu tin nhắn đã xử lý ──
-  const handleResolveMessage = (roomId, msgId) => {
+  const handleResolveMessage = (roomId, msgId, resolverName = null, note = null) => {
+    const update = m => m.id !== msgId ? m : {
+      ...m, resolved: true,
+      ...(resolverName && { resolvedBy: resolverName }),
+      ...(note         && { resolveNote: note }),
+      resolvedAt: DEMO_NOW_DISPLAY,
+    };
     setBuildings(prev => prev.map(b => ({
       ...b,
       floors: b.floors.map(fl => ({
         ...fl,
-        rooms: fl.rooms.map(r => r.id !== roomId ? r : {
-          ...r,
-          messages: r.messages.map(m => m.id === msgId ? { ...m, resolved: true } : m),
-        }),
+        rooms: fl.rooms.map(r => r.id !== roomId ? r : { ...r, messages: r.messages.map(update) }),
       })),
     })));
-    setSelected(prev => prev && prev.id === roomId ? {
-      ...prev,
-      messages: prev.messages.map(m => m.id === msgId ? { ...m, resolved: true } : m),
-    } : prev);
+    setSelected(prev => prev && prev.id === roomId
+      ? { ...prev, messages: prev.messages.map(update) }
+      : prev);
   };
 
   const matchRoom = room => {
@@ -817,6 +1053,14 @@ export default function StaffRoomsScreen() {
         />
       )}
 
+      {roomsModal && (
+        <BuildingRoomsModal
+          data={roomsModal}
+          onClose={() => setRoomsModal(null)}
+          onSelectRoom={room => { setRoomsModal(null); setSelected(room); }}
+        />
+      )}
+
       {showMessages && (
         <PendingMessagesModal
           buildings={buildings}
@@ -830,8 +1074,10 @@ export default function StaffRoomsScreen() {
           <View style={s.headerRow}>
             <TouchableOpacity style={s.staffCard} onPress={() => setShowProfile(true)} activeOpacity={0.8}>
               <View style={s.staffAvatarBox}>
-                <Text style={s.staffAvatarEmoji}>{staff.avatar}</Text>
-                <View style={s.editDot}><Text style={{ color: '#fff', fontSize: 8 }}>✎</Text></View>
+                {staff.photoUri
+                  ? <Image source={{ uri: staff.photoUri }} style={s.staffAvatarPhoto} />
+                  : <Text style={s.staffAvatarEmoji}>{staff.avatar}</Text>
+                }
               </View>
               <View style={s.staffInfo}>
                 <Text style={s.staffName}>{staff.name}</Text>
@@ -839,6 +1085,9 @@ export default function StaffRoomsScreen() {
                   <Text style={s.staffRoleText}>💼 Nhân viên quản lý</Text>
                 </View>
                 <Text style={s.staffPhone}>{staff.phone}</Text>
+              </View>
+              <View style={s.editBadge}>
+                <Text style={s.editBadgeText}>✎  Chỉnh sửa</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -922,22 +1171,33 @@ export default function StaffRoomsScreen() {
               </TouchableOpacity>
 
               <View style={s.pillRow}>
-                <Pill val={counts.total}       lbl="Tổng phòng" />
-                <Pill val={counts.occupied}    lbl="Cho thuê"   color="#2ecc71" />
-                <Pill val={counts.empty}       lbl="Trống"      color="#8892b0" />
-                {counts.maintenance > 0 && <Pill val={counts.maintenance} lbl="Bảo trì"  color="#f1c40f" />}
-                {counts.urgent > 0      && <Pill val={counts.urgent}      lbl="Khẩn cấp" color="#e94560" urgent />}
-                <Pill val={`${pct}%`} lbl="Lấp đầy" color="#4facfe" />
+                <Pill val={counts.total}    lbl="Tổng phòng"
+                  onPress={() => setRoomsModal({ type: 'all', building })} />
+                <Pill val={counts.occupied} lbl="Cho thuê"  color="#2ecc71"
+                  onPress={() => setRoomsModal({ type: 'occupied', building })} />
+                <Pill val={counts.empty}    lbl="Trống"     color="#8892b0"
+                  onPress={() => setRoomsModal({ type: 'empty', building })} />
+                {counts.maintenance > 0 && (
+                  <Pill val={counts.maintenance} lbl="Bảo trì"  color="#f1c40f"
+                    onPress={() => setRoomsModal({ type: 'maintenance', building })} />
+                )}
+                {counts.urgent > 0 && (
+                  <Pill val={counts.urgent} lbl="Khẩn cấp" color="#e94560" urgent
+                    onPress={() => setRoomsModal({ type: 'urgent', building })} />
+                )}
               </View>
 
-              <View style={s.bar}>
-                <View style={[s.barSeg, { flex: counts.occupied,    backgroundColor: '#2ecc71' }]} />
-                <View style={[s.barSeg, { flex: counts.empty,       backgroundColor: '#333' }]} />
-                <View style={[s.barSeg, { flex: counts.maintenance, backgroundColor: '#f1c40f' }]} />
-                <View style={[s.barSeg, { flex: counts.urgent,      backgroundColor: '#e94560' }]} />
+              <View style={s.pctRow}>
+                <View style={s.bar}>
+                  <View style={[s.barSeg, { flex: counts.occupied,    backgroundColor: '#2ecc71' }]} />
+                  <View style={[s.barSeg, { flex: counts.empty,       backgroundColor: '#333' }]} />
+                  <View style={[s.barSeg, { flex: counts.maintenance, backgroundColor: '#f1c40f' }]} />
+                  <View style={[s.barSeg, { flex: counts.urgent,      backgroundColor: '#e94560' }]} />
+                </View>
+                <Text style={s.pctLabel}><Text style={s.pctNum}>{pct}%</Text>  lấp đầy</Text>
               </View>
 
-              <FloorDiagram floors={building.floors} onSelectRoom={setSelected} />
+              {isOpen && <FloorDiagram floors={building.floors} onSelectRoom={setSelected} />}
 
               {isOpen && building.floors.map(floor => {
                 const visible = floor.rooms.filter(matchRoom);
@@ -1032,12 +1292,17 @@ function FloorDiagram({ floors, onSelectRoom }) {
   );
 }
 
-function Pill({ val, lbl, color, urgent }) {
+function Pill({ val, lbl, color, urgent, onPress }) {
+  const Wrap = onPress ? TouchableOpacity : View;
   return (
-    <View style={[s.pill, color && { borderColor: color + '44' }, urgent && { backgroundColor: 'rgba(233,69,96,0.08)' }]}>
+    <Wrap
+      style={[s.pill, color && { borderColor: color + '44' }, urgent && { backgroundColor: 'rgba(233,69,96,0.08)' }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <Text style={[s.pillVal, color && { color }]}>{val}</Text>
       <Text style={s.pillLbl}>{lbl}</Text>
-    </View>
+    </Wrap>
   );
 }
 
@@ -1048,14 +1313,16 @@ const s = StyleSheet.create({
   header: { padding: 20, paddingTop: 10, paddingBottom: 16 },
   headerRow: { marginBottom: 14 },
   staffCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-  staffAvatarBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(79,172,254,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 14, position: 'relative' },
+  staffAvatarBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(79,172,254,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 14, position: 'relative', overflow: 'hidden' },
   staffAvatarEmoji: { fontSize: 28 },
-  editDot: { position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, borderRadius: 9, backgroundColor: '#4facfe', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#16213e' },
+  staffAvatarPhoto: { width: 52, height: 52, borderRadius: 26 },
   staffInfo: { flex: 1 },
   staffName: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 0.3 },
   staffRoleBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
   staffRoleText: { color: '#4facfe', fontSize: 11, fontWeight: '700' },
   staffPhone: { color: '#8892b0', fontSize: 12 },
+  editBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)', alignSelf: 'center' },
+  editBadgeText: { color: '#4facfe', fontSize: 11, fontWeight: '700' },
   title: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 14 },
   subtitle: { color: '#8892b0', fontSize: 13, marginTop: 6, marginBottom: 4 },
   taskPanel: { margin: 16, marginBottom: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
@@ -1088,8 +1355,11 @@ const s = StyleSheet.create({
   pill: { flex: 1, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
   pillVal: { color: '#fff', fontSize: 14, fontWeight: '800' },
   pillLbl: { color: '#8892b0', fontSize: 9, marginTop: 1 },
-  bar: { flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#1e1e2e', marginBottom: 14 },
+  pctRow: { marginBottom: 12, gap: 6 },
+  bar: { flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#1e1e2e' },
   barSeg: { height: 6 },
+  pctLabel: { color: '#8892b0', fontSize: 11, marginTop: 4 },
+  pctNum: { color: '#4facfe', fontWeight: '800', fontSize: 13 },
   floorSection: { marginTop: 4 },
   floorLabel: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   floorText: { color: '#4facfe', fontSize: 13, fontWeight: '700' },
@@ -1178,7 +1448,13 @@ const md = StyleSheet.create({
   msgCallBtn: { flex: 1, backgroundColor: 'rgba(79,172,254,0.12)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)' },
   msgCallText: { color: '#4facfe', fontSize: 12, fontWeight: '700' },
   msgDoneBtn: { flex: 1, backgroundColor: 'rgba(46,204,113,0.12)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.3)' },
+  msgDoneBtnActive: { backgroundColor: 'rgba(241,196,15,0.1)', borderColor: 'rgba(241,196,15,0.35)' },
   msgDoneText: { color: '#2ecc71', fontSize: 12, fontWeight: '700' },
+  msgResolveForm: { marginTop: 12, backgroundColor: 'rgba(46,204,113,0.05)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(46,204,113,0.2)', gap: 8 },
+  msgResolvedInfo: { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.07)', borderRadius: 10, padding: 10, gap: 3, borderWidth: 1, borderColor: 'rgba(46,204,113,0.2)' },
+  msgResolvedText: { color: '#2ecc71', fontSize: 12, fontWeight: '700' },
+  msgResolvedDate: { color: '#8892b0', fontSize: 11 },
+  msgResolvedNote: { color: '#ccd6f6', fontSize: 12, fontStyle: 'italic' },
   emptyHistory: { backgroundColor: 'rgba(46,204,113,0.07)', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.15)' },
   emptyHistoryText: { color: '#8892b0', fontSize: 13 },
   timelineRow: { flexDirection: 'row', marginBottom: 6 },
@@ -1236,6 +1512,24 @@ const pf = StyleSheet.create({
   saveBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 8 },
   saveGradient: { paddingVertical: 15, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+});
+
+// ─── Building Rooms Modal Styles ─────────────────────────
+const rm = StyleSheet.create({
+  floorBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(79,172,254,0.2)', marginBottom: 10 },
+  floorBarText: { color: '#4facfe', fontSize: 13, fontWeight: '700' },
+  floorBarCount: { color: '#8892b0', fontSize: 12 },
+  card: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 13, marginBottom: 9, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', borderLeftWidth: 4 },
+  statusDot: { width: 38, height: 38, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginRight: 12, flexShrink: 0 },
+  roomId: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  statusTag: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 2 },
+  statusTagText: { fontSize: 10, fontWeight: '700' },
+  roomMeta: { color: '#8892b0', fontSize: 11, marginTop: 3 },
+  tenantLine: { color: '#ccd6f6', fontSize: 12, marginTop: 4 },
+  issueLine: { color: '#f1c40f', fontSize: 11, marginTop: 3 },
+  emptyLine: { color: '#8892b0', fontSize: 11, marginTop: 3 },
+  pendingLine: { color: '#e94560', fontSize: 11, marginTop: 3, fontWeight: '700' },
+  arrow: { color: '#8892b0', fontSize: 22, marginLeft: 8, alignSelf: 'center' },
 });
 
 // ─── Floor Diagram Styles ─────────────────────────────────
