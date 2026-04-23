@@ -2,14 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, StatusBar, Modal, Animated, Linking, Alert,
-  Dimensions, LayoutAnimation, Platform, UIManager
+  Dimensions, LayoutAnimation, Platform, UIManager, Image
 } from 'react-native';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useStaff } from '../../context/StaffContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 
 const SCREEN_H = Dimensions.get('window').height;
 const DEMO_NOW_DISPLAY = '22/04/2026 08:00';
@@ -208,8 +211,11 @@ const INITIAL_BUILDINGS = [
   },
 ];
 
-const FILTERS = ['Tất cả', 'Đã thanh toán', 'Chưa thanh toán', 'Sắp hết HĐ'];
+const FILTERS = ['Tất cả', 'Đã thanh toán', 'Chưa thanh toán', 'Sắp hết HĐ', 'Có tin nhắn'];
 const DEMO_NOW = new Date(2026, 3, 22);
+
+function parseVN(s) { return parseInt(String(s).replace(/,/g, ''), 10) || 0; }
+function fmtVN(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
 function daysBetween(dateStr1, dateStr2) {
   const parse = s => { const [d, m, y] = s.split('/').map(Number); return new Date(y, m - 1, d); };
@@ -382,121 +388,48 @@ function CustomerDetailModal({ customer, staff, onClose, onResolveMessage }) {
               </View>
             </Section>
 
-            {/* ── Lịch sử thanh toán ── */}
-            {(customer.paymentHistory || []).length > 0 && (
-              <Section title="💰 Lịch sử thanh toán">
-                {customer.paymentHistory.map((p, idx) => (
-                  <View key={idx} style={[md.payCard, !p.paid && md.payCardUnpaid]}>
-                    <View style={md.payCardHeader}>
-                      <Text style={md.payMonth}>Tháng {p.month}</Text>
-                      <View style={[md.payStatusBadge, p.paid ? md.payStatusPaid : md.payStatusUnpaid]}>
-                        <Text style={[md.payStatusText, { color: p.paid ? '#2ecc71' : '#e94560' }]}>
-                          {p.paid ? '✅ Đã đóng' : '❌ Chưa đóng'}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={md.payRow}>
-                      <Text style={md.payLabel}>Tiền thuê</Text>
-                      <Text style={md.payValue}>{p.rent} ₫</Text>
-                    </View>
-                    <View style={md.payRow}>
-                      <Text style={md.payLabel}>Điện ({p.elecKwh} kWh × 3,000)</Text>
-                      <Text style={md.payValue}>{p.elecTotal} ₫</Text>
-                    </View>
-                    <View style={md.payRow}>
-                      <Text style={md.payLabel}>Nước ({p.waterM3} m³ × 15,000)</Text>
-                      <Text style={md.payValue}>{p.waterTotal} ₫</Text>
-                    </View>
-                    <View style={md.payDivider} />
-                    <View style={md.payRow}>
-                      <Text style={md.payTotalLabel}>Tổng cộng</Text>
-                      <Text style={[md.payTotalVal, { color: p.paid ? '#2ecc71' : '#e94560' }]}>{p.total} ₫</Text>
-                    </View>
-                    {p.paid && p.paidAt && (
-                      <Text style={md.payPaidAt}>📅 Ngày đóng: {p.paidAt}</Text>
-                    )}
-                  </View>
-                ))}
-              </Section>
-            )}
-
-            {/* ── Tin nhắn từ khách ── */}
+            {/* ── Tin nhắn từ khách (hiện trước thanh toán nếu có tin nhắn) ── */}
             {(customer.messages || []).length > 0 && (
-              <Section title="💬 Tin nhắn từ khách" badge={pendingMsg.length > 0 ? `${pendingMsg.length} chờ xử lý` : null}>
+              <Section title="💬 Tin nhắn từ khách" badge={`${(customer.messages || []).length} chờ xử lý`}>
                 {customer.messages.map(msg => (
-                  <View key={msg.id} style={[md.msgCard, !msg.resolved && md.msgCardPending]}>
+                  <View key={msg.id} style={[md.msgCard, md.msgCardPending]}>
                     <View style={md.msgTop}>
                       <Text style={md.msgTime}>{msg.time}</Text>
-                      <View style={[md.msgTag, msg.resolved && md.msgTagDone]}>
-                        <Text style={[md.msgTagText, msg.resolved && { color: '#2ecc71' }]}>
-                          {msg.resolved ? '✅ Đã xử lý' : '⏳ Chờ xử lý'}
-                        </Text>
+                      <View style={md.msgTag}>
+                        <Text style={md.msgTagText}>⏳ Chờ xử lý</Text>
                       </View>
                     </View>
                     <Text style={md.msgText}>"{msg.text}"</Text>
-
-                    {/* Resolved info */}
-                    {msg.resolved && msg.resolvedBy && (
-                      <View style={md.msgResolvedInfo}>
-                        <Text style={md.msgResolvedText}>👷 Xử lý bởi: {msg.resolvedBy}</Text>
-                        {msg.resolvedAt  && <Text style={md.msgResolvedDate}>🕐 {msg.resolvedAt}</Text>}
-                        {msg.resolveNote && <Text style={md.msgResolvedNote}>📝 {msg.resolveNote}</Text>}
-                      </View>
-                    )}
-
-                    {/* Action buttons */}
-                    {!msg.resolved && (
-                      <>
-                        <View style={md.msgActions}>
-                          <TouchableOpacity
-                            style={md.msgCallBtn}
-                            onPress={() => Linking.openURL(`tel:${customer.phone}`)}
-                          >
-                            <Text style={md.msgCallText}>📞 Gọi xử lý</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[md.msgDoneBtn, resolvingMsgId === msg.id && md.msgDoneBtnActive]}
-                            onPress={() => {
-                              if (resolvingMsgId === msg.id) {
-                                setResolvingMsgId(null);
-                              } else {
-                                setResolvingMsgId(msg.id);
-                                setMsgResolverType('self');
-                                setMsgContractor('');
-                                setMsgNote('');
-                              }
-                            }}
-                          >
-                            <Text style={[md.msgDoneText, resolvingMsgId === msg.id && { color: '#f1c40f' }]}>
-                              {resolvingMsgId === msg.id ? '▲ Thu gọn' : '✓ Xác nhận đã xử lý'}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-
-                        {resolvingMsgId === msg.id && (
+                    <View style={md.msgActions}>
+                      <TouchableOpacity style={md.msgCallBtn} onPress={() => Linking.openURL(`tel:${customer.phone}`)}>
+                        <Text style={md.msgCallText}>📞 Gọi xử lý</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[md.msgDoneBtn, resolvingMsgId === msg.id && md.msgDoneBtnActive]}
+                        onPress={() => {
+                          if (resolvingMsgId === msg.id) { setResolvingMsgId(null); }
+                          else { setResolvingMsgId(msg.id); setMsgResolverType('self'); setMsgContractor(''); setMsgNote(''); }
+                        }}
+                      >
+                        <Text style={md.msgDoneText}>
+                          {resolvingMsgId === msg.id ? '▲ Thu gọn' : '✓ Xác nhận đã xử lý'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    {resolvingMsgId === msg.id && (
                           <View style={md.msgResolveForm}>
                             <Text style={md.resolveFormLabel}>Người xử lý vấn đề *</Text>
                             <View style={md.dropdownBox}>
-                              <TouchableOpacity
-                                style={[md.dropdownOption, msgResolverType === 'self' && md.dropdownSelected]}
-                                onPress={() => setMsgResolverType('self')}
-                              >
-                                <View style={[md.radioCircle, msgResolverType === 'self' && md.radioSelected]}>
-                                  {msgResolverType === 'self' && <View style={md.radioDot} />}
-                                </View>
+                              <TouchableOpacity style={[md.dropdownOption, msgResolverType === 'self' && md.dropdownSelected]} onPress={() => setMsgResolverType('self')}>
+                                <View style={[md.radioCircle, msgResolverType === 'self' && md.radioSelected]}>{msgResolverType === 'self' && <View style={md.radioDot} />}</View>
                                 <View style={md.dropdownOptionContent}>
                                   <Text style={md.dropdownOptionTitle}>Tự xử lý</Text>
                                   <Text style={md.dropdownOptionSub}>{staff.avatar}  {staff.name}</Text>
                                 </View>
                               </TouchableOpacity>
                               <View style={md.dropdownDivider} />
-                              <TouchableOpacity
-                                style={[md.dropdownOption, msgResolverType === 'contractor' && md.dropdownSelected]}
-                                onPress={() => setMsgResolverType('contractor')}
-                              >
-                                <View style={[md.radioCircle, msgResolverType === 'contractor' && md.radioSelected]}>
-                                  {msgResolverType === 'contractor' && <View style={md.radioDot} />}
-                                </View>
+                              <TouchableOpacity style={[md.dropdownOption, msgResolverType === 'contractor' && md.dropdownSelected]} onPress={() => setMsgResolverType('contractor')}>
+                                <View style={[md.radioCircle, msgResolverType === 'contractor' && md.radioSelected]}>{msgResolverType === 'contractor' && <View style={md.radioDot} />}</View>
                                 <View style={md.dropdownOptionContent}>
                                   <Text style={md.dropdownOptionTitle}>Thợ bên ngoài</Text>
                                   <Text style={md.dropdownOptionSub}>👷  Nhập tên thợ bên dưới</Text>
@@ -504,38 +437,101 @@ function CustomerDetailModal({ customer, staff, onClose, onResolveMessage }) {
                               </TouchableOpacity>
                             </View>
                             {msgResolverType === 'contractor' && (
-                              <TextInput
-                                style={md.resolveInput}
-                                placeholder="Tên thợ / đơn vị xử lý..."
-                                placeholderTextColor="#8892b0"
-                                value={msgContractor}
-                                onChangeText={setMsgContractor}
-                              />
+                              <TextInput style={md.resolveInput} placeholder="Tên thợ / đơn vị xử lý..." placeholderTextColor="#8892b0" value={msgContractor} onChangeText={setMsgContractor} />
                             )}
                             <Text style={[md.resolveFormLabel, { marginTop: 12 }]}>Ghi chú kết quả (tùy chọn)</Text>
-                            <TextInput
-                              style={[md.resolveInput, md.resolveInputMulti]}
-                              placeholder="VD: Đã liên hệ khách, vấn đề đã được xử lý..."
-                              placeholderTextColor="#8892b0"
-                              value={msgNote}
-                              onChangeText={setMsgNote}
-                              multiline
-                              numberOfLines={3}
-                            />
-                            <View style={md.resolveTimestamp}>
-                              <Text style={md.resolveTimestampText}>🕐 Thời gian xác nhận: {DEMO_NOW_DISPLAY}</Text>
-                            </View>
+                            <TextInput style={[md.resolveInput, md.resolveInputMulti]} placeholder="VD: Đã liên hệ khách, vấn đề đã được xử lý..." placeholderTextColor="#8892b0" value={msgNote} onChangeText={setMsgNote} multiline numberOfLines={3} />
+                            <View style={md.resolveTimestamp}><Text style={md.resolveTimestampText}>🕐 Thời gian xác nhận: {DEMO_NOW_DISPLAY}</Text></View>
                             <TouchableOpacity style={md.confirmBtn} onPress={() => handleConfirmMsgResolve(msg.id)}>
-                              <LinearGradient colors={['#2ecc71', '#27ae60']} style={md.confirmGradient}>
-                                <Text style={md.confirmBtnText}>✅  Xác nhận đã xử lý xong</Text>
+                              <LinearGradient colors={['#f1c40f', '#f39c12']} style={md.confirmGradient}>
+                                <Text style={[md.confirmBtnText, { color: '#1a1a2e' }]}>✓  Xác nhận đã xử lý xong</Text>
                               </LinearGradient>
                             </TouchableOpacity>
                           </View>
                         )}
-                      </>
-                    )}
                   </View>
                 ))}
+              </Section>
+            )}
+
+            {/* ── Lịch sử thanh toán (bảng) ── */}
+            {(customer.paymentHistory || []).length > 0 && (
+              <Section title="💰 Lịch sử thanh toán">
+                {customer.paymentHistory.map((p, idx) => {
+                  const grandTotal = parseVN(p.rent) + parseVN(p.elecTotal) + parseVN(p.waterTotal) + 100000 + 150000;
+                  return (
+                    <View key={idx} style={[md.payCard, !p.paid && md.payCardUnpaid]}>
+                      {/* Tháng + trạng thái */}
+                      <View style={md.payCardHeader}>
+                        <Text style={md.payMonth}>Tháng {p.month}</Text>
+                        <View style={[md.payStatusBadge, p.paid ? md.payStatusPaid : md.payStatusUnpaid]}>
+                          <Text style={[md.payStatusText, { color: p.paid ? '#2ecc71' : '#e94560' }]}>
+                            {p.paid ? '✅ Đã đóng' : '❌ Chưa đóng'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Bảng chi phí */}
+                      <View style={md.tbl}>
+                        {/* Header */}
+                        <View style={[md.tblRow, md.tblHead]}>
+                          <Text style={[md.tblName, md.tblHeadTxt]}>Tên chi phí</Text>
+                          <Text style={[md.tblQty,  md.tblHeadTxt]}>Số lượng</Text>
+                          <Text style={[md.tblUnit, md.tblHeadTxt]}>Đơn giá</Text>
+                          <Text style={[md.tblAmt,  md.tblHeadTxt]}>Thành tiền</Text>
+                        </View>
+                        {/* Tiền thuê */}
+                        <View style={md.tblRow}>
+                          <Text style={[md.tblName, md.tblCell]}>Tiền thuê</Text>
+                          <Text style={[md.tblQty,  md.tblCell]}>1 tháng</Text>
+                          <Text style={[md.tblUnit, md.tblCell]}>{p.rent}</Text>
+                          <Text style={[md.tblAmt,  md.tblCell]}>{p.rent}</Text>
+                        </View>
+                        {/* Điện */}
+                        <View style={[md.tblRow, md.tblRowAlt]}>
+                          <Text style={[md.tblName, md.tblCell]}>Điện</Text>
+                          <Text style={[md.tblQty,  md.tblCell]}>{p.elecKwh} kWh</Text>
+                          <Text style={[md.tblUnit, md.tblCell]}>3,000</Text>
+                          <Text style={[md.tblAmt,  md.tblCell]}>{p.elecTotal}</Text>
+                        </View>
+                        {/* Nước */}
+                        <View style={md.tblRow}>
+                          <Text style={[md.tblName, md.tblCell]}>Nước</Text>
+                          <Text style={[md.tblQty,  md.tblCell]}>{p.waterM3} m³</Text>
+                          <Text style={[md.tblUnit, md.tblCell]}>15,000</Text>
+                          <Text style={[md.tblAmt,  md.tblCell]}>{p.waterTotal}</Text>
+                        </View>
+                        {/* Dịch vụ */}
+                        <View style={[md.tblRow, md.tblRowAlt]}>
+                          <Text style={[md.tblName, md.tblCell]}>Dịch vụ</Text>
+                          <Text style={[md.tblQty,  md.tblCell]}>1 tháng</Text>
+                          <Text style={[md.tblUnit, md.tblCell]}>100,000</Text>
+                          <Text style={[md.tblAmt,  md.tblCell]}>100,000</Text>
+                        </View>
+                        {/* Internet */}
+                        <View style={md.tblRow}>
+                          <Text style={[md.tblName, md.tblCell]}>Internet</Text>
+                          <Text style={[md.tblQty,  md.tblCell]}>1 tháng</Text>
+                          <Text style={[md.tblUnit, md.tblCell]}>150,000</Text>
+                          <Text style={[md.tblAmt,  md.tblCell]}>150,000</Text>
+                        </View>
+                        {/* Tổng */}
+                        <View style={[md.tblRow, md.tblTotalRow]}>
+                          <Text style={[md.tblName, md.tblTotalLabel]}>Tổng cộng</Text>
+                          <Text style={md.tblQty} />
+                          <Text style={md.tblUnit} />
+                          <Text style={[md.tblAmt, md.tblTotalAmt, { color: p.paid ? '#2ecc71' : '#e94560' }]}>
+                            {fmtVN(grandTotal)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {p.paid && p.paidAt && (
+                        <Text style={md.payPaidAt}>📅 Ngày đóng: {p.paidAt}</Text>
+                      )}
+                    </View>
+                  );
+                })}
               </Section>
             )}
 
@@ -779,6 +775,122 @@ function BuildingStatsModal({ data, onClose, onSelectCustomer }) {
   );
 }
 
+// ─── Staff Profile Modal ──────────────────────────────────
+function StaffProfileModal({ staff, onClose, onSave }) {
+  const translateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const backdrop   = useRef(new Animated.Value(0)).current;
+  const [name,     setName]     = useState(staff.name);
+  const [phone,    setPhone]    = useState(staff.phone);
+  const [gender,   setGender]   = useState(staff.gender || 'female');
+  const [photoUri, setPhotoUri] = useState(staff.photoUri || null);
+
+  useEffect(() => {
+    setName(staff.name); setPhone(staff.phone);
+    setGender(staff.gender || 'female');
+    setPhotoUri(staff.photoUri || null);
+    Animated.parallel([
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 130 }),
+      Animated.timing(backdrop,   { toValue: 1, duration: 250, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: SCREEN_H, duration: 300, useNativeDriver: true }),
+      Animated.timing(backdrop,   { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start(onClose);
+  };
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Cần quyền truy cập', 'Vui lòng cho phép ứng dụng truy cập thư viện ảnh.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, aspect: [1, 1], quality: 0.8,
+    });
+    if (!result.canceled) setPhotoUri(result.assets[0].uri);
+  };
+
+  const handleSave = () => {
+    if (!name.trim()) { Alert.alert('Thiếu thông tin', 'Vui lòng nhập họ tên.'); return; }
+    const avatar = gender === 'male' ? '👨' : '👩';
+    onSave({ name: name.trim(), phone: phone.trim(), avatar, gender, photoUri });
+    handleClose();
+  };
+
+  const previewAvatar = photoUri ? null : (gender === 'male' ? '👨' : '👩');
+
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={handleClose}>
+      <Animated.View style={[md.backdrop, { opacity: backdrop }]}>
+        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
+      </Animated.View>
+      <Animated.View style={[md.sheet, { transform: [{ translateY }], maxHeight: '78%' }]}>
+        <View style={md.handle} />
+        <View style={pf.header}>
+          <Text style={pf.title}>Cập nhật thông tin</Text>
+          <TouchableOpacity style={md.closeBtn} onPress={handleClose}>
+            <Text style={md.closeBtnText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={pf.scroll} showsVerticalScrollIndicator={false}>
+          <View style={pf.previewRow}>
+            <View style={pf.previewBox}>
+              {photoUri
+                ? <Image source={{ uri: photoUri }} style={pf.previewPhoto} />
+                : <Text style={pf.previewEmoji}>{previewAvatar}</Text>
+              }
+            </View>
+            <View style={pf.previewActions}>
+              <Text style={pf.previewName}>{name || 'Họ và tên'}</Text>
+              <TouchableOpacity style={pf.uploadBtn} onPress={handlePickImage}>
+                <Text style={pf.uploadBtnText}>📷  Tải ảnh lên</Text>
+              </TouchableOpacity>
+              {photoUri && (
+                <TouchableOpacity style={pf.removePhotoBtn} onPress={() => setPhotoUri(null)}>
+                  <Text style={pf.removePhotoText}>✕ Bỏ ảnh</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          <Text style={pf.label}>Giới tính</Text>
+          <View style={pf.genderRow}>
+            <TouchableOpacity
+              style={[pf.genderBtn, gender === 'female' && pf.genderSelected]}
+              onPress={() => { setGender('female'); setPhotoUri(null); }}
+            >
+              <Text style={pf.genderEmoji}>👩</Text>
+              <Text style={[pf.genderLabel, gender === 'female' && { color: '#4facfe' }]}>Nữ</Text>
+              {gender === 'female' && !photoUri && <View style={pf.genderCheck}><Text style={{ color: '#fff', fontSize: 10 }}>✓</Text></View>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[pf.genderBtn, gender === 'male' && pf.genderSelected]}
+              onPress={() => { setGender('male'); setPhotoUri(null); }}
+            >
+              <Text style={pf.genderEmoji}>👨</Text>
+              <Text style={[pf.genderLabel, gender === 'male' && { color: '#4facfe' }]}>Nam</Text>
+              {gender === 'male' && !photoUri && <View style={pf.genderCheck}><Text style={{ color: '#fff', fontSize: 10 }}>✓</Text></View>}
+            </TouchableOpacity>
+          </View>
+          <Text style={pf.label}>Họ và tên *</Text>
+          <TextInput style={pf.input} value={name} onChangeText={setName} placeholder="Nhập họ tên..." placeholderTextColor="#8892b0" />
+          <Text style={pf.label}>Số điện thoại</Text>
+          <TextInput style={pf.input} value={phone} onChangeText={setPhone} placeholder="Nhập SĐT..." placeholderTextColor="#8892b0" keyboardType="phone-pad" />
+          <TouchableOpacity style={pf.saveBtn} onPress={handleSave}>
+            <LinearGradient colors={['#4facfe', '#3a8de0']} style={pf.saveGradient}>
+              <Text style={pf.saveBtnText}>💾  Lưu thông tin</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </Animated.View>
+    </Modal>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────
 export default function StaffCustomersScreen() {
   const [buildings,   setBuildings]   = useState(INITIAL_BUILDINGS);
@@ -787,7 +899,26 @@ export default function StaffCustomersScreen() {
   const [collapsed,   setCollapsed]   = useState({});
   const [selected,    setSelected]    = useState(null);
   const [statsModal,  setStatsModal]  = useState(null);
-  const [staff] = useState({ name: 'Trần Thị Thu', avatar: '👩‍💼' });
+  const [showProfile, setShowProfile] = useState(false);
+  const { staff, updateStaff: setStaff } = useStaff();
+  const navigation = useNavigation();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Xác nhận đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Đồng ý',
+          style: 'destructive',
+          onPress: () => navigation.getParent()?.dispatch(
+            CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
+          ),
+        },
+      ]
+    );
+  };
 
   const toggleBuilding = id => {
     LayoutAnimation.configureNext({
@@ -800,21 +931,28 @@ export default function StaffCustomersScreen() {
   };
 
   const handleResolveMessage = (customerId, msgId, resolverName, note) => {
-    const update = m => m.id !== msgId ? m : {
-      ...m, resolved: true,
+    const toIssue = msg => ({
+      id: `r-${msg.id}`,
+      title: msg.text,
+      reportedAt: msg.time ? msg.time.split(' ')[0] : DEMO_NOW_DISPLAY.split(' ')[0],
+      resolvedAt: DEMO_NOW_DISPLAY.split(' ')[0],
       resolvedBy: resolverName,
       resolveNote: note || null,
-      resolvedAt: DEMO_NOW_DISPLAY,
+      status: 'done',
+    });
+    const applyToCustomer = c => {
+      if (c.id !== customerId) return c;
+      const resolved = c.messages.find(m => m.id === msgId);
+      return {
+        ...c,
+        messages: c.messages.filter(m => m.id !== msgId),
+        issueHistory: resolved
+          ? [...(c.issueHistory || []), toIssue(resolved)]
+          : (c.issueHistory || []),
+      };
     };
-    setBuildings(prev => prev.map(b => ({
-      ...b,
-      customers: b.customers.map(c => c.id !== customerId ? c : {
-        ...c, messages: c.messages.map(update),
-      }),
-    })));
-    setSelected(prev => prev && prev.id === customerId
-      ? { ...prev, messages: prev.messages.map(update) }
-      : prev);
+    setBuildings(prev => prev.map(b => ({ ...b, customers: b.customers.map(applyToCustomer) })));
+    setSelected(prev => prev ? applyToCustomer(prev) : prev);
   };
 
   const matchCustomer = c => {
@@ -827,7 +965,8 @@ export default function StaffCustomersScreen() {
       filter === 'Tất cả' ||
       (filter === 'Đã thanh toán'   && c.paid) ||
       (filter === 'Chưa thanh toán' && !c.paid) ||
-      (filter === 'Sắp hết HĐ'     && (isExpiringSoon(c.contractEnd) || isExpired(c.contractEnd)));
+      (filter === 'Sắp hết HĐ'     && (isExpiringSoon(c.contractEnd) || isExpired(c.contractEnd))) ||
+      (filter === 'Có tin nhắn'     && (c.messages || []).length > 0);
     return matchSearch && matchFilter;
   };
 
@@ -837,9 +976,10 @@ export default function StaffCustomersScreen() {
     return Object.entries(map).sort(([a], [b]) => Number(a) - Number(b));
   };
 
-  const allCustomers  = buildings.flatMap(b => b.customers);
-  const totalUnpaid   = allCustomers.filter(c => !c.paid).length;
-  const totalExpiring = allCustomers.filter(c => isExpiringSoon(c.contractEnd) || isExpired(c.contractEnd)).length;
+  const allCustomers    = buildings.flatMap(b => b.customers);
+  const totalUnpaid     = allCustomers.filter(c => !c.paid).length;
+  const totalExpiring   = allCustomers.filter(c => isExpiringSoon(c.contractEnd) || isExpired(c.contractEnd)).length;
+  const totalWithMsgs   = allCustomers.filter(c => (c.messages || []).length > 0).length;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -860,15 +1000,68 @@ export default function StaffCustomersScreen() {
         />
       )}
 
+      {showProfile && (
+        <StaffProfileModal
+          staff={staff}
+          onClose={() => setShowProfile(false)}
+          onSave={updated => setStaff(updated)}
+        />
+      )}
+
       <ScrollView style={s.container} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={s.header}>
+          <View style={s.headerRow}>
+            <View style={s.staffCard}>
+              <View style={s.staffAvatarBox}>
+                {staff.photoUri
+                  ? <Image source={{ uri: staff.photoUri }} style={s.staffAvatarPhoto} />
+                  : <Text style={s.staffAvatarEmoji}>{staff.avatar}</Text>
+                }
+              </View>
+              <View style={s.staffInfo}>
+                <Text style={s.staffName}>{staff.name}</Text>
+                <View style={s.staffRoleBadge}>
+                  <Text style={s.staffRoleText}>💼 Nhân viên quản lý</Text>
+                </View>
+                <Text style={s.staffPhone}>{staff.phone}</Text>
+              </View>
+              <View style={s.staffActions}>
+                <TouchableOpacity style={s.editBadge} onPress={() => setShowProfile(true)}>
+                  <Text style={s.editBadgeText}>✎  Chỉnh sửa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.logoutBadge} onPress={handleLogout}>
+                  <Text style={s.logoutBadgeText}>⏻  Đăng xuất</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
           <Text style={s.title}>Khách hàng</Text>
+          <Text style={s.subtitle}>22/04/2026</Text>
         </LinearGradient>
 
-        {(totalUnpaid > 0 || totalExpiring > 0) && (
-          <View style={s.alertBar}>
-            {totalUnpaid   > 0 && <Text style={s.alertItem}>💸 {totalUnpaid} khách chưa đóng tiền</Text>}
-            {totalExpiring > 0 && <Text style={s.alertItem}>📅 {totalExpiring} HĐ sắp/đã hết hạn</Text>}
+        {(totalUnpaid > 0 || totalExpiring > 0 || totalWithMsgs > 0) && (
+          <View style={s.taskPanel}>
+            <Text style={s.taskPanelTitle}>📊 Tổng quan khách hàng</Text>
+            <View style={s.taskRow}>
+              {totalUnpaid > 0 && (
+                <TouchableOpacity style={[s.taskCard, s.taskCardRed]} onPress={() => setFilter('Chưa thanh toán')}>
+                  <Text style={s.taskCardNum}>{totalUnpaid}</Text>
+                  <Text style={s.taskCardLabel}>Quá hạn</Text>
+                </TouchableOpacity>
+              )}
+              {totalExpiring > 0 && (
+                <TouchableOpacity style={[s.taskCard, s.taskCardYellow]} onPress={() => setFilter('Sắp hết HĐ')}>
+                  <Text style={s.taskCardNum}>{totalExpiring}</Text>
+                  <Text style={s.taskCardLabel}>Sắp hết HĐ</Text>
+                </TouchableOpacity>
+              )}
+              {totalWithMsgs > 0 && (
+                <TouchableOpacity style={[s.taskCard, s.taskCardBlue]} onPress={() => setFilter('Có tin nhắn')}>
+                  <Text style={s.taskCardNum}>{totalWithMsgs}</Text>
+                  <Text style={s.taskCardLabel}>Tin nhắn</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -948,10 +1141,13 @@ export default function StaffCustomersScreen() {
                     const expiring = isExpiringSoon(c.contractEnd);
                     const expired  = isExpired(c.contractEnd);
                     const pending  = (c.messages || []).filter(m => !m.resolved).length;
+                    const isRed    = !c.paid || expired;
+                    const isYellow = !isRed && (expiring || pending > 0);
+                    const isGreen  = !isRed && !isYellow;
                     return (
                       <TouchableOpacity
                         key={c.id}
-                        style={[s.customerRow, !c.paid && s.borderRed, expiring && s.borderYellow, expired && s.borderRed]}
+                        style={[s.customerRow, isRed && s.borderRed, isYellow && s.borderYellow, isGreen && s.borderGreen]}
                         onPress={() => setSelected(c)}
                       >
                         <View style={s.avatar}><Text style={{ fontSize: 22 }}>{c.avatar}</Text></View>
@@ -1004,10 +1200,34 @@ export default function StaffCustomersScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#1a1a2e' },
   container: { flex: 1, backgroundColor: '#0d0d1a' },
-  header: { padding: 20, paddingTop: 10 },
-  title: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  alertBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, backgroundColor: 'rgba(233,69,96,0.08)', borderBottomWidth: 1, borderColor: 'rgba(233,69,96,0.2)', paddingHorizontal: 16, paddingVertical: 10 },
-  alertItem: { color: '#e94560', fontSize: 13, fontWeight: '600' },
+  header: { padding: 20, paddingTop: 10, paddingBottom: 16 },
+  headerRow: { marginBottom: 14 },
+  staffCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  staffAvatarBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(79,172,254,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 14, overflow: 'hidden' },
+  staffAvatarEmoji: { fontSize: 28 },
+  staffAvatarPhoto: { width: 52, height: 52, borderRadius: 26 },
+  staffInfo: { flex: 1 },
+  staffName: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 0.3 },
+  staffRoleBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
+  staffRoleText: { color: '#4facfe', fontSize: 11, fontWeight: '700' },
+  staffPhone: { color: '#8892b0', fontSize: 12 },
+  staffActions: { gap: 6, justifyContent: 'center' },
+  editBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)', alignItems: 'center' },
+  editBadgeText: { color: '#4facfe', fontSize: 11, fontWeight: '700' },
+  logoutBadge: { backgroundColor: 'rgba(233,69,96,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(233,69,96,0.3)', alignItems: 'center' },
+  logoutBadgeText: { color: '#e94560', fontSize: 11, fontWeight: '700' },
+  title: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 14 },
+  subtitle: { color: '#8892b0', fontSize: 13, marginTop: 6, marginBottom: 4 },
+  taskPanel: { margin: 16, marginBottom: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  taskPanelTitle: { color: '#fff', fontSize: 14, fontWeight: '700', marginBottom: 12 },
+  taskRow: { flexDirection: 'row', gap: 10 },
+  taskCard: { flex: 1, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1 },
+  taskCardRed:    { backgroundColor: 'rgba(233,69,96,0.1)',  borderColor: 'rgba(233,69,96,0.35)' },
+  taskCardYellow: { backgroundColor: 'rgba(241,196,15,0.1)', borderColor: 'rgba(241,196,15,0.35)' },
+  taskCardBlue:   { backgroundColor: 'rgba(79,172,254,0.1)', borderColor: 'rgba(79,172,254,0.35)' },
+  taskCardNum:   { fontSize: 28, fontWeight: '900', color: '#fff' },
+  taskCardLabel: { color: '#ccd6f6', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  taskCardHint:  { color: '#8892b0', fontSize: 10, marginTop: 2 },
   searchWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', margin: 16, marginBottom: 10, borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, color: '#fff', paddingVertical: 12, fontSize: 14 },
@@ -1035,6 +1255,7 @@ const s = StyleSheet.create({
   customerRow: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, marginBottom: 8, borderLeftWidth: 3, borderLeftColor: 'transparent' },
   borderRed:    { borderLeftColor: '#e94560' },
   borderYellow: { borderLeftColor: '#f1c40f' },
+  borderGreen:  { borderLeftColor: '#2ecc71' },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   custMid: { flex: 1 },
   custName: { color: '#fff', fontSize: 14, fontWeight: '700' },
@@ -1121,6 +1342,20 @@ const md = StyleSheet.create({
   payTotalLabel: { color: '#fff', fontSize: 13, fontWeight: '700' },
   payTotalVal: { fontSize: 14, fontWeight: '800' },
   payPaidAt: { color: '#8892b0', fontSize: 11, marginTop: 6 },
+  // Payment table
+  tbl: { borderRadius: 10, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.12)', overflow: 'hidden', marginTop: 4 },
+  tblRow: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  tblHead: { backgroundColor: 'rgba(255,255,255,0.07)' },
+  tblRowAlt: { backgroundColor: 'rgba(255,255,255,0.02)' },
+  tblName: { flex: 4, paddingVertical: 8, paddingHorizontal: 8 },
+  tblQty:  { flex: 3, paddingVertical: 8, paddingHorizontal: 4, textAlign: 'center' },
+  tblUnit: { flex: 3, paddingVertical: 8, paddingHorizontal: 4, textAlign: 'right' },
+  tblAmt:  { flex: 3, paddingVertical: 8, paddingHorizontal: 8, textAlign: 'right' },
+  tblHeadTxt: { color: '#8892b0', fontSize: 10, fontWeight: '700' },
+  tblCell: { color: '#ccd6f6', fontSize: 12 },
+  tblTotalRow: { backgroundColor: 'rgba(79,172,254,0.08)', borderBottomWidth: 0 },
+  tblTotalLabel: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  tblTotalAmt: { fontSize: 13, fontWeight: '800' },
   // Messages
   msgCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   msgCardPending: { borderColor: 'rgba(233,69,96,0.35)', backgroundColor: 'rgba(233,69,96,0.04)' },
@@ -1133,9 +1368,9 @@ const md = StyleSheet.create({
   msgActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
   msgCallBtn: { flex: 1, backgroundColor: 'rgba(46,204,113,0.12)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.3)' },
   msgCallText: { color: '#2ecc71', fontSize: 12, fontWeight: '700' },
-  msgDoneBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-  msgDoneBtnActive: { backgroundColor: 'rgba(241,196,15,0.1)', borderColor: 'rgba(241,196,15,0.35)' },
-  msgDoneText: { color: '#ccd6f6', fontSize: 12, fontWeight: '700' },
+  msgDoneBtn: { flex: 1, backgroundColor: 'rgba(241,196,15,0.12)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(241,196,15,0.4)' },
+  msgDoneBtnActive: { backgroundColor: 'rgba(241,196,15,0.2)', borderColor: '#f1c40f' },
+  msgDoneText: { color: '#f1c40f', fontSize: 12, fontWeight: '700' },
   msgResolvedInfo: { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.08)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(46,204,113,0.2)' },
   msgResolvedText: { color: '#2ecc71', fontSize: 12, fontWeight: '600' },
   msgResolvedDate: { color: '#8892b0', fontSize: 11, marginTop: 3 },
@@ -1204,4 +1439,32 @@ const bs = StyleSheet.create({
   arrow: { color: '#8892b0', fontSize: 22, marginLeft: 6 },
   roomTag: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   roomTagText: { color: '#4facfe', fontSize: 11, fontWeight: '700' },
+});
+
+// ─── Profile Modal Styles ─────────────────────────────────
+const pf = StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' },
+  title: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  scroll: { padding: 20 },
+  label: { color: '#8892b0', fontSize: 13, fontWeight: '600', marginBottom: 8, marginTop: 4 },
+  previewRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 16 },
+  previewBox: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(79,172,254,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: 'rgba(79,172,254,0.4)' },
+  previewPhoto: { width: 80, height: 80, borderRadius: 40 },
+  previewEmoji: { fontSize: 42 },
+  previewActions: { flex: 1, gap: 8 },
+  previewName: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  uploadBtn: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(79,172,254,0.35)' },
+  uploadBtnText: { color: '#4facfe', fontSize: 13, fontWeight: '700' },
+  removePhotoBtn: { marginTop: 4, alignSelf: 'flex-start' },
+  removePhotoText: { color: '#e94560', fontSize: 12 },
+  genderRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  genderBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: 'transparent', position: 'relative' },
+  genderSelected: { borderColor: '#4facfe', backgroundColor: 'rgba(79,172,254,0.1)' },
+  genderEmoji: { fontSize: 36, marginBottom: 6 },
+  genderLabel: { color: '#8892b0', fontSize: 14, fontWeight: '700' },
+  genderCheck: { position: 'absolute', top: 8, right: 8, width: 18, height: 18, borderRadius: 9, backgroundColor: '#4facfe', justifyContent: 'center', alignItems: 'center' },
+  input: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 14, color: '#fff', fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
+  saveBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 8 },
+  saveGradient: { paddingVertical: 15, alignItems: 'center' },
+  saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });

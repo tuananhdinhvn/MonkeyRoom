@@ -10,6 +10,8 @@ if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useStaff } from '../../context/StaffContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const SCREEN_H = Dimensions.get('window').height;
@@ -1027,7 +1029,25 @@ export default function StaffRoomsScreen() {
   const [showProfile,  setShowProfile]  = useState(false);
   const [showMessages, setShowMessages] = useState(false);
   const [roomsModal,   setRoomsModal]   = useState(null);
-  const [staff, setStaff] = useState({ name: 'Trần Thị Thu', phone: '0912 333 444', avatar: '👩‍💼' });
+  const { staff, updateStaff: setStaff } = useStaff();
+  const navigation = useNavigation();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Xác nhận đăng xuất',
+      'Bạn có chắc chắn muốn đăng xuất không?',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Đồng ý',
+          style: 'destructive',
+          onPress: () => navigation.getParent()?.dispatch(
+            CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
+          ),
+        },
+      ]
+    );
+  };
 
   const toggleBuilding = id => {
     LayoutAnimation.configureNext({
@@ -1106,7 +1126,10 @@ export default function StaffRoomsScreen() {
 
   const matchRoom = room => {
     const q = search.toLowerCase();
-    const matchSearch = !q || room.id.toLowerCase().includes(q) || (room.tenant && room.tenant.toLowerCase().includes(q));
+    const matchSearch = !q
+      || room.id.toLowerCase().includes(q)
+      || (room.tenant && room.tenant.toLowerCase().includes(q))
+      || (room.phone && room.phone.includes(q));
     const matchFilter = filter === 'Tất cả' || room.status === FILTER_MAP[filter];
     return matchSearch && matchFilter;
   };
@@ -1132,7 +1155,7 @@ export default function StaffRoomsScreen() {
         <StaffProfileModal
           staff={staff}
           onClose={() => setShowProfile(false)}
-          onSave={updated => setStaff(prev => ({ ...prev, ...updated }))}
+          onSave={updated => setStaff(updated)}
         />
       )}
 
@@ -1155,7 +1178,7 @@ export default function StaffRoomsScreen() {
       <ScrollView style={s.container} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={s.header}>
           <View style={s.headerRow}>
-            <TouchableOpacity style={s.staffCard} onPress={() => setShowProfile(true)} activeOpacity={0.8}>
+            <View style={s.staffCard}>
               <View style={s.staffAvatarBox}>
                 {staff.photoUri
                   ? <Image source={{ uri: staff.photoUri }} style={s.staffAvatarPhoto} />
@@ -1169,10 +1192,15 @@ export default function StaffRoomsScreen() {
                 </View>
                 <Text style={s.staffPhone}>{staff.phone}</Text>
               </View>
-              <View style={s.editBadge}>
-                <Text style={s.editBadgeText}>✎  Chỉnh sửa</Text>
+              <View style={s.staffActions}>
+                <TouchableOpacity style={s.editBadge} onPress={() => setShowProfile(true)}>
+                  <Text style={s.editBadgeText}>✎  Chỉnh sửa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.logoutBadge} onPress={handleLogout}>
+                  <Text style={s.logoutBadgeText}>⏻  Đăng xuất</Text>
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
+            </View>
           </View>
           <Text style={s.title}>Tổng quan phòng</Text>
           <Text style={s.subtitle}>22/04/2026</Text>
@@ -1187,21 +1215,18 @@ export default function StaffRoomsScreen() {
                 <TouchableOpacity style={[s.taskCard, s.taskCardRed]} onPress={() => setFilter('Khẩn cấp')}>
                   <Text style={s.taskCardNum}>{urgentCount}</Text>
                   <Text style={s.taskCardLabel}>Khẩn cấp</Text>
-                  <Text style={s.taskCardHint}>Nhấn để lọc →</Text>
                 </TouchableOpacity>
               )}
               {maintCount > 0 && (
                 <TouchableOpacity style={[s.taskCard, s.taskCardYellow]} onPress={() => setFilter('Bảo trì')}>
                   <Text style={s.taskCardNum}>{maintCount}</Text>
                   <Text style={s.taskCardLabel}>Bảo trì</Text>
-                  <Text style={s.taskCardHint}>Nhấn để lọc →</Text>
                 </TouchableOpacity>
               )}
               {pendingMsgs.length > 0 && (
                 <TouchableOpacity style={[s.taskCard, s.taskCardBlue]} onPress={() => setShowMessages(true)}>
                   <Text style={s.taskCardNum}>{pendingMsgs.length}</Text>
                   <Text style={s.taskCardLabel}>Tin nhắn</Text>
-                  <Text style={s.taskCardHint}>Nhấn xem →</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1213,7 +1238,7 @@ export default function StaffRoomsScreen() {
           <Text style={s.searchIcon}>🔍</Text>
           <TextInput
             style={s.searchInput}
-            placeholder="Tìm số phòng, tên khách..."
+            placeholder="Tìm mã phòng, tên khách, SĐT..."
             placeholderTextColor="#8892b0"
             value={search}
             onChangeText={setSearch}
@@ -1404,8 +1429,11 @@ const s = StyleSheet.create({
   staffRoleBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 },
   staffRoleText: { color: '#4facfe', fontSize: 11, fontWeight: '700' },
   staffPhone: { color: '#8892b0', fontSize: 12 },
-  editBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)', alignSelf: 'center' },
+  staffActions: { gap: 6, justifyContent: 'center' },
+  editBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)', alignItems: 'center' },
   editBadgeText: { color: '#4facfe', fontSize: 11, fontWeight: '700' },
+  logoutBadge: { backgroundColor: 'rgba(233,69,96,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(233,69,96,0.3)', alignItems: 'center' },
+  logoutBadgeText: { color: '#e94560', fontSize: 11, fontWeight: '700' },
   title: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 14 },
   subtitle: { color: '#8892b0', fontSize: 13, marginTop: 6, marginBottom: 4 },
   taskPanel: { margin: 16, marginBottom: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
