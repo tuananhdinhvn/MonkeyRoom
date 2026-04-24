@@ -1201,7 +1201,7 @@ export default function CustomersScreen() {
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={s.header}>
           <View>
             <Text style={s.title}>Khách hàng</Text>
-            <Text style={s.subtitle}>23/04/2026 · {activeCustomers.length} khách đang thuê</Text>
+            <Text style={s.subtitle}>23/04/2026</Text>
           </View>
           <TouchableOpacity style={s.addBtn} onPress={openAdd}>
             <Text style={s.addBtnText}>＋ Thêm mới</Text>
@@ -1251,19 +1251,6 @@ export default function CustomersScreen() {
               <Text style={{ color: '#8892b0', fontSize: 18, paddingHorizontal: 4 }}>✕</Text>
             </TouchableOpacity>
           )}
-        </View>
-
-        {/* Filter */}
-        <View style={s.filterRow}>
-          {['Tất cả', 'Đã thanh toán', 'Chưa thanh toán', 'Khách cũ'].map(f => (
-            <TouchableOpacity
-              key={f}
-              style={[s.filterBtn, activeFilter === f && s.filterActive]}
-              onPress={() => setActiveFilter(f)}
-            >
-              <Text style={[s.filterText, activeFilter === f && s.filterTextActive]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
         {/* List */}
