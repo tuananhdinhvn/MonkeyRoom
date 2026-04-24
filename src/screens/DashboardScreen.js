@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Dimensions, Modal,
+  TextInput, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,13 +24,25 @@ const ADMIN_BUILDINGS = [
   { name: 'Nhà C - Sunrise',    address: '78 Trần Hưng Đạo, Q.5', total: 48, occupied: 38, staff: 'Lê Thị Hương'    },
 ];
 
-const ADMIN_MESSAGES = [
-  { room: '101',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Nguyễn Văn An',  text: 'Vòi nước bị nhỏ giọt, phiền anh kiểm tra giúp',  time: '09:12 20/04/2026' },
-  { room: '104',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Vũ Thị Lan',     text: 'Bồn cầu bị tắc, chị xử lý giúp em với ạ',        time: '22:05 21/04/2026' },
-  { room: '302',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Hoàng Đức Minh', text: 'Thang máy tầng 3 thỉnh thoảng kêu tiếng lạ',      time: '10:00 22/04/2026' },
-  { room: 'B201', building: 'Nhà B - Blue Sky',   staff: 'Nguyễn Văn Bảo', tenant: 'Bùi Văn Tài',    text: 'Cửa phòng bị hỏng khóa, không đóng được',        time: '14:30 22/04/2026' },
-  { room: 'B105', building: 'Nhà B - Blue Sky',   staff: 'Nguyễn Văn Bảo', tenant: 'Lê Thị Ngọc',    text: 'Máy lạnh không hoạt động, phòng rất nóng',        time: '16:45 22/04/2026' },
-  { room: 'C302', building: 'Nhà C - Sunrise',    staff: 'Lê Thị Hương',   tenant: 'Phạm Minh Đức',  text: 'Bóng đèn phòng khách bị cháy, cần thay gấp',      time: '08:20 23/04/2026' },
+const MSG_INIT = [
+  { id: 'm1', room: '101',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Nguyễn Văn An',  phone: '0912345678', text: 'Vòi nước bị nhỏ giọt, phiền anh kiểm tra giúp',  time: '09:12 20/04/2026' },
+  { id: 'm2', room: '104',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Vũ Thị Lan',     phone: '0966333444', text: 'Bồn cầu bị tắc, chị xử lý giúp em với ạ',        time: '22:05 21/04/2026' },
+  { id: 'm3', room: '302',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Hoàng Đức Minh', phone: '0933222111', text: 'Thang máy tầng 3 thỉnh thoảng kêu tiếng lạ',      time: '10:00 22/04/2026' },
+  { id: 'm4', room: 'B201', building: 'Nhà B - Blue Sky',   staff: 'Nguyễn Văn Bảo', tenant: 'Bùi Văn Tài',    phone: '0944111222', text: 'Cửa phòng bị hỏng khóa, không đóng được',         time: '14:30 22/04/2026' },
+  { id: 'm5', room: 'B105', building: 'Nhà B - Blue Sky',   staff: 'Nguyễn Văn Bảo', tenant: 'Lê Thị Ngọc',    phone: '0955888777', text: 'Máy lạnh không hoạt động, phòng rất nóng',         time: '16:45 22/04/2026' },
+  { id: 'm6', room: 'C302', building: 'Nhà C - Sunrise',    staff: 'Lê Thị Hương',   tenant: 'Phạm Minh Đức',  phone: '0977666555', text: 'Bóng đèn phòng khách bị cháy, cần thay gấp',       time: '08:20 23/04/2026' },
+];
+
+const RESOLVE_STAFF = [
+  { id: 's1', name: 'Trần Thị Thu',    role: 'Nhân viên', building: 'Nhà A' },
+  { id: 's2', name: 'Nguyễn Văn Bảo', role: 'Nhân viên', building: 'Nhà B' },
+  { id: 's3', name: 'Lê Thị Hương',   role: 'Nhân viên', building: 'Nhà C' },
+];
+
+const RESOLVE_TYPES = [
+  { key: 'admin',      icon: '🧑‍💼', label: 'Admin tự xử lý',     color: '#a29bfe', bg: 'rgba(162,155,254,0.12)', border: 'rgba(162,155,254,0.35)' },
+  { key: 'staff',      icon: '💼',   label: 'Chỉ định nhân viên', color: '#74b9ff', bg: 'rgba(116,185,255,0.12)', border: 'rgba(116,185,255,0.35)' },
+  { key: 'contractor', icon: '🔧',   label: 'Thuê thợ bên ngoài', color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.35)'  },
 ];
 const STAFF_ACTIVITIES = [
   { name: 'Trần Thị Thu',    building: 'Nhà A', avatar: '👩', action: 'Thu tiền phòng 101, 103, 104',         time: '08:30 23/04/2026' },
@@ -323,6 +336,162 @@ function LineChart({ bars }) {
   );
 }
 
+// ─── Message Detail Modal ────────────────────────────────
+function MessageDetailModal({ visible, message: msg, onClose, onResolve }) {
+  if (!msg) return null;
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={md.overlay}>
+        <TouchableOpacity style={md.backdrop} onPress={onClose} activeOpacity={1} />
+        <View style={md.sheet}>
+          <View style={md.handle} />
+          <Text style={md.title}>Chi tiết phản ánh</Text>
+
+          <View style={md.infoBlock}>
+            {[
+              { label: 'Phòng',      value: msg.room,     color: '#4facfe' },
+              { label: 'Tòa nhà',    value: msg.building, color: '#ccd6f6' },
+              { label: 'Khách thuê', value: msg.tenant,   color: '#fff'    },
+              { label: 'Nhân viên',  value: msg.staff,    color: '#f1c40f' },
+              { label: 'Thời gian',  value: msg.time,     color: '#8892b0' },
+            ].map(({ label, value, color }) => (
+              <View key={label} style={md.infoRow}>
+                <Text style={md.infoLabel}>{label}</Text>
+                <Text style={[md.infoValue, { color }]}>{value}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={md.msgBox}>
+            <Text style={md.msgBoxLabel}>Nội dung phản ánh</Text>
+            <Text style={md.msgBoxText}>"{msg.text}"</Text>
+          </View>
+
+          <View style={md.actions}>
+            <TouchableOpacity
+              style={md.callBtn}
+              onPress={() => Linking.openURL(`tel:${msg.phone}`)}
+            >
+              <Text style={md.callBtnText}>📞  Gọi điện</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={md.resolveBtn} onPress={onResolve}>
+              <Text style={md.resolveBtnText}>✅  Xác nhận xử lý</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={md.closeBtn} onPress={onClose}>
+            <Text style={md.closeBtnText}>Đóng</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Resolve Modal ────────────────────────────────────────
+function ResolveModal({ visible, message: msg, onConfirm, onClose }) {
+  const [resolveType,     setResolveType]     = useState('admin');
+  const [selectedStaffId, setSelectedStaffId] = useState(null);
+  const [contractorName,  setContractorName]  = useState('');
+
+  React.useEffect(() => {
+    if (visible) { setResolveType('admin'); setSelectedStaffId(null); setContractorName(''); }
+  }, [visible]);
+
+  const canConfirm =
+    resolveType === 'admin' ||
+    (resolveType === 'staff' && selectedStaffId) ||
+    (resolveType === 'contractor' && contractorName.trim().length > 0);
+
+  const handleConfirm = () => {
+    if (!canConfirm) return;
+    let resolvedBy = { type: resolveType, name: '' };
+    if (resolveType === 'admin') {
+      resolvedBy.name = 'Admin';
+    } else if (resolveType === 'staff') {
+      resolvedBy.name = RESOLVE_STAFF.find(s => s.id === selectedStaffId)?.name || '';
+    } else {
+      resolvedBy.name = contractorName.trim();
+    }
+    onConfirm(resolvedBy);
+  };
+
+  if (!msg) return null;
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={rv.overlay}>
+        <TouchableOpacity style={rv.backdrop} onPress={onClose} activeOpacity={1} />
+        <View style={rv.sheet}>
+          <View style={rv.handle} />
+          <Text style={rv.title}>Xác nhận xử lý sự cố</Text>
+          <Text style={rv.sub}>Phòng {msg.room} · {msg.tenant}</Text>
+
+          <Text style={rv.label}>Hướng xử lý</Text>
+          <View style={rv.typeRow}>
+            {RESOLVE_TYPES.map(rt => (
+              <TouchableOpacity
+                key={rt.key}
+                style={[rv.typeOpt, resolveType === rt.key && { borderColor: rt.border, backgroundColor: rt.bg }]}
+                onPress={() => { setResolveType(rt.key); setSelectedStaffId(null); }}
+              >
+                <Text style={rv.typeIcon}>{rt.icon}</Text>
+                <Text style={[rv.typeLabel, resolveType === rt.key && { color: rt.color, fontWeight: '700' }]}>
+                  {rt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {resolveType === 'staff' && (
+            <>
+              <Text style={rv.label}>Chọn nhân viên xử lý</Text>
+              {RESOLVE_STAFF.map(st => (
+                <TouchableOpacity
+                  key={st.id}
+                  style={[rv.staffRow, selectedStaffId === st.id && rv.staffRowActive]}
+                  onPress={() => setSelectedStaffId(st.id)}
+                >
+                  <Text style={rv.staffIcon}>💼</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={rv.staffName}>{st.name}</Text>
+                    <Text style={rv.staffSub}>{st.role} · {st.building}</Text>
+                  </View>
+                  {selectedStaffId === st.id && <Text style={rv.staffCheck}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+
+          {resolveType === 'contractor' && (
+            <>
+              <Text style={rv.label}>Thông tin thợ / đơn vị</Text>
+              <TextInput
+                style={rv.input}
+                value={contractorName}
+                onChangeText={setContractorName}
+                placeholder="Tên thợ hoặc công ty sửa chữa"
+                placeholderTextColor="#8892b0"
+              />
+            </>
+          )}
+
+          <View style={rv.btnRow}>
+            <TouchableOpacity style={rv.cancelBtn} onPress={onClose}>
+              <Text style={rv.cancelText}>Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[rv.confirmBtn, !canConfirm && rv.confirmDim]}
+              onPress={handleConfirm}
+            >
+              <Text style={rv.confirmText}>✅  Xác nhận xong</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Birthday Panel ───────────────────────────────────────
 function BirthdayPanel({ visible, groups, onClose }) {
   const total = groups.reduce((sum, g) => sum + g.people.length, 0);
@@ -404,9 +573,29 @@ export default function DashboardScreen() {
   const [chartType,      setChartType]      = useState('bar');
   const [activityTab,    setActivityTab]    = useState('staff');
   const [bdayPanelOpen,  setBdayPanelOpen]  = useState(false);
-  const rev          = REVENUE[period];
-  const bdayGroups   = buildBirthdayGroups();
-  const bdayTotal    = bdayGroups.reduce((sum, g) => sum + g.people.length, 0);
+  const [messages,       setMessages]       = useState(MSG_INIT);
+  const [selectedMsg,    setSelectedMsg]    = useState(null);
+  const [detailVisible,  setDetailVisible]  = useState(false);
+  const [resolveVisible, setResolveVisible] = useState(false);
+  const [resolvedHistory, setResolvedHistory] = useState([]);
+
+  const rev        = REVENUE[period];
+  const bdayGroups = buildBirthdayGroups();
+  const bdayTotal  = bdayGroups.reduce((sum, g) => sum + g.people.length, 0);
+
+  const openDetail = msg => { setSelectedMsg(msg); setDetailVisible(true); };
+
+  const openResolve = () => { setDetailVisible(false); setResolveVisible(true); };
+
+  const handleResolved = resolvedBy => {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const resolvedAt = `${pad(now.getHours())}:${pad(now.getMinutes())} ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+    setResolvedHistory(prev => [{ ...selectedMsg, resolvedBy, resolvedAt }, ...prev]);
+    setMessages(prev => prev.filter(m => m.id !== selectedMsg.id));
+    setResolveVisible(false);
+    setSelectedMsg(null);
+  };
 
   return (
     <SafeAreaView style={s.safe}>
@@ -416,6 +605,18 @@ export default function DashboardScreen() {
         visible={bdayPanelOpen}
         groups={bdayGroups}
         onClose={() => setBdayPanelOpen(false)}
+      />
+      <MessageDetailModal
+        visible={detailVisible}
+        message={selectedMsg}
+        onClose={() => { setDetailVisible(false); setSelectedMsg(null); }}
+        onResolve={openResolve}
+      />
+      <ResolveModal
+        visible={resolveVisible}
+        message={selectedMsg}
+        onConfirm={handleResolved}
+        onClose={() => { setResolveVisible(false); setSelectedMsg(null); }}
       />
 
       <ScrollView style={s.container} showsVerticalScrollIndicator={false}>
@@ -538,25 +739,30 @@ export default function DashboardScreen() {
             {/* Phần 3: Tin nhắn khách hàng */}
             <View style={s.ovMsgHeader}>
               <Text style={s.ovSubTitle}>💬 Tin nhắn khách hàng</Text>
-              {ADMIN_MESSAGES.length > 0 && (
+              {messages.length > 0 && (
                 <View style={s.ovMsgCountBadge}>
-                  <Text style={s.ovMsgCountText}>{ADMIN_MESSAGES.length} chờ xử lý</Text>
+                  <Text style={s.ovMsgCountText}>{messages.length} chờ xử lý</Text>
                 </View>
               )}
             </View>
-            {ADMIN_MESSAGES.length === 0 ? (
+            {messages.length === 0 ? (
               <View style={s.ovNoMsgBox}>
-                <Text style={s.ovNoMsgText}>✅ Không có tin nhắn chờ xử lý</Text>
+                <Text style={s.ovNoMsgText}>✅ Hiện không có tin nhắn chờ của khách</Text>
               </View>
             ) : (
               <>
                 <ScrollView
                   nestedScrollEnabled
                   style={s.ovMsgScroll}
-                  showsVerticalScrollIndicator={ADMIN_MESSAGES.length > 4}
+                  showsVerticalScrollIndicator={messages.length > 4}
                 >
-                  {ADMIN_MESSAGES.map((msg, i) => (
-                    <View key={i} style={s.ovMsgRow}>
+                  {messages.map((msg) => (
+                    <TouchableOpacity
+                      key={msg.id}
+                      style={s.ovMsgRow}
+                      onPress={() => openDetail(msg)}
+                      activeOpacity={0.75}
+                    >
                       <View style={s.ovMsgLeft}>
                         <Text style={s.ovMsgRoom}>Phòng {msg.room}</Text>
                         <Text style={s.ovMsgBuilding}>{msg.building}</Text>
@@ -567,12 +773,13 @@ export default function DashboardScreen() {
                         <Text style={s.ovMsgText} numberOfLines={2}>"{msg.text}"</Text>
                         <Text style={s.ovMsgTime}>🕐 {msg.time}</Text>
                       </View>
-                    </View>
+                      <Text style={s.ovMsgArrow}>›</Text>
+                    </TouchableOpacity>
                   ))}
                 </ScrollView>
-                {ADMIN_MESSAGES.length > 4 && (
+                {messages.length > 4 && (
                   <View style={s.ovScrollHint}>
-                    <Text style={s.ovScrollHintText}>↕  Kéo để xem thêm {ADMIN_MESSAGES.length - 4} tin nhắn</Text>
+                    <Text style={s.ovScrollHintText}>↕  Kéo để xem thêm {messages.length - 4} tin nhắn</Text>
                   </View>
                 )}
               </>
@@ -672,6 +879,65 @@ export default function DashboardScreen() {
     </SafeAreaView>
   );
 }
+
+// ─── Message Detail styles ────────────────────────────────
+const md = StyleSheet.create({
+  overlay:       { flex: 1, justifyContent: 'flex-end' },
+  backdrop:      { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)' },
+  sheet:         { backgroundColor: '#111827', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
+  handle:        { width: 40, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  title:         { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 16 },
+
+  infoBlock:     { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  infoRow:       { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  infoLabel:     { color: '#8892b0', fontSize: 13, fontWeight: '600' },
+  infoValue:     { fontSize: 13, fontWeight: '700', maxWidth: '62%', textAlign: 'right' },
+
+  msgBox:        { backgroundColor: 'rgba(233,69,96,0.06)', borderRadius: 12, padding: 14, marginBottom: 18, borderWidth: 1, borderColor: 'rgba(233,69,96,0.18)' },
+  msgBoxLabel:   { color: '#8892b0', fontSize: 11, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  msgBoxText:    { color: '#ccd6f6', fontSize: 14, lineHeight: 22, fontStyle: 'italic' },
+
+  actions:       { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  callBtn:       { flex: 1, borderRadius: 12, paddingVertical: 13, alignItems: 'center', backgroundColor: 'rgba(46,204,113,0.12)', borderWidth: 1, borderColor: 'rgba(46,204,113,0.35)' },
+  callBtnText:   { color: '#2ecc71', fontWeight: '800', fontSize: 14 },
+  resolveBtn:    { flex: 1, borderRadius: 12, paddingVertical: 13, alignItems: 'center', backgroundColor: 'rgba(162,155,254,0.15)', borderWidth: 1, borderColor: 'rgba(162,155,254,0.4)' },
+  resolveBtnText:{ color: '#a29bfe', fontWeight: '800', fontSize: 14 },
+
+  closeBtn:      { borderRadius: 12, paddingVertical: 13, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  closeBtnText:  { color: '#8892b0', fontWeight: '700', fontSize: 14 },
+});
+
+// ─── Resolve Modal styles ─────────────────────────────────
+const rv = StyleSheet.create({
+  overlay:    { flex: 1, justifyContent: 'flex-end' },
+  backdrop:   { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)' },
+  sheet:      { backgroundColor: '#111827', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
+  handle:     { width: 40, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  title:      { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  sub:        { color: '#8892b0', fontSize: 13, marginBottom: 4 },
+  label:      { color: '#8892b0', fontSize: 11, fontWeight: '700', marginTop: 16, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  typeRow:    { gap: 8 },
+  typeOpt:    { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.04)', padding: 13 },
+  typeIcon:   { fontSize: 20 },
+  typeLabel:  { color: '#8892b0', fontSize: 14 },
+
+  staffRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)', marginBottom: 8 },
+  staffRowActive: { backgroundColor: 'rgba(116,185,255,0.1)', borderColor: 'rgba(116,185,255,0.35)' },
+  staffIcon:  { fontSize: 20 },
+  staffName:  { color: '#fff', fontSize: 14, fontWeight: '700' },
+  staffSub:   { color: '#8892b0', fontSize: 12, marginTop: 2 },
+  staffCheck: { color: '#74b9ff', fontSize: 18, fontWeight: '800' },
+
+  input:      { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', color: '#fff', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
+
+  btnRow:     { flexDirection: 'row', gap: 10, marginTop: 20 },
+  cancelBtn:  { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  cancelText: { color: '#8892b0', fontWeight: '700', fontSize: 14 },
+  confirmBtn: { flex: 2, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: '#a29bfe' },
+  confirmDim: { opacity: 0.35 },
+  confirmText:{ color: '#fff', fontWeight: '800', fontSize: 14 },
+});
 
 // ─── Birthday Panel styles ────────────────────────────────
 const bp = StyleSheet.create({
@@ -800,6 +1066,7 @@ const s = StyleSheet.create({
   ovMsgTime:      { color: '#4facfe', fontSize: 10, marginTop: 5 },
   ovScrollHint:   { alignItems: 'center', paddingVertical: 7, backgroundColor: 'rgba(79,172,254,0.07)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(79,172,254,0.18)', marginTop: 2 },
   ovScrollHintText:{ color: '#4facfe', fontSize: 11, fontWeight: '700' },
+  ovMsgArrow:     { color: '#4facfe', fontSize: 20, fontWeight: '700', alignSelf: 'center', marginLeft: 4 },
 
   // Activity tabs
   actTabRow:        { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 14, padding: 4, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },

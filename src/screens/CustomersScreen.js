@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   TextInput, Modal, Animated, ScrollView, Alert, Image,
-  Dimensions, StatusBar,
+  Dimensions, StatusBar, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -161,25 +161,427 @@ function DatePickerModal({ visible, value, onConfirm, onClose }) {
 }
 
 const INIT_CUSTOMERS = [
-  { id: '1', name: 'Nguyễn Văn An',  phone: '0912 345 678', email: 'an.nguyen@gmail.com',
-    dob: '15/03/1992', building: 'Nhà A - Green Home', room: '101', since: '01/01/2025',
-    paid: true,  amount: '3,500,000', avatar: { type: 'male'   }, idFront: null, idBack: null },
-  { id: '2', name: 'Trần Thị Bích',  phone: '0987 654 321', email: 'bich.tran@gmail.com',
+  // ── Trạng thái XANH (ok) ────────────────────────────────
+  {
+    id: '1', name: 'Nguyễn Văn An', phone: '0912 345 678', email: 'an.nguyen@gmail.com',
+    dob: '24/04/1992', building: 'Nhà A - Green Home', room: '101', since: '01/01/2025',
+    paid: true, amount: '3,500,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: 12, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '3,500,000', date: '03/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '3,500,000', date: '02/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '3,500,000', date: '05/02/2026', method: 'Tiền mặt'     },
+      { month: '01/2026', amount: '3,500,000', date: '03/01/2026', method: 'Chuyển khoản' },
+      { month: '12/2025', amount: '3,500,000', date: '02/12/2025', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [],
+  },
+  {
+    id: '2', name: 'Trần Thị Bích', phone: '0987 654 321', email: 'bich.tran@gmail.com',
     dob: '22/07/1995', building: 'Nhà A - Green Home', room: '103', since: '15/03/2025',
-    paid: true,  amount: '3,500,000', avatar: { type: 'female' }, idFront: null, idBack: null },
-  { id: '3', name: 'Lê Minh Tuấn',   phone: '0909 111 222', email: 'tuan.le@gmail.com',
-    dob: '08/11/1990', building: 'Nhà A - Green Home', room: '201', since: '20/06/2024',
-    paid: false, amount: '6,000,000', avatar: { type: 'male'   }, idFront: null, idBack: null },
-  { id: '4', name: 'Phạm Thu Hà',    phone: '0978 888 999', email: 'ha.pham@gmail.com',
-    dob: '30/04/1997', building: 'Nhà A - Green Home', room: '301', since: '05/09/2024',
-    paid: true,  amount: '3,500,000', avatar: { type: 'female' }, idFront: null, idBack: null },
-  { id: '5', name: 'Hoàng Đức Minh', phone: '0933 222 111', email: 'minh.hoang@gmail.com',
-    dob: '14/09/1988', building: 'Nhà A - Green Home', room: '302', since: '01/11/2024',
-    paid: false, amount: '8,500,000', avatar: { type: 'male'   }, idFront: null, idBack: null },
-  { id: '6', name: 'Vũ Thị Lan',     phone: '0966 333 444', email: 'lan.vu@gmail.com',
+    paid: true, amount: '3,500,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    daysUntilDue: 18, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '3,500,000', date: '05/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '3,500,000', date: '04/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '3,500,000', date: '06/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '3,500,000', date: '05/01/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Vòi nước bị rỉ',              resolvedBy: 'Thợ Minh Tú',     resolvedAt: '10:30 15/02/2026' },
+      { issue: 'Bóng đèn toilet bị hỏng',     resolvedBy: 'Nguyễn Văn Bình', resolvedAt: '09:00 10/01/2026' },
+    ],
+  },
+  {
+    id: '7', name: 'Bùi Quang Huy', phone: '0944 322 342', email: 'huy.bui@gmail.com',
+    dob: '10/03/1991', building: 'Nhà B - Blue Sky', room: 'B201', since: '01/08/2025',
+    paid: true, amount: '4,200,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: 20, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '4,200,000', date: '01/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '4,200,000', date: '01/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '4,200,000', date: '03/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '4,200,000', date: '02/01/2026', method: 'Chuyển khoản' },
+      { month: '12/2025', amount: '4,200,000', date: '01/12/2025', method: 'Tiền mặt'     },
+      { month: '11/2025', amount: '4,200,000', date: '03/11/2025', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Bóng đèn phòng khách bị hỏng', resolvedBy: 'Nguyễn Văn Bình', resolvedAt: '08:00 10/01/2026' },
+    ],
+    rentalHistory: [
+      { room: '204', building: 'Nhà A - Green Home', from: '01/03/2025', to: '31/07/2025' },
+    ],
+  },
+  {
+    id: '8', name: 'Đinh Thị Hoa', phone: '0911 500 600', email: 'hoa.dinh@gmail.com',
+    dob: '18/06/1998', building: 'Nhà C - Sunrise', room: 'C102', since: '15/10/2025',
+    paid: true, amount: '5,000,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    daysUntilDue: 25, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '5,000,000', date: '02/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '5,000,000', date: '03/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '5,000,000', date: '04/02/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [],
+  },
+  {
+    id: '11', name: 'Lý Thành Đạt', phone: '0935 100 200', email: 'dat.ly@gmail.com',
+    dob: '02/05/1993', building: 'Nhà B - Blue Sky', room: 'B101', since: '01/06/2025',
+    paid: true, amount: '4,200,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: 14, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '4,200,000', date: '04/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '4,200,000', date: '04/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '4,200,000', date: '05/02/2026', method: 'Tiền mặt'     },
+      { month: '01/2026', amount: '4,200,000', date: '06/01/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Máy nước nóng không hoạt động', resolvedBy: 'Thợ Minh Tú',   resolvedAt: '10:00 20/02/2026' },
+      { issue: 'Khe cửa bị gió lùa mạnh',       resolvedBy: 'Thợ Tấn Phát', resolvedAt: '14:00 05/01/2026' },
+    ],
+  },
+  {
+    id: '12', name: 'Ngô Thị Mai', phone: '0968 900 100', email: 'mai.ngo@gmail.com',
+    dob: '14/08/1996', building: 'Nhà C - Sunrise', room: 'C101', since: '01/09/2025',
+    paid: true, amount: '5,000,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    daysUntilDue: 10, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '5,000,000', date: '03/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '5,000,000', date: '05/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '5,000,000', date: '04/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '5,000,000', date: '07/01/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [],
+  },
+  // ── Trạng thái VÀNG (warning) ────────────────────────────
+  {
+    id: '4', name: 'Phạm Thu Hà', phone: '0978 888 999', email: 'ha.pham@gmail.com',
+    dob: '25/04/1997', building: 'Nhà A - Green Home', room: '301', since: '05/09/2024',
+    paid: true, amount: '3,500,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    daysUntilDue: 3, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '3,500,000', date: '02/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '3,500,000', date: '03/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '3,500,000', date: '04/02/2026', method: 'Tiền mặt'     },
+      { month: '01/2026', amount: '3,500,000', date: '06/01/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [],
+  },
+  {
+    id: '6', name: 'Vũ Thị Lan', phone: '0966 333 444', email: 'lan.vu@gmail.com',
     dob: '05/12/1993', building: 'Nhà A - Green Home', room: '104', since: '01/02/2026',
-    paid: true,  amount: '4,800,000', avatar: { type: 'female' }, idFront: null, idBack: null },
+    paid: true, amount: '4,800,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    daysUntilDue: 4, hasRequest: true, hasMoveout: true, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '4,800,000', date: '01/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '4,800,000', date: '02/03/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Bồn cầu bị tắc',             resolvedBy: 'Trần Thị Thu',  resolvedAt: '09:00 22/04/2026' },
+      { issue: 'Cửa sổ bị kẹt không đóng',   resolvedBy: 'Thợ Tấn Phát', resolvedAt: '11:00 10/03/2026' },
+    ],
+  },
+  {
+    id: '9', name: 'Cao Minh Phúc', phone: '0908 700 800', email: 'phuc.cao@gmail.com',
+    dob: '30/11/1994', building: 'Nhà B - Blue Sky', room: 'B103', since: '01/05/2025',
+    paid: false, amount: '4,200,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: 1, hasRequest: true, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '03/2026', amount: '4,200,000', date: '05/03/2026', method: 'Tiền mặt'     },
+      { month: '02/2026', amount: '4,200,000', date: '06/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '4,200,000', date: '04/01/2026', method: 'Chuyển khoản' },
+      { month: '12/2025', amount: '4,200,000', date: '03/12/2025', method: 'Tiền mặt'     },
+    ],
+    incidentHistory: [
+      { issue: 'Điều hòa không mát',           resolvedBy: 'Thợ Minh Tú',     resolvedAt: '14:30 18/03/2026' },
+      { issue: 'Đường ống thoát nước tắc',     resolvedBy: 'Nguyễn Văn Bình', resolvedAt: '08:00 05/02/2026' },
+    ],
+    rentalHistory: [
+      { room: '103', building: 'Nhà A - Green Home', from: '01/10/2024', to: '30/04/2025' },
+    ],
+  },
+  {
+    id: '13', name: 'Đỗ Thị Thanh', phone: '0919 600 700', email: 'thanh.do@gmail.com',
+    dob: '20/09/1997', building: 'Nhà C - Sunrise', room: 'C203', since: '01/12/2025',
+    paid: true, amount: '5,000,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    daysUntilDue: 2, hasRequest: false, hasMoveout: true, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '5,000,000', date: '05/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '5,000,000', date: '06/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '5,000,000', date: '07/02/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Vết thấm nước trên tường',     resolvedBy: 'Thợ Tấn Phát', resolvedAt: '15:00 10/02/2026' },
+    ],
+  },
+  {
+    id: '14', name: 'Trương Quốc Bảo', phone: '0902 800 900', email: 'bao.truong@gmail.com',
+    dob: '12/01/1990', building: 'Nhà B - Blue Sky', room: 'B202', since: '01/07/2025',
+    paid: false, amount: '4,200,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: 0, hasRequest: true, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '03/2026', amount: '4,200,000', date: '07/03/2026', method: 'Tiền mặt'     },
+      { month: '02/2026', amount: '4,200,000', date: '08/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '4,200,000', date: '09/01/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Quạt trần bị rung lắc mạnh',   resolvedBy: 'Nguyễn Văn Bình', resolvedAt: '11:30 25/02/2026' },
+    ],
+  },
+  // ── Trạng thái ĐỎ (danger) ──────────────────────────────
+  {
+    id: '3', name: 'Lê Minh Tuấn', phone: '0909 111 222', email: 'tuan.le@gmail.com',
+    dob: '23/04/1990', building: 'Nhà A - Green Home', room: '201', since: '20/06/2024',
+    paid: false, amount: '6,000,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: -5, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '03/2026', amount: '6,000,000', date: '08/03/2026', method: 'Tiền mặt'     },
+      { month: '02/2026', amount: '6,000,000', date: '06/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '6,000,000', date: '07/01/2026', method: 'Tiền mặt'     },
+      { month: '12/2025', amount: '6,000,000', date: '08/12/2025', method: 'Tiền mặt'     },
+    ],
+    incidentHistory: [],
+  },
+  {
+    id: '5', name: 'Hoàng Đức Minh', phone: '0933 222 111', email: 'minh.hoang@gmail.com',
+    dob: '14/09/1988', building: 'Nhà A - Green Home', room: '302', since: '01/11/2024',
+    paid: false, amount: '8,500,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: -2, hasRequest: true, hasMoveout: false, hasUrgent: true,
+    paymentHistory: [
+      { month: '03/2026', amount: '8,500,000', date: '10/03/2026', method: 'Tiền mặt'     },
+      { month: '02/2026', amount: '8,500,000', date: '09/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '8,500,000', date: '11/01/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Thang máy kêu tiếng lạ',         resolvedBy: 'Admin',              resolvedAt: '14:00 23/04/2026' },
+      { issue: 'Rò rỉ nước từ trần phòng',        resolvedBy: 'Thợ Tấn Phát',      resolvedAt: '10:00 15/04/2026' },
+      { issue: 'Ổ điện bị chập, có mùi khét',    resolvedBy: 'Thợ điện Hải Đăng', resolvedAt: '16:00 02/04/2026' },
+    ],
+    rentalHistory: [
+      { room: '201', building: 'Nhà A - Green Home', from: '01/06/2024', to: '31/10/2024' },
+    ],
+  },
+  {
+    id: '10', name: 'Trịnh Thị Ngọc', phone: '0977 400 500', email: 'ngoc.trinh@gmail.com',
+    dob: '07/02/1996', building: 'Nhà C - Sunrise', room: 'C201', since: '01/03/2026',
+    paid: false, amount: '5,500,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    daysUntilDue: -8, hasRequest: true, hasMoveout: false, hasUrgent: true,
+    paymentHistory: [
+      { month: '03/2026', amount: '5,500,000', date: '15/03/2026', method: 'Tiền mặt' },
+    ],
+    incidentHistory: [
+      { issue: 'Khoá cửa bị hỏng, không vào được phòng', resolvedBy: 'Admin', resolvedAt: '20:30 20/04/2026' },
+      { issue: 'Trần nhà bị nứt, vữa rơi',               resolvedBy: 'Thợ Tấn Phát', resolvedAt: '09:00 05/04/2026' },
+    ],
+  },
+  {
+    id: '15', name: 'Phan Văn Tùng', phone: '0945 300 400', email: 'tung.phan@gmail.com',
+    dob: '28/06/1985', building: 'Nhà A - Green Home', room: '202', since: '01/04/2025',
+    paid: false, amount: '6,000,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: -12, hasRequest: false, hasMoveout: false, hasUrgent: true,
+    paymentHistory: [
+      { month: '03/2026', amount: '6,000,000', date: '12/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '6,000,000', date: '10/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '6,000,000', date: '09/01/2026', method: 'Tiền mặt'     },
+      { month: '12/2025', amount: '6,000,000', date: '10/12/2025', method: 'Tiền mặt'     },
+      { month: '11/2025', amount: '6,000,000', date: '11/11/2025', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Cống thoát nước bếp bị nghẹt',    resolvedBy: 'Thợ Minh Tú',     resolvedAt: '08:30 18/04/2026' },
+      { issue: 'Bình nóng lạnh chảy nước ra ngoài', resolvedBy: 'Thợ điện Hải Đăng', resolvedAt: '13:00 01/04/2026' },
+    ],
+  },
+  // ── Khách hiện tại có nhiều lịch sử phòng ───────────────
+  {
+    id: '16', name: 'Trần Văn Nam', phone: '0921 456 789', email: 'nam.tran@gmail.com',
+    dob: '05/11/1992', building: 'Nhà A - Green Home', room: '303', since: '01/02/2026',
+    paid: true, amount: '3,500,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    daysUntilDue: 8, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '3,500,000', date: '04/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '3,500,000', date: '04/03/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [],
+    rentalHistory: [
+      { room: 'B203', building: 'Nhà B - Blue Sky',  from: '01/06/2025', to: '31/01/2026' },
+      { room: '202',  building: 'Nhà A - Green Home', from: '01/01/2025', to: '31/05/2025' },
+    ],
+  },
+  {
+    id: '17', name: 'Phạm Minh Châu', phone: '0956 789 012', email: 'chau.pham@gmail.com',
+    dob: '12/04/1994', building: 'Nhà C - Sunrise', room: 'C202', since: '01/10/2025',
+    paid: true, amount: '5,000,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    daysUntilDue: 15, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '5,000,000', date: '06/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '5,000,000', date: '06/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '5,000,000', date: '07/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '5,000,000', date: '08/01/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Vòi rửa bếp bị rỉ nước', resolvedBy: 'Thợ Minh Tú', resolvedAt: '10:00 12/11/2025' },
+    ],
+    rentalHistory: [
+      { room: '301', building: 'Nhà A - Green Home', from: '01/03/2025', to: '30/09/2025' },
+    ],
+  },
+  // ── Khách cũ (isFormer) ──────────────────────────────────
+  {
+    id: 'f1', name: 'Nguyễn Thị Hương', phone: '0912 111 333', email: 'huong.nguyen@gmail.com',
+    dob: '15/03/1990', building: 'Nhà A - Green Home', room: '102', since: '01/06/2024',
+    paid: true, amount: '3,500,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    isFormer: true, moveOutDate: '31/03/2026', moveOutReason: 'Hết hợp đồng',
+    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '03/2026', amount: '3,500,000', date: '03/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '3,500,000', date: '05/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '3,500,000', date: '04/01/2026', method: 'Chuyển khoản' },
+      { month: '12/2025', amount: '3,500,000', date: '02/12/2025', method: 'Tiền mặt'     },
+      { month: '11/2025', amount: '3,500,000', date: '03/11/2025', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Vòi sen bị hỏng', resolvedBy: 'Thợ Minh Tú', resolvedAt: '10:00 20/01/2026' },
+    ],
+    rentalHistory: [
+      { room: '204', building: 'Nhà A - Green Home', from: '01/01/2024', to: '31/05/2024' },
+    ],
+  },
+  {
+    id: 'f2', name: 'Đặng Minh Khoa', phone: '0966 444 555', email: 'khoa.dang@gmail.com',
+    dob: '22/08/1993', building: 'Nhà B - Blue Sky', room: 'B102', since: '01/09/2025',
+    paid: true, amount: '4,200,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    isFormer: true, moveOutDate: '28/02/2026', moveOutReason: 'Chuyển công tác',
+    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '02/2026', amount: '4,200,000', date: '05/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '4,200,000', date: '06/01/2026', method: 'Chuyển khoản' },
+      { month: '12/2025', amount: '4,200,000', date: '04/12/2025', method: 'Tiền mặt'     },
+    ],
+    incidentHistory: [],
+    rentalHistory: [],
+  },
+  {
+    id: 'f3', name: 'Lưu Thị Ngân', phone: '0933 777 888', email: 'ngan.luu@gmail.com',
+    dob: '08/11/1995', building: 'Nhà C - Sunrise', room: 'C103', since: '01/04/2025',
+    paid: true, amount: '5,000,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    isFormer: true, moveOutDate: '31/01/2026', moveOutReason: 'Mua nhà riêng',
+    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '01/2026', amount: '5,000,000', date: '03/01/2026', method: 'Chuyển khoản' },
+      { month: '12/2025', amount: '5,000,000', date: '02/12/2025', method: 'Chuyển khoản' },
+      { month: '11/2025', amount: '5,000,000', date: '04/11/2025', method: 'Chuyển khoản' },
+      { month: '10/2025', amount: '5,000,000', date: '03/10/2025', method: 'Tiền mặt'     },
+    ],
+    incidentHistory: [
+      { issue: 'Điều hòa bị rỉ nước',      resolvedBy: 'Thợ Tấn Phát',   resolvedAt: '09:00 15/12/2025' },
+      { issue: 'Ổ cắm điện không có điện', resolvedBy: 'Thợ điện Hải Đăng', resolvedAt: '14:00 01/11/2025' },
+    ],
+    rentalHistory: [
+      { room: '303', building: 'Nhà A - Green Home', from: '01/10/2024', to: '31/03/2025' },
+      { room: '202', building: 'Nhà A - Green Home', from: '01/05/2024', to: '30/09/2024' },
+    ],
+  },
+  {
+    id: 'f4', name: 'Vương Tuấn Kiệt', phone: '0901 222 333', email: 'kiet.vuong@gmail.com',
+    dob: '05/07/1988', building: 'Nhà A - Green Home', room: '203', since: '01/07/2025',
+    paid: true, amount: '6,000,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    isFormer: true, moveOutDate: '15/03/2026', moveOutReason: 'Hết hợp đồng',
+    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '03/2026', amount: '6,000,000', date: '05/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '6,000,000', date: '06/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '6,000,000', date: '07/01/2026', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Cánh cửa bị bật bản lề', resolvedBy: 'Nguyễn Văn Bình', resolvedAt: '11:00 20/02/2026' },
+    ],
+    rentalHistory: [],
+  },
+  {
+    id: 'f5', name: 'Hoàng Thị Yến', phone: '0972 111 222', email: 'yen.hoang@gmail.com',
+    dob: '25/04/1992', building: 'Nhà C - Sunrise', room: 'C202', since: '01/05/2025',
+    paid: true, amount: '5,000,000', avatar: { type: 'female' }, idFront: null, idBack: null,
+    isFormer: true, moveOutDate: '30/04/2026', moveOutReason: 'Chuyển về quê',
+    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '04/2026', amount: '5,000,000', date: '02/04/2026', method: 'Chuyển khoản' },
+      { month: '03/2026', amount: '5,000,000', date: '03/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '5,000,000', date: '04/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '5,000,000', date: '05/01/2026', method: 'Tiền mặt'     },
+      { month: '12/2025', amount: '5,000,000', date: '04/12/2025', method: 'Chuyển khoản' },
+    ],
+    incidentHistory: [
+      { issue: 'Cửa phòng bị hỏng khoá',  resolvedBy: 'Nguyễn Văn Bình', resolvedAt: '09:00 15/01/2026' },
+      { issue: 'Bồn rửa tay bị nghẹt',    resolvedBy: 'Thợ Minh Tú',     resolvedAt: '14:00 10/12/2025' },
+    ],
+    rentalHistory: [
+      { room: 'B103', building: 'Nhà B - Blue Sky',  from: '01/10/2024', to: '30/04/2025' },
+      { room: '104',  building: 'Nhà A - Green Home', from: '01/03/2024', to: '30/09/2024' },
+    ],
+  },
+  {
+    id: 'f6', name: 'Nguyễn Quốc Hùng', phone: '0903 333 444', email: 'hung.nguyen@gmail.com',
+    dob: '16/07/1989', building: 'Nhà A - Green Home', room: '303', since: '01/02/2025',
+    paid: true, amount: '3,500,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    isFormer: true, moveOutDate: '31/01/2026', moveOutReason: 'Hết hợp đồng',
+    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '01/2026', amount: '3,500,000', date: '04/01/2026', method: 'Chuyển khoản' },
+      { month: '12/2025', amount: '3,500,000', date: '03/12/2025', method: 'Chuyển khoản' },
+      { month: '11/2025', amount: '3,500,000', date: '04/11/2025', method: 'Tiền mặt'     },
+    ],
+    incidentHistory: [],
+    rentalHistory: [],
+  },
+  {
+    id: 'f7', name: 'Mai Anh Tuấn', phone: '0948 555 666', email: 'tuan.mai@gmail.com',
+    dob: '03/12/1991', building: 'Nhà B - Blue Sky', room: 'B202', since: '01/06/2025',
+    paid: true, amount: '4,200,000', avatar: { type: 'male' }, idFront: null, idBack: null,
+    isFormer: true, moveOutDate: '28/03/2026', moveOutReason: 'Chuyển công ty',
+    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
+    paymentHistory: [
+      { month: '03/2026', amount: '4,200,000', date: '06/03/2026', method: 'Chuyển khoản' },
+      { month: '02/2026', amount: '4,200,000', date: '07/02/2026', method: 'Chuyển khoản' },
+      { month: '01/2026', amount: '4,200,000', date: '08/01/2026', method: 'Chuyển khoản' },
+      { month: '12/2025', amount: '4,200,000', date: '05/12/2025', method: 'Tiền mặt'     },
+    ],
+    incidentHistory: [
+      { issue: 'Điều hòa bị hỏng compressor', resolvedBy: 'Thợ điện Hải Đăng', resolvedAt: '10:00 20/01/2026' },
+    ],
+    rentalHistory: [
+      { room: '204', building: 'Nhà A - Green Home', from: '01/01/2025', to: '31/05/2025' },
+    ],
+  },
 ];
+
+// ─── Building & Status helpers ────────────────────────────
+const BUILDING_CODES = {
+  'Nhà A - Green Home': 'GHA',
+  'Nhà B - Blue Sky':   'BSB',
+  'Nhà C - Sunrise':    'SRC',
+};
+
+function getRoomCode(building, room) {
+  const code = BUILDING_CODES[building] || 'UNK';
+  const num  = room ? room.replace(/^[A-Za-z](?=\d)/, '') : '—';
+  return `${code}-${num}`;
+}
+
+const STATUS_CFG = {
+  ok:      { icon: '✅', color: '#2ecc71', label: 'Bình thường' },
+  warning: { icon: '⚠️', color: '#f1c40f', label: 'Cần chú ý'  },
+  danger:  { icon: '🔺', color: '#e94560', label: 'Khẩn cấp'   },
+};
+
+function getCustomerStatus(c) {
+  if (c.hasUrgent || (c.daysUntilDue !== undefined && c.daysUntilDue < 0)) return 'danger';
+  if (c.hasRequest || c.hasMoveout || (c.daysUntilDue !== undefined && c.daysUntilDue >= 0 && c.daysUntilDue <= 5)) return 'warning';
+  return 'ok';
+}
+
+function getCustomerId(phone) {
+  return `C-${(phone || '').replace(/\D/g, '')}`;
+}
 
 // ─── Avatar helpers ───────────────────────────────────────
 const AVATAR_ICONS = {
@@ -500,63 +902,70 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
         {c && (
           <>
             {/* Header */}
-            <View style={dt.header}>
-              <AvatarDisplay avatar={c.avatar} size={60} />
-              <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={dt.name}>{c.name}</Text>
-                <View style={dt.badgeRow}>
-                  {c.building ? (
-                    <View style={dt.buildingBadge}>
-                      <Text style={dt.buildingBadgeText}>🏢 {c.building.split(' - ')[0]}</Text>
+            {(() => {
+              const isFormer  = c.isFormer === true;
+              const statusKey = isFormer ? null : getCustomerStatus(c);
+              const stCfg     = statusKey ? STATUS_CFG[statusKey] : null;
+              const roomCode  = (c.building && c.room) ? getRoomCode(c.building, c.room) : '—';
+              return (
+                <View style={dt.header}>
+                  <AvatarDisplay avatar={c.avatar} size={60} />
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text style={dt.name}>{c.name}</Text>
+                    <View style={dt.badgeRow}>
+                      {roomCode !== '—' && (
+                        <View style={[dt.roomCodeBadge, isFormer && dt.roomCodeBadgeFormer]}>
+                          <Text style={[dt.roomCodeText, isFormer && dt.roomCodeTextFormer]}>🏠 {roomCode}</Text>
+                        </View>
+                      )}
+                      {isFormer ? (
+                        <View style={dt.formerBadge}>
+                          <Text style={dt.formerBadgeText}>🚪 Đã rời · {c.moveOutDate}</Text>
+                        </View>
+                      ) : (
+                        <View style={[dt.statusBadge, { backgroundColor: `${stCfg.color}22`, borderColor: `${stCfg.color}55` }]}>
+                          <Text style={[dt.statusText, { color: stCfg.color }]}>
+                            {stCfg.icon} {stCfg.label}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  ) : null}
-                  {c.room ? (
-                    <View style={dt.roomBadge}>
-                      <Text style={dt.roomBadgeText}>P{c.room}</Text>
-                    </View>
-                  ) : null}
-                  <View style={[dt.paidBadge, !c.paid && dt.unpaidBadge]}>
-                    <Text style={[dt.paidText, !c.paid && dt.unpaidText]}>
-                      {c.paid ? '✅ Đã đóng' : '❌ Nợ tiền'}
-                    </Text>
                   </View>
+                  <TouchableOpacity style={dt.closeBtn} onPress={handleClose}>
+                    <Text style={dt.closeBtnText}>✕</Text>
+                  </TouchableOpacity>
                 </View>
-              </View>
-              <TouchableOpacity style={dt.closeBtn} onPress={handleClose}>
-                <Text style={dt.closeBtnText}>✕</Text>
+              );
+            })()}
+
+            {/* Action buttons — always visible above scroll */}
+            <View style={dt.actionRow}>
+              <TouchableOpacity style={dt.editBtn} onPress={() => { handleClose(); onEdit(c); }}>
+                <Text style={dt.editBtnText}>✏️  Chỉnh sửa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={dt.callBtn}
+                onPress={() => c.phone && Linking.openURL(`tel:${c.phone.replace(/\D/g, '')}`)}
+              >
+                <Text style={dt.callBtnText}>📞  Gọi điện</Text>
               </TouchableOpacity>
             </View>
 
             <ScrollView style={dt.scroll} showsVerticalScrollIndicator={false}>
 
-              {/* Edit button */}
-              <TouchableOpacity style={dt.editBtn} onPress={() => { handleClose(); onEdit(c); }}>
-                <Text style={dt.editBtnText}>✏️  Chỉnh sửa thông tin</Text>
-              </TouchableOpacity>
-
-              {/* Contact info */}
+              {/* Personal info */}
               <View style={dt.section}>
                 <Text style={dt.sectionTitle}>📋 Thông tin cá nhân</Text>
                 <View style={dt.card}>
-                  <DtRow label="Họ và tên"      value={c.name} />
-                  <DtRow label="Số điện thoại"  value={c.phone} />
-                  <DtRow label="Email"           value={c.email} />
-                  <DtRow label="Ngày sinh"       value={c.dob} accent />
+                  <DtRow label="Mã khách hàng"  value={getCustomerId(c.phone)} accent />
+                  <DtRow label="Họ và tên"       value={c.name} />
+                  <DtRow label="Số điện thoại"   value={c.phone} />
+                  <DtRow label="Email"            value={c.email} />
+                  <DtRow label="Ngày sinh"        value={c.dob} />
                 </View>
               </View>
 
-              {/* Rental info */}
-              <View style={dt.section}>
-                <Text style={dt.sectionTitle}>🏠 Thông tin thuê phòng</Text>
-                <View style={dt.card}>
-                  <DtRow label="Tòa nhà"      value={c.building || '—'} />
-                  <DtRow label="Số phòng"     value={c.room    ? `Phòng ${c.room}` : '—'} accent />
-                  <DtRow label="Thuê từ ngày" value={c.since   || '—'} />
-                  <DtRow label="Tiền thuê/tháng" value={c.amount ? `${c.amount} ₫` : '—'} />
-                </View>
-              </View>
-
-              {/* ID Card */}
+              {/* CCCD — moved below personal info */}
               <View style={dt.section}>
                 <Text style={dt.sectionTitle}>🪪 Căn cước công dân</Text>
                 <View style={dt.idCardRow}>
@@ -581,6 +990,115 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
                     <View style={dt.idCardLabel}><Text style={dt.idCardLabelText}>Mặt sau</Text></View>
                   </View>
                 </View>
+              </View>
+
+              {/* Rental info */}
+              <View style={dt.section}>
+                <Text style={dt.sectionTitle}>🏠 Thông tin thuê phòng</Text>
+                <View style={dt.card}>
+                  <DtRow label="Mã phòng"        value={(c.building && c.room) ? getRoomCode(c.building, c.room) : '—'} accent />
+                  <DtRow label="Tòa nhà"         value={c.building || '—'} />
+                  <DtRow label="Thuê từ ngày"    value={c.since    || '—'} />
+                  <DtRow label="Tiền thuê/tháng" value={c.amount   ? `${c.amount} ₫` : '—'} />
+                  {c.hasMoveout && (
+                    <View style={dt.row}>
+                      <Text style={dt.rowLabel}>Yêu cầu</Text>
+                      <Text style={[dt.rowValue, { color: '#f1c40f', fontWeight: '700' }]}>
+                        🚚 Đăng ký chuyển đi
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Payment history */}
+              <View style={dt.section}>
+                <Text style={dt.sectionTitle}>💳 Lịch sử thanh toán</Text>
+                {(!c.paymentHistory || c.paymentHistory.length === 0) ? (
+                  <View style={dt.emptyBox}>
+                    <Text style={dt.emptyText}>Chưa có lịch sử thanh toán</Text>
+                  </View>
+                ) : (
+                  <View style={dt.historyTable}>
+                    <View style={dt.historyHeader}>
+                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.2 }]}>Tháng</Text>
+                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.6 }]}>Số tiền</Text>
+                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.4 }]}>Ngày đóng</Text>
+                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.4 }]}>Hình thức</Text>
+                    </View>
+                    {c.paymentHistory.map((p, i) => (
+                      <View key={i} style={[dt.historyRow, i % 2 === 0 && dt.historyRowAlt]}>
+                        <Text style={[dt.historyCell, { flex: 1.2 }]}>{p.month}</Text>
+                        <Text style={[dt.historyCell, { flex: 1.6, color: '#2ecc71', fontWeight: '700' }]}>{p.amount} ₫</Text>
+                        <Text style={[dt.historyCell, { flex: 1.4 }]}>{p.date}</Text>
+                        <Text style={[dt.historyCell, { flex: 1.4 }]}>{p.method}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Incident history */}
+              <View style={dt.section}>
+                <Text style={dt.sectionTitle}>🔧 Lịch sử giải quyết sự cố</Text>
+                {(!c.incidentHistory || c.incidentHistory.length === 0) ? (
+                  <View style={dt.emptyBox}>
+                    <Text style={dt.emptyText}>Chưa có sự cố nào được ghi nhận</Text>
+                  </View>
+                ) : (
+                  c.incidentHistory.map((inc, i) => (
+                    <View key={i} style={dt.incidentRow}>
+                      <View style={dt.incidentLeft}>
+                        <Text style={dt.incidentIssue}>{inc.issue}</Text>
+                        <Text style={dt.incidentBy}>👤 Xử lý: {inc.resolvedBy}</Text>
+                      </View>
+                      <Text style={dt.incidentTime}>{inc.resolvedAt}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+
+              {/* Rental history */}
+              <View style={dt.section}>
+                <Text style={dt.sectionTitle}>🏘️ Lịch sử thuê phòng</Text>
+                {/* Current / last room */}
+                {c.building && c.room && (
+                  <View style={dt.rentalItem}>
+                    <View style={dt.rentalInfo}>
+                      <Text style={dt.rentalRoomCode}>{getRoomCode(c.building, c.room)}</Text>
+                      <Text style={dt.rentalBuilding}>{c.building}</Text>
+                      <Text style={dt.rentalDate}>
+                        {c.isFormer ? `${c.since} → ${c.moveOutDate}` : `Từ ${c.since}`}
+                      </Text>
+                      {c.isFormer && c.moveOutReason && (
+                        <Text style={dt.rentalNote}>Lý do: {c.moveOutReason}</Text>
+                      )}
+                    </View>
+                    <View style={[dt.rentalBadge, c.isFormer ? dt.rentalBadgeLast : dt.rentalBadgeCurrent]}>
+                      <Text style={dt.rentalBadgeText}>{c.isFormer ? 'Phòng cuối' : 'Đang ở'}</Text>
+                    </View>
+                  </View>
+                )}
+                {/* Past rooms */}
+                {c.rentalHistory && c.rentalHistory.length > 0
+                  ? c.rentalHistory.map((r, i) => (
+                      <View key={i} style={dt.rentalItem}>
+                        <View style={dt.rentalInfo}>
+                          <Text style={dt.rentalRoomCode}>{getRoomCode(r.building, r.room)}</Text>
+                          <Text style={dt.rentalBuilding}>{r.building}</Text>
+                          <Text style={dt.rentalDate}>{r.from} → {r.to}</Text>
+                        </View>
+                        <View style={[dt.rentalBadge, dt.rentalBadgePast]}>
+                          <Text style={dt.rentalBadgeText}>Đã ở</Text>
+                        </View>
+                      </View>
+                    ))
+                  : (!c.building && !c.room) && (
+                      <View style={dt.emptyBox}>
+                        <Text style={dt.emptyText}>Chưa có lịch sử thuê phòng</Text>
+                      </View>
+                    )
+                }
               </View>
 
               <View style={{ height: 40 }} />
@@ -610,20 +1128,39 @@ export default function CustomersScreen() {
   const [editCustomer,    setEditCustomer]    = useState(null);
   const [detailCustomer,  setDetailCustomer]  = useState(null);
 
-  const filtered = customers
+  const activeCustomers = customers.filter(c => !c.isFormer);
+  const formerCustomers = customers.filter(c =>  c.isFormer);
+
+  const byName = (a, b) => a.name.localeCompare(b.name, 'vi');
+  const matchSearch = c => {
+    const q = search.toLowerCase();
+    return !q
+      || c.name.toLowerCase().includes(q)
+      || c.phone.includes(q)
+      || (c.room  && c.room.toLowerCase().includes(q))
+      || (c.email && c.email.toLowerCase().includes(q));
+  };
+
+  const STATUS_FILTER = { 'Bình thường': 'ok', 'Sự cố': 'warning', 'Khẩn cấp': 'danger' };
+
+  const filteredActive = activeCustomers
     .filter(c => {
-      const q = search.toLowerCase();
-      const matchSearch = !q
-        || c.name.toLowerCase().includes(q)
-        || c.phone.includes(q)
-        || (c.room && c.room.toLowerCase().includes(q))
-        || (c.email && c.email.toLowerCase().includes(q));
-      const matchFilter = activeFilter === 'Tất cả'
-        || (activeFilter === 'Đã thanh toán'  && c.paid)
-        || (activeFilter === 'Chưa thanh toán' && !c.paid);
-      return matchSearch && matchFilter;
+      if (!matchSearch(c)) return false;
+      const sf = STATUS_FILTER[activeFilter];
+      return !sf || getCustomerStatus(c) === sf;
     })
-    .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+    .sort(byName);
+
+  const filteredFormer = formerCustomers.filter(matchSearch).sort(byName);
+
+  // "Tất cả" → active first, former at bottom (with divider); other filters → respective list
+  const listData = activeFilter === 'Khách cũ'
+    ? filteredFormer
+    : activeFilter === 'Tất cả'
+      ? (filteredFormer.length > 0
+          ? [...filteredActive, { id: '__div', isDivider: true }, ...filteredFormer]
+          : filteredActive)
+      : filteredActive;
 
   const handleSave = data => {
     if (editCustomer) {
@@ -638,8 +1175,9 @@ export default function CustomersScreen() {
   const openAdd  = () => { setEditCustomer(null); setFormVisible(true); };
   const openEdit = c   => { setEditCustomer(c);   setFormVisible(true); };
 
-  const totalPaid   = customers.filter(c => c.paid).length;
-  const totalUnpaid = customers.filter(c => !c.paid).length;
+  const totalOk      = activeCustomers.filter(c => getCustomerStatus(c) === 'ok').length;
+  const totalWarning = activeCustomers.filter(c => getCustomerStatus(c) === 'warning').length;
+  const totalDanger  = activeCustomers.filter(c => getCustomerStatus(c) === 'danger').length;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -663,7 +1201,7 @@ export default function CustomersScreen() {
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={s.header}>
           <View>
             <Text style={s.title}>Khách hàng</Text>
-            <Text style={s.subtitle}>23/04/2026 · {customers.length} khách đang thuê</Text>
+            <Text style={s.subtitle}>23/04/2026 · {activeCustomers.length} khách đang thuê</Text>
           </View>
           <TouchableOpacity style={s.addBtn} onPress={openAdd}>
             <Text style={s.addBtnText}>＋ Thêm mới</Text>
@@ -672,19 +1210,29 @@ export default function CustomersScreen() {
 
         {/* Summary strip */}
         <View style={s.summaryStrip}>
-          <View style={s.sumItem}>
-            <Text style={s.sumNum}>{customers.length}</Text>
-            <Text style={s.sumLbl}>Tổng khách</Text>
-          </View>
-          <View style={s.sumDiv} />
-          <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Đã thanh toán')}>
-            <Text style={[s.sumNum, { color: '#2ecc71' }]}>{totalPaid}</Text>
-            <Text style={s.sumLbl}>Đã đóng tiền</Text>
+          <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Tất cả')}>
+            <Text style={s.sumNum}>{activeCustomers.length}</Text>
+            <Text style={s.sumLbl}>Khách</Text>
           </TouchableOpacity>
           <View style={s.sumDiv} />
-          <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Chưa thanh toán')}>
-            <Text style={[s.sumNum, { color: '#e94560' }]}>{totalUnpaid}</Text>
-            <Text style={s.sumLbl}>Chưa đóng</Text>
+          <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Bình thường')}>
+            <Text style={[s.sumNum, { color: '#2ecc71' }]}>{totalOk}</Text>
+            <Text style={s.sumLbl}>Tốt</Text>
+          </TouchableOpacity>
+          <View style={s.sumDiv} />
+          <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Sự cố')}>
+            <Text style={[s.sumNum, { color: '#f1c40f' }]}>{totalWarning}</Text>
+            <Text style={s.sumLbl}>Sự cố</Text>
+          </TouchableOpacity>
+          <View style={s.sumDiv} />
+          <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Khẩn cấp')}>
+            <Text style={[s.sumNum, { color: '#e94560' }]}>{totalDanger}</Text>
+            <Text style={s.sumLbl}>Khẩn cấp</Text>
+          </TouchableOpacity>
+          <View style={s.sumDiv} />
+          <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Khách cũ')}>
+            <Text style={[s.sumNum, { color: '#8892b0' }]}>{formerCustomers.length}</Text>
+            <Text style={s.sumLbl}>Khách cũ</Text>
           </TouchableOpacity>
         </View>
 
@@ -707,7 +1255,7 @@ export default function CustomersScreen() {
 
         {/* Filter */}
         <View style={s.filterRow}>
-          {['Tất cả', 'Đã thanh toán', 'Chưa thanh toán'].map(f => (
+          {['Tất cả', 'Đã thanh toán', 'Chưa thanh toán', 'Khách cũ'].map(f => (
             <TouchableOpacity
               key={f}
               style={[s.filterBtn, activeFilter === f && s.filterActive]}
@@ -720,7 +1268,7 @@ export default function CustomersScreen() {
 
         {/* List */}
         <FlatList
-          data={filtered}
+          data={listData}
           keyExtractor={item => item.id}
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
@@ -729,36 +1277,51 @@ export default function CustomersScreen() {
               <Text style={s.emptyText}>Không tìm thấy khách hàng nào</Text>
             </View>
           }
-          renderItem={({ item: c }) => (
-            <TouchableOpacity style={s.card} onPress={() => setDetailCustomer(c)} activeOpacity={0.8}>
-              <AvatarDisplay avatar={c.avatar} size={50} />
-              <View style={s.cardInfo}>
-                <Text style={s.cardName}>{c.name}</Text>
-                <Text style={s.cardPhone}>{c.phone}</Text>
-                <View style={s.cardMeta}>
-                  {c.building ? (
-                    <View style={s.buildingBadge}>
-                      <Text style={s.buildingBadgeText}>{c.building.split(' - ')[0]}</Text>
-                    </View>
-                  ) : null}
-                  {c.room ? (
-                    <View style={s.roomBadge}>
-                      <Text style={s.roomBadgeText}>P{c.room}</Text>
-                    </View>
-                  ) : null}
-                  {c.since ? <Text style={s.since}>Từ {c.since}</Text> : null}
+          renderItem={({ item: c }) => {
+            if (c.isDivider) {
+              return (
+                <View style={s.listDivider}>
+                  <View style={s.listDividerLine} />
+                  <Text style={s.listDividerText}>── Khách cũ ──</Text>
+                  <View style={s.listDividerLine} />
                 </View>
-              </View>
-              <View style={s.cardRight}>
-                <View style={[s.paidBadge, !c.paid && s.unpaidBadge]}>
-                  <Text style={[s.paidText, !c.paid && s.unpaidText]}>
-                    {c.paid ? '✅ Đã đóng' : '❌ Chưa đóng'}
-                  </Text>
+              );
+            }
+            const isFormer  = c.isFormer === true;
+            const statusKey = isFormer ? null : getCustomerStatus(c);
+            const stCfg     = statusKey ? STATUS_CFG[statusKey] : null;
+            const roomCode  = (c.building && c.room) ? getRoomCode(c.building, c.room) : '—';
+            return (
+              <TouchableOpacity
+                style={[s.card, isFormer && s.cardFormer]}
+                onPress={() => setDetailCustomer(c)}
+                activeOpacity={0.8}
+              >
+                <AvatarDisplay avatar={c.avatar} size={50} />
+                <View style={s.cardInfo}>
+                  <Text style={[s.cardName, isFormer && s.cardNameFormer]}>{c.name}</Text>
+                  <Text style={s.cardPhone}>{c.phone}</Text>
+                  <View style={s.cardMeta}>
+                    {roomCode !== '—' && (
+                      <View style={[s.roomCodeBadge, isFormer && s.roomCodeBadgeFormer]}>
+                        <Text style={[s.roomCodeText, isFormer && s.roomCodeTextFormer]}>{roomCode}</Text>
+                      </View>
+                    )}
+                    {isFormer
+                      ? <Text style={s.moveOutDate}>Rời: {c.moveOutDate}</Text>
+                      : c.since ? <Text style={s.since}>Từ {c.since}</Text> : null
+                    }
+                  </View>
                 </View>
-                <Text style={s.amount}>{c.amount} ₫</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+                <View style={s.cardRight}>
+                  {isFormer
+                    ? <Text style={s.formerIcon}>🏠</Text>
+                    : <Text style={[s.statusIcon, { color: stCfg.color }]}>{stCfg.icon}</Text>
+                  }
+                </View>
+              </TouchableOpacity>
+            );
+          }}
         />
       </View>
     </SafeAreaView>
@@ -842,9 +1405,12 @@ const dt = StyleSheet.create({
   unpaidText:   { color: '#e94560' },
   closeBtn:     { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', marginLeft: 8 },
   closeBtnText: { color: '#8892b0', fontSize: 14 },
-  scroll:       { paddingHorizontal: 20 },
-  editBtn:      { marginTop: 14, backgroundColor: 'rgba(79,172,254,0.1)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(79,172,254,0.28)' },
+  actionRow:    { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  callBtn:      { flex: 1, backgroundColor: 'rgba(46,204,113,0.12)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.3)' },
+  callBtnText:  { color: '#2ecc71', fontWeight: '700', fontSize: 13 },
+  editBtn:      { flex: 1, backgroundColor: 'rgba(79,172,254,0.1)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(79,172,254,0.28)' },
   editBtnText:  { color: '#4facfe', fontWeight: '700', fontSize: 13 },
+  scroll:       { paddingHorizontal: 20 },
   section:      { marginTop: 20 },
   sectionTitle: { color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 10 },
   card:         { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 16, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
@@ -859,6 +1425,48 @@ const dt = StyleSheet.create({
   idCardEmptyText: { color: '#8892b0', fontSize: 11, textAlign: 'center', paddingHorizontal: 8 },
   idCardLabel:  { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 4, alignItems: 'center' },
   idCardLabelText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+
+  // Room code & status badges (new)
+  roomCodeBadge:       { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)' },
+  roomCodeText:        { color: '#4facfe', fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  roomCodeBadgeFormer: { backgroundColor: 'rgba(136,146,176,0.12)', borderColor: 'rgba(136,146,176,0.25)' },
+  roomCodeTextFormer:  { color: '#8892b0' },
+  statusBadge:   { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
+  statusText:    { fontSize: 12, fontWeight: '700' },
+  formerBadge:   { backgroundColor: 'rgba(136,146,176,0.12)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(136,146,176,0.25)' },
+  formerBadgeText: { color: '#8892b0', fontSize: 12, fontWeight: '700' },
+
+  // Rental history section
+  rentalItem:         { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 12 },
+  rentalBadge:        { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 72, alignItems: 'center', borderWidth: 1 },
+  rentalBadgeCurrent: { backgroundColor: 'rgba(46,204,113,0.15)', borderColor: 'rgba(46,204,113,0.35)' },
+  rentalBadgeLast:    { backgroundColor: 'rgba(136,146,176,0.12)', borderColor: 'rgba(136,146,176,0.3)' },
+  rentalBadgePast:    { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' },
+  rentalBadgeText:    { fontSize: 11, fontWeight: '700', color: '#ccd6f6' },
+  rentalInfo:         { flex: 1 },
+  rentalRoomCode:     { color: '#4facfe', fontSize: 14, fontWeight: '800', letterSpacing: 0.4 },
+  rentalBuilding:     { color: '#8892b0', fontSize: 12, marginTop: 1 },
+  rentalDate:         { color: '#ccd6f6', fontSize: 12, marginTop: 3 },
+  rentalNote:         { color: '#f1c40f', fontSize: 11, marginTop: 2 },
+
+  // Payment history table (new)
+  historyTable:    { borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  historyHeader:   { flexDirection: 'row', backgroundColor: 'rgba(79,172,254,0.12)', paddingVertical: 8, paddingHorizontal: 10 },
+  historyRow:      { flexDirection: 'row', paddingVertical: 9, paddingHorizontal: 10 },
+  historyRowAlt:   { backgroundColor: 'rgba(255,255,255,0.03)' },
+  historyCell:     { color: '#ccd6f6', fontSize: 11.5, flex: 1 },
+  historyCellHead: { color: '#8892b0', fontWeight: '700', fontSize: 11 },
+
+  // Incident history (new)
+  incidentRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  incidentLeft:  { flex: 1, marginRight: 8 },
+  incidentIssue: { color: '#ccd6f6', fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  incidentBy:    { color: '#8892b0', fontSize: 11 },
+  incidentTime:  { color: '#4facfe', fontSize: 11, fontWeight: '600', flexShrink: 0 },
+
+  // Empty state (new)
+  emptyBox:  { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, paddingVertical: 18, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  emptyText: { color: '#8892b0', fontSize: 13 },
 });
 
 // ─── Screen styles ────────────────────────────────────────
@@ -874,7 +1482,7 @@ const s = StyleSheet.create({
 
   summaryStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 16, marginTop: 16, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 4 },
   sumItem:  { flex: 1, alignItems: 'center' },
-  sumNum:   { color: '#fff', fontSize: 22, fontWeight: '900' },
+  sumNum:   { color: '#fff', fontSize: 18, fontWeight: '900' },
   sumLbl:   { color: '#8892b0', fontSize: 10, marginTop: 2, fontWeight: '600', textAlign: 'center' },
   sumDiv:   { width: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
 
@@ -909,6 +1517,25 @@ const s = StyleSheet.create({
   paidText:    { color: '#2ecc71', fontSize: 11, fontWeight: '600' },
   unpaidText:  { color: '#e94560' },
   amount:      { color: '#4facfe', fontSize: 12, fontWeight: '700' },
+
+  // Room code & status (new)
+  roomCodeBadge:       { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)' },
+  roomCodeText:        { color: '#4facfe', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  roomCodeBadgeFormer: { backgroundColor: 'rgba(136,146,176,0.1)', borderColor: 'rgba(136,146,176,0.2)' },
+  roomCodeTextFormer:  { color: '#8892b0' },
+  statusIcon:    { fontSize: 18 },
+  statusLabel:   { fontSize: 10, fontWeight: '700', marginTop: -2 },
+  formerIcon:    { fontSize: 18, opacity: 0.4 },
+
+  // Former customer card
+  cardFormer:    { opacity: 0.7, borderColor: 'rgba(255,255,255,0.05)' },
+  cardNameFormer:{ color: '#8892b0' },
+  moveOutDate:   { color: '#8892b0', fontSize: 11 },
+
+  // Section divider
+  listDivider:     { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginVertical: 8, gap: 10 },
+  listDividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+  listDividerText: { color: '#8892b0', fontSize: 11, fontWeight: '700' },
 });
 
 // ─── Date Picker styles ───────────────────────────────────
