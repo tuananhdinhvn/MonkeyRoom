@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
+import { BuildingsProvider } from '../context/BuildingsContext';
 
 import LoginScreen from '../screens/LoginScreen';
 
@@ -45,26 +46,28 @@ const tabItemStyle = {
 function AdminTabs() {
   const color = '#e94560';
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle,
-        tabBarActiveTintColor: color,
-        tabBarInactiveTintColor: '#8892b0',
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 1 },
-        tabBarActiveBackgroundColor: 'rgba(233,69,96,0.16)',
-        tabBarItemStyle: tabItemStyle,
-      }}
-    >
-      <Tab.Screen name="Dashboard" component={DashboardScreen}
-        options={{ tabBarLabel: 'Tổng quan', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>📊</Text> }} />
-      <Tab.Screen name="Rooms" component={RoomsScreen}
-        options={{ tabBarLabel: 'Phòng', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏠</Text> }} />
-      <Tab.Screen name="Customers" component={CustomersScreen}
-        options={{ tabBarLabel: 'Khách hàng', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👥</Text> }} />
-      <Tab.Screen name="Staff" component={StaffScreen}
-        options={{ tabBarLabel: 'Nhân viên', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👨‍💼</Text> }} />
-    </Tab.Navigator>
+    <BuildingsProvider>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle,
+          tabBarActiveTintColor: color,
+          tabBarInactiveTintColor: '#8892b0',
+          tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 1 },
+          tabBarActiveBackgroundColor: 'rgba(233,69,96,0.16)',
+          tabBarItemStyle: tabItemStyle,
+        }}
+      >
+        <Tab.Screen name="Dashboard" component={DashboardScreen}
+          options={{ tabBarLabel: 'Tổng quan', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>📊</Text> }} />
+        <Tab.Screen name="Rooms" component={RoomsScreen}
+          options={{ tabBarLabel: 'Phòng', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏠</Text> }} />
+        <Tab.Screen name="Customers" component={CustomersScreen}
+          options={{ tabBarLabel: 'Khách hàng', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👥</Text> }} />
+        <Tab.Screen name="Staff" component={StaffScreen}
+          options={{ tabBarLabel: 'Nhân viên', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👨‍💼</Text> }} />
+      </Tab.Navigator>
+    </BuildingsProvider>
   );
 }
 
