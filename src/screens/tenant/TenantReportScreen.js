@@ -11,28 +11,33 @@ const STATUS_CFG = {
   done:       { label: 'Đã xong',    color: '#43e97b', bg: 'rgba(67,233,123,0.15)',  border: 'rgba(67,233,123,0.3)' },
 };
 
+const URGENCY_CFG = {
+  normal: { label: 'Thông thường', icon: '⚠️', color: '#fee140', bg: 'rgba(254,225,64,0.12)', border: 'rgba(254,225,64,0.35)' },
+  urgent: { label: 'Khẩn cấp',    icon: '🔺', color: '#e94560', bg: 'rgba(233,69,96,0.12)',  border: 'rgba(233,69,96,0.35)'  },
+};
+
 const REPORTS = [
   {
-    id: '1', icon: '❄️', status: 'processing',
+    id: '1', icon: '❄️', status: 'processing', urgency: 'urgent',
     title: 'Điều hòa phòng bị hỏng',
     desc:  'Điều hòa không hoạt động, phòng rất nóng. Đã thử tắt bật nhiều lần nhưng không lên.',
-    date:  '18/04/2026',
+    date: '18/04/2026', time: '14:32',
     resolver: null,
   },
   {
-    id: '2', icon: '🚿', status: 'done',
+    id: '2', icon: '🚿', status: 'done', urgency: 'normal',
     title: 'Vòi nước bị rỉ',
     desc:  'Vòi nước phòng bếp bị rỉ nước liên tục, gây hao nước và ẩm nền.',
-    date:  '10/04/2026',
-    resolvedDate: '12/04/2026',
+    date: '10/04/2026', time: '09:15',
+    resolvedDate: '12/04/2026', resolvedTime: '11:40',
     resolver: { name: 'Nguyễn Văn Bình', role: 'Thợ sửa chữa', note: 'Đã thay ron và siết lại khớp nối vòi nước.' },
   },
   {
-    id: '3', icon: '💡', status: 'done',
+    id: '3', icon: '💡', status: 'done', urgency: 'normal',
     title: 'Bóng đèn phòng tắm cháy',
     desc:  'Bóng đèn phòng tắm bị cháy, không có ánh sáng.',
-    date:  '01/04/2026',
-    resolvedDate: '02/04/2026',
+    date: '01/04/2026', time: '20:05',
+    resolvedDate: '02/04/2026', resolvedTime: '08:30',
     resolver: { name: 'Trần Thị Thu', role: 'Nhân viên quản lý', note: 'Đã thay bóng đèn LED 12W mới.' },
   },
 ];
@@ -49,10 +54,20 @@ function ReportDetailModal({ report, onClose }) {
           <Text style={rd.title}>Chi tiết sự cố</Text>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Status badge */}
-            <View style={[rd.statusBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
-              <Text style={[rd.statusText, { color: s.color }]}>{s.label}</Text>
-            </View>
+            {/* Status + urgency badges */}
+            {(() => {
+              const u = URGENCY_CFG[report.urgency];
+              return (
+                <View style={rd.badgeRow}>
+                  <View style={[rd.statusBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
+                    <Text style={[rd.statusText, { color: s.color }]}>{s.label}</Text>
+                  </View>
+                  <View style={[rd.statusBadge, { backgroundColor: u.bg, borderColor: u.border }]}>
+                    <Text style={[rd.statusText, { color: u.color }]}>{u.icon} {u.label}</Text>
+                  </View>
+                </View>
+              );
+            })()}
 
             {/* Main info */}
             <View style={rd.infoCard}>
@@ -67,8 +82,8 @@ function ReportDetailModal({ report, onClose }) {
               <View style={rd.infoRow}>
                 <Text style={rd.infoIcon}>📅</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={rd.infoLabel}>Ngày báo cáo</Text>
-                  <Text style={rd.infoValue}>{report.date}</Text>
+                  <Text style={rd.infoLabel}>Thời gian báo cáo</Text>
+                  <Text style={rd.infoValue}>{report.time} · {report.date}</Text>
                 </View>
               </View>
               <View style={rd.divider} />
@@ -102,8 +117,8 @@ function ReportDetailModal({ report, onClose }) {
                   <View style={rd.infoRow}>
                     <Text style={rd.infoIcon}>📅</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={rd.infoLabel}>Ngày hoàn thành</Text>
-                      <Text style={rd.infoValue}>{report.resolvedDate}</Text>
+                      <Text style={rd.infoLabel}>Thời gian hoàn thành</Text>
+                      <Text style={rd.infoValue}>{report.resolvedTime} · {report.resolvedDate}</Text>
                     </View>
                   </View>
                   <View style={rd.divider} />
@@ -134,6 +149,7 @@ function ReportDetailModal({ report, onClose }) {
 export default function TenantReportScreen() {
   const [title,          setTitle]          = useState('');
   const [desc,           setDesc]           = useState('');
+  const [urgency,        setUrgency]        = useState('normal');
   const [selectedReport, setSelectedReport] = useState(null);
 
   return (
@@ -192,6 +208,23 @@ export default function TenantReportScreen() {
               multiline
               numberOfLines={4}
             />
+            <Text style={styles.formLabel}>Phân loại sự cố</Text>
+            <View style={styles.urgencyRow}>
+              {Object.entries(URGENCY_CFG).map(([key, u]) => {
+                const active = urgency === key;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.urgencyBtn, active && { backgroundColor: u.bg, borderColor: u.color }]}
+                    onPress={() => setUrgency(key)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.urgencyBtnIcon}>{u.icon}</Text>
+                    <Text style={[styles.urgencyBtnText, active && { color: u.color }]}>{u.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
             <TouchableOpacity style={styles.submitBtn}>
               <LinearGradient colors={['#e94560', '#c62a47']} style={styles.submitGradient}>
                 <Text style={styles.submitText}>📤 Gửi tin</Text>
@@ -205,17 +238,21 @@ export default function TenantReportScreen() {
           <Text style={styles.sectionTitle}>Lịch sử giải quyết sự cố</Text>
           {REPORTS.map(r => {
             const s = STATUS_CFG[r.status];
+            const u = URGENCY_CFG[r.urgency];
             return (
               <TouchableOpacity
                 key={r.id}
-                style={styles.reportCard}
+                style={[styles.reportCard, { borderLeftWidth: 3, borderLeftColor: u.color }]}
                 onPress={() => setSelectedReport(r)}
                 activeOpacity={0.75}
               >
                 <Text style={styles.reportIcon}>{r.icon}</Text>
                 <View style={styles.reportInfo}>
                   <Text style={styles.reportTitle}>{r.title}</Text>
-                  <Text style={styles.reportDate}>📅 {r.date}</Text>
+                  <Text style={styles.reportDate}>📅 {r.time} · {r.date}</Text>
+                  <View style={[styles.urgencyInlineBadge, { backgroundColor: u.bg, borderColor: u.border }]}>
+                    <Text style={[styles.urgencyInlineText, { color: u.color }]}>{u.icon} {u.label}</Text>
+                  </View>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: s.bg }]}>
                   <Text style={[styles.statusText, { color: s.color }]}>{s.label}</Text>
@@ -259,13 +296,21 @@ const styles = StyleSheet.create({
   submitGradient: { paddingVertical: 14, alignItems: 'center' },
   submitText:     { color: '#fff', fontWeight: '800', fontSize: 15 },
 
-  reportCard:   { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', gap: 12 },
+  reportCard:   { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', gap: 12, overflow: 'hidden' },
   reportIcon:   { fontSize: 26 },
   reportInfo:   { flex: 1 },
   reportTitle:  { color: '#fff', fontSize: 14, fontWeight: '600' },
   reportDate:   { color: '#8892b0', fontSize: 12, marginTop: 3 },
   statusBadge:  { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   statusText:   { fontSize: 11, fontWeight: '700' },
+
+  urgencyRow:         { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  urgencyBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  urgencyBtnIcon:     { fontSize: 16 },
+  urgencyBtnText:     { color: '#8892b0', fontSize: 13, fontWeight: '700' },
+
+  urgencyInlineBadge: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6, borderWidth: 1 },
+  urgencyInlineText:  { fontSize: 11, fontWeight: '700' },
 });
 
 // ─── Report Detail Modal Styles ───────────────────────────
@@ -275,8 +320,9 @@ const rd = StyleSheet.create({
   handle:      { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 18 },
   title:       { color: '#fff', fontSize: 17, fontWeight: '800', textAlign: 'center', marginBottom: 16 },
 
-  statusBadge: { borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'center', marginBottom: 16, borderWidth: 1 },
-  statusText:  { fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  badgeRow:    { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 16 },
+  statusBadge: { borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1 },
+  statusText:  { fontSize: 12, fontWeight: '700' },
 
   infoCard:    { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 16 },
   infoRow:     { flexDirection: 'row', alignItems: 'flex-start', gap: 14, padding: 14 },

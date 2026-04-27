@@ -8,9 +8,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const HOTLINE = '0901234567';
 
-const announcements = [
-  { id: '1', title: 'Cắt điện bảo trì tầng 2', time: 'Ngày mai 8:00 - 12:00', icon: '⚡', type: 'warning' },
-  { id: '2', title: 'Vệ sinh khu vực chung', time: 'Thứ 7, 14/04/2026', icon: '🧹', type: 'info' },
+const ANNOUNCEMENTS = [
+  {
+    id: '1', icon: '⚡', type: 'warning',
+    title: 'Cắt điện bảo trì tầng 2',
+    time:  'Ngày mai 8:00 – 12:00',
+    date:  '26/04/2026',
+    from:  '08:00', to: '12:00',
+    detail: 'Ban quản lý thông báo sẽ tiến hành cắt điện toàn bộ tầng 2 để bảo trì hệ thống điện định kỳ. Trong thời gian này, cư dân tầng 2 vui lòng chủ động sạc đầy thiết bị điện tử và dự trữ nước uống trước khi cắt điện. Xin lỗi vì sự bất tiện này.',
+    postedBy: 'Ban quản lý Green Home',
+    postedAt: '07:30 25/04/2026',
+  },
+  {
+    id: '2', icon: '🧹', type: 'info',
+    title: 'Vệ sinh khu vực chung',
+    time:  'Thứ 7, 14:00 – 17:00',
+    date:  '14/04/2026',
+    from:  '14:00', to: '17:00',
+    detail: 'Ban quản lý sẽ tổ chức tổng vệ sinh khu vực hành lang, cầu thang và sân chung vào chiều thứ 7. Cư dân vui lòng không để xe hoặc đồ đạc cá nhân tại hành lang trong khung giờ này để đội vệ sinh có thể làm việc thuận tiện.',
+    postedBy: 'Trần Thị Thu – Nhân viên quản lý',
+    postedAt: '09:00 12/04/2026',
+  },
 ];
 
 const ROOMMATES = [
@@ -60,6 +78,70 @@ function RoommateDetailModal({ roommate, onClose }) {
           </TouchableOpacity>
         </TouchableOpacity>
       </TouchableOpacity>
+    </Modal>
+  );
+}
+
+// ─── Announcement Detail Modal ───────────────────────────
+function AnnouncementDetailModal({ ann, onClose }) {
+  if (!ann) return null;
+  const isWarning = ann.type === 'warning';
+  const accentColor  = isWarning ? '#fee140' : '#4facfe';
+  const accentBg     = isWarning ? 'rgba(254,225,64,0.1)'  : 'rgba(79,172,254,0.1)';
+  const accentBorder = isWarning ? 'rgba(254,225,64,0.35)' : 'rgba(79,172,254,0.35)';
+  return (
+    <Modal visible={!!ann} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={an.overlay}>
+        <View style={an.sheet}>
+          <View style={an.handle} />
+          {/* Header */}
+          <View style={[an.header, { backgroundColor: accentBg, borderColor: accentBorder }]}>
+            <Text style={an.headerIcon}>{ann.icon}</Text>
+            <Text style={[an.headerTitle, { color: accentColor }]}>{ann.title}</Text>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Info rows */}
+            <View style={an.infoCard}>
+              <View style={an.infoRow}>
+                <Text style={an.infoIcon}>📅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={an.infoLabel}>Ngày thực hiện</Text>
+                  <Text style={an.infoValue}>{ann.date}</Text>
+                </View>
+              </View>
+              <View style={an.divider} />
+              <View style={an.infoRow}>
+                <Text style={an.infoIcon}>🕐</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={an.infoLabel}>Thời gian</Text>
+                  <Text style={an.infoValue}>{ann.from} – {ann.to}</Text>
+                </View>
+              </View>
+              <View style={an.divider} />
+              <View style={an.infoRow}>
+                <Text style={an.infoIcon}>📢</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={an.infoLabel}>Nội dung thông báo</Text>
+                  <Text style={[an.infoValue, { lineHeight: 22 }]}>{ann.detail}</Text>
+                </View>
+              </View>
+              <View style={an.divider} />
+              <View style={an.infoRow}>
+                <Text style={an.infoIcon}>👤</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={an.infoLabel}>Đăng bởi</Text>
+                  <Text style={an.infoValue}>{ann.postedBy}</Text>
+                  <Text style={an.infoSub}>🕐 {ann.postedAt}</Text>
+                </View>
+              </View>
+            </View>
+            <View style={{ height: 8 }} />
+          </ScrollView>
+          <TouchableOpacity style={an.closeBtn} onPress={onClose}>
+            <Text style={an.closeBtnText}>Đóng</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -146,6 +228,7 @@ export default function TenantHomeScreen({ navigation }) {
 
   const [selectedRM,      setSelectedRM]      = useState(null);
   const [contractVisible, setContractVisible] = useState(false);
+  const [selectedAnn,     setSelectedAnn]     = useState(null);
 
   const QUICK_ACTIONS = [
     {
@@ -172,6 +255,7 @@ export default function TenantHomeScreen({ navigation }) {
 
       <RoommateDetailModal roommate={selectedRM} onClose={() => setSelectedRM(null)} />
       <ContractModal visible={contractVisible} onClose={() => setContractVisible(false)} />
+      <AnnouncementDetailModal ann={selectedAnn} onClose={() => setSelectedAnn(null)} />
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
@@ -303,14 +387,20 @@ export default function TenantHomeScreen({ navigation }) {
         {/* Announcements */}
         <View style={[styles.section, { marginBottom: 32 }]}>
           <Text style={styles.sectionTitle}>Thông báo từ chủ nhà</Text>
-          {announcements.map(a => (
-            <View key={a.id} style={[styles.announcementCard, a.type === 'warning' && styles.announcementWarning]}>
+          {ANNOUNCEMENTS.map(a => (
+            <TouchableOpacity
+              key={a.id}
+              style={[styles.announcementCard, a.type === 'warning' && styles.announcementWarning]}
+              onPress={() => setSelectedAnn(a)}
+              activeOpacity={0.75}
+            >
               <Text style={styles.announcementIcon}>{a.icon}</Text>
               <View style={styles.announcementInfo}>
                 <Text style={styles.announcementTitle}>{a.title}</Text>
                 <Text style={styles.announcementTime}>🕐 {a.time}</Text>
               </View>
-            </View>
+              <Text style={styles.announcementChevron}>›</Text>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -375,12 +465,13 @@ const styles = StyleSheet.create({
   roommateEmpty:     { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', alignItems: 'center' },
   roommateEmptyText: { color: '#8892b0', fontSize: 13 },
 
-  announcementCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#4facfe', gap: 14 },
-  announcementWarning: { borderLeftColor: '#fee140' },
-  announcementIcon:    { fontSize: 24 },
-  announcementInfo:    {},
-  announcementTitle:   { color: '#fff', fontSize: 14, fontWeight: '600' },
-  announcementTime:    { color: '#8892b0', fontSize: 12, marginTop: 3 },
+  announcementCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#4facfe', gap: 14 },
+  announcementWarning:  { borderLeftColor: '#fee140' },
+  announcementIcon:     { fontSize: 24 },
+  announcementInfo:     { flex: 1 },
+  announcementTitle:    { color: '#fff', fontSize: 14, fontWeight: '600' },
+  announcementTime:     { color: '#8892b0', fontSize: 12, marginTop: 3 },
+  announcementChevron:  { color: '#8892b0', fontSize: 22 },
 });
 
 // ─── Roommate Modal Styles ────────────────────────────────
@@ -420,6 +511,25 @@ const ct = StyleSheet.create({
   signBox:    { alignItems: 'center', gap: 6 },
   signLabel:  { color: '#8892b0', fontSize: 12 },
   signName:   { color: '#fff', fontSize: 13, fontWeight: '700' },
+  closeBtn:   { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  closeBtnText: { color: '#ccd6f6', fontSize: 15, fontWeight: '700' },
+});
+
+// ─── Announcement Detail Modal Styles ────────────────────
+const an = StyleSheet.create({
+  overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  sheet:      { backgroundColor: '#16213e', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingTop: 12, maxHeight: '88%' },
+  handle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 16 },
+  header:     { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1 },
+  headerIcon: { fontSize: 26 },
+  headerTitle:{ fontSize: 15, fontWeight: '800', flex: 1 },
+  infoCard:   { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 6 },
+  infoRow:    { flexDirection: 'row', alignItems: 'flex-start', gap: 14, padding: 14 },
+  divider:    { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 14 },
+  infoIcon:   { fontSize: 20, marginTop: 2 },
+  infoLabel:  { color: '#8892b0', fontSize: 11, fontWeight: '600', marginBottom: 4 },
+  infoValue:  { color: '#fff', fontSize: 14, fontWeight: '600' },
+  infoSub:    { color: '#8892b0', fontSize: 12, marginTop: 4 },
   closeBtn:   { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   closeBtnText: { color: '#ccd6f6', fontSize: 15, fontWeight: '700' },
 });

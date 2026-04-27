@@ -15,7 +15,7 @@ const STATS = [
   { label: 'Tổng phòng', value: '128', numColor: '#fff',     borderColor: 'rgba(255,255,255,0.12)' },
   { label: 'Đang thuê',  value: '104', numColor: '#2ecc71',  borderColor: 'rgba(46,204,113,0.35)'  },
   { label: 'Trống',      value: '18',  numColor: '#8892b0',  borderColor: 'rgba(136,146,176,0.3)'  },
-  { label: 'Sự cố',      value: '6',   numColor: '#e94560',  borderColor: 'rgba(233,69,96,0.35)'   },
+  { label: 'Sự cố',      value: '6',   numColor: '#f1c40f',  borderColor: 'rgba(241,196,15,0.35)'  },
 ];
 
 const ADMIN_BUILDINGS = [
@@ -51,13 +51,19 @@ const RESOLVE_TYPES = [
   { key: 'contractor', icon: '🔧',   label: 'Thuê thợ bên ngoài', color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.35)'  },
 ];
 
+const STAFF_ACT_CFG = {
+  payment:     { color: '#2ecc71' },
+  contract:    { color: '#4facfe' },
+  maintenance: { color: '#fee140' },
+};
+
 const STAFF_ACTIVITIES = [
-  { name: 'Trần Thị Thu',    building: 'Nhà A', avatar: '👩', action: 'Thu tiền phòng 101, 103, 104',       time: '08:30 23/04/2026' },
-  { name: 'Nguyễn Văn Bảo', building: 'Nhà B', avatar: '👨', action: 'Xử lý bảo trì phòng B103',          time: '10:15 23/04/2026' },
-  { name: 'Lê Thị Hương',   building: 'Nhà C', avatar: '👩', action: 'Ký hợp đồng mới phòng C201',        time: '14:00 22/04/2026' },
-  { name: 'Trần Thị Thu',    building: 'Nhà A', avatar: '👩', action: 'Kiểm tra phòng 203 sau bảo trì',    time: '16:30 22/04/2026' },
-  { name: 'Nguyễn Văn Bảo', building: 'Nhà B', avatar: '👨', action: 'Gia hạn hợp đồng khách B202',       time: '09:00 21/04/2026' },
-  { name: 'Lê Thị Hương',   building: 'Nhà C', avatar: '👩', action: 'Bàn giao phòng C105 cho khách mới', time: '15:00 20/04/2026' },
+  { name: 'Trần Thị Thu',    building: 'Nhà A', avatar: '👩', action: 'Thu tiền phòng 101, 103, 104',       time: '08:30 23/04/2026', type: 'payment'     },
+  { name: 'Nguyễn Văn Bảo', building: 'Nhà B', avatar: '👨', action: 'Xử lý bảo trì phòng B103',          time: '10:15 23/04/2026', type: 'maintenance'  },
+  { name: 'Lê Thị Hương',   building: 'Nhà C', avatar: '👩', action: 'Ký hợp đồng mới phòng C201',        time: '14:00 22/04/2026', type: 'contract'     },
+  { name: 'Trần Thị Thu',    building: 'Nhà A', avatar: '👩', action: 'Kiểm tra phòng 203 sau bảo trì',    time: '16:30 22/04/2026', type: 'maintenance'  },
+  { name: 'Nguyễn Văn Bảo', building: 'Nhà B', avatar: '👨', action: 'Gia hạn hợp đồng khách B202',       time: '09:00 21/04/2026', type: 'contract'     },
+  { name: 'Lê Thị Hương',   building: 'Nhà C', avatar: '👩', action: 'Bàn giao phòng C105 cho khách mới', time: '15:00 20/04/2026', type: 'contract'     },
 ];
 
 const CUSTOMER_ACTIVITIES = [
@@ -869,11 +875,6 @@ export default function DashboardScreen() {
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-                {messages.length > 4 && (
-                  <View style={s.ovScrollHint}>
-                    <Text style={s.ovScrollHintText}>↕  Kéo để xem thêm {messages.length - 4} tin nhắn</Text>
-                  </View>
-                )}
               </>
             )}
           </View>
@@ -946,9 +947,9 @@ export default function DashboardScreen() {
           </View>
 
           {activityTab === 'staff' && (
-            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={STAFF_ACTIVITIES.length > 5} style={STAFF_ACTIVITIES.length > 5 ? s.actScrollArea : undefined}>
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator style={s.actFixedArea}>
               {STAFF_ACTIVITIES.map((act, i) => (
-                <View key={i} style={s.activityCard}>
+                <View key={i} style={[s.activityCard, { borderLeftWidth: 3, borderLeftColor: STAFF_ACT_CFG[act.type]?.color ?? '#8892b0' }]}>
                   <View style={s.activityAvatar}>
                     <Text style={s.activityAvatarText}>{act.avatar}</Text>
                   </View>
@@ -968,8 +969,8 @@ export default function DashboardScreen() {
           )}
 
           {activityTab === 'customer' && (
-            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={CUSTOMER_ACTIVITIES.length > 5} style={CUSTOMER_ACTIVITIES.length > 5 ? s.actScrollArea : undefined}>
-              {CUSTOMER_ACTIVITIES.map((act, i) => {
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator style={s.actFixedArea}>
+              {CUSTOMER_ACTIVITIES.filter(a => a.type === 'checkin').map((act, i) => {
                 const cfg = ACT_TYPE[act.type];
                 return (
                   <View key={i} style={[s.activityCard, { borderLeftWidth: 3, borderLeftColor: cfg.color }]}>
@@ -1272,4 +1273,5 @@ const s = StyleSheet.create({
   actRoomLine:        { color: '#8892b0', fontSize: 11, flexShrink: 1 },
   actReason:          { color: '#f1c40f', fontSize: 11, marginTop: 5, fontStyle: 'italic', lineHeight: 17 },
   actScrollArea:      { maxHeight: 5 * 104 },
+  actFixedArea:       { height: 500 },
 });
