@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useBuildings } from '../context/BuildingsContext';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Dimensions, Modal,
@@ -11,27 +12,7 @@ const SCREEN_W = Dimensions.get('window').width;
 const CHART_H  = 120;
 
 // ─── Static data ──────────────────────────────────────────
-const STATS = [
-  { label: 'Tổng phòng', value: '128', numColor: '#fff',     borderColor: 'rgba(255,255,255,0.12)' },
-  { label: 'Đang thuê',  value: '104', numColor: '#2ecc71',  borderColor: 'rgba(46,204,113,0.35)'  },
-  { label: 'Trống',      value: '18',  numColor: '#8892b0',  borderColor: 'rgba(136,146,176,0.3)'  },
-  { label: 'Sự cố',      value: '6',   numColor: '#f1c40f',  borderColor: 'rgba(241,196,15,0.35)'  },
-];
 
-const ADMIN_BUILDINGS = [
-  { name: 'Nhà A - Green Home', address: '12 Nguyễn Trãi, Q.1',   total: 42, occupied: 36, staff: 'Trần Thị Thu'    },
-  { name: 'Nhà B - Blue Sky',   address: '45 Lê Lợi, Q.3',        total: 38, occupied: 30, staff: 'Nguyễn Văn Bảo'  },
-  { name: 'Nhà C - Sunrise',    address: '78 Trần Hưng Đạo, Q.5', total: 48, occupied: 38, staff: 'Lê Thị Hương'    },
-];
-
-const MSG_INIT = [
-  { id: 'm1', room: '101',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Nguyễn Văn An',  phone: '0912345678', text: 'Vòi nước bị nhỏ giọt, phiền anh kiểm tra giúp',  time: '09:12 20/04/2026' },
-  { id: 'm2', room: '104',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Vũ Thị Lan',     phone: '0966333444', text: 'Bồn cầu bị tắc, chị xử lý giúp em với ạ',        time: '22:05 21/04/2026' },
-  { id: 'm3', room: '302',  building: 'Nhà A - Green Home', staff: 'Trần Thị Thu',    tenant: 'Hoàng Đức Minh', phone: '0933222111', text: 'Thang máy tầng 3 thỉnh thoảng kêu tiếng lạ',      time: '10:00 22/04/2026' },
-  { id: 'm4', room: 'B201', building: 'Nhà B - Blue Sky',   staff: 'Nguyễn Văn Bảo', tenant: 'Bùi Văn Tài',    phone: '0944111222', text: 'Cửa phòng bị hỏng khóa, không đóng được',         time: '14:30 22/04/2026' },
-  { id: 'm5', room: 'B105', building: 'Nhà B - Blue Sky',   staff: 'Nguyễn Văn Bảo', tenant: 'Lê Thị Ngọc',    phone: '0955888777', text: 'Máy lạnh không hoạt động, phòng rất nóng',         time: '16:45 22/04/2026' },
-  { id: 'm6', room: 'C302', building: 'Nhà C - Sunrise',    staff: 'Lê Thị Hương',   tenant: 'Phạm Minh Đức',  phone: '0977666555', text: 'Bóng đèn phòng khách bị cháy, cần thay gấp',       time: '08:20 23/04/2026' },
-];
 
 const MOVEOUT_NOTICES = [
   { id: 'mo1', room: 'B301', building: 'Nhà B - Blue Sky',   tenant: 'Nguyễn Thị Mai', phone: '0988123456', intendedDate: '01/05/2026', daysLeft: 7,  reason: 'Chuyển công tác xa, không tiện di chuyển hàng ngày', reportedAt: '09:30 20/04/2026', staff: 'Nguyễn Văn Bảo' },
@@ -593,11 +574,12 @@ const ACT_TYPE = {
 };
 
 export default function DashboardScreen() {
+  const { buildings, setBuildings } = useBuildings();
+
   const [period,          setPeriod]          = useState('month');
   const [chartType,       setChartType]       = useState('bar');
   const [activityTab,     setActivityTab]     = useState('staff');
   const [bdayPanelOpen,   setBdayPanelOpen]   = useState(false);
-  const [messages,        setMessages]        = useState(MSG_INIT);
   const [selectedMsg,     setSelectedMsg]     = useState(null);
   const [detailVisible,   setDetailVisible]   = useState(false);
   const [resolveVisible,  setResolveVisible]  = useState(false);
@@ -605,6 +587,64 @@ export default function DashboardScreen() {
   const [selectedMo,      setSelectedMo]      = useState(null);
   const [staffPeriod,     setStaffPeriod]     = useState('month');
   const [moDetailVisible, setMoDetailVisible] = useState(false);
+
+  // ── Derive room overview from live buildings data ──────
+  const { adminBuildings, stats, pendingMessages } = useMemo(() => {
+    const hasPending = r => (r.messages || []).some(m => !m.resolved);
+
+    const adminBuildings = buildings.map(b => {
+      const allRooms = b.floors.flatMap(f => f.rooms);
+      return {
+        name:     b.name,
+        code:     b.code,
+        address:  b.address,
+        staff:    b.staff,
+        total:    allRooms.length,
+        occupied: allRooms.filter(r => r.tenant).length,
+      };
+    });
+
+    const allRooms = buildings.flatMap(b => b.floors.flatMap(f => f.rooms));
+    const stats = [
+      { label: 'Tổng phòng', value: String(allRooms.length),
+        numColor: '#fff',    borderColor: 'rgba(255,255,255,0.12)' },
+      { label: 'Đang thuê',  value: String(allRooms.filter(r => r.tenant).length),
+        numColor: '#2ecc71', borderColor: 'rgba(46,204,113,0.35)'  },
+      { label: 'Trống',      value: String(allRooms.filter(r => r.status === 'empty').length),
+        numColor: '#8892b0', borderColor: 'rgba(136,146,176,0.3)'  },
+      { label: 'Sự cố',      value: String(allRooms.filter(r =>
+          r.status === 'maintenance' || r.status === 'urgent' ||
+          (r.status === 'occupied' && hasPending(r))
+        ).length),
+        numColor: '#f1c40f', borderColor: 'rgba(241,196,15,0.35)'  },
+    ];
+
+    const pendingMessages = [];
+    buildings.forEach(b => {
+      b.floors.forEach(f => {
+        f.rooms.forEach(r => {
+          if (!r.tenant) return;
+          (r.messages || []).filter(m => !m.resolved).forEach(m => {
+            pendingMessages.push({
+              id:         `${b.id}-${r.id}-${m.id}`,
+              msgId:      m.id,
+              roomId:     r.id,
+              buildingId: b.id,
+              room:       `${b.code}-${r.id}`,
+              building:   b.name,
+              staff:      b.staff,
+              tenant:     r.tenant,
+              phone:      r.phone || '',
+              text:       m.text,
+              time:       m.time,
+            });
+          });
+        });
+      });
+    });
+
+    return { adminBuildings, stats, pendingMessages };
+  }, [buildings]);
 
   const rev        = REVENUE[period];
   const bdayGroups = buildBirthdayGroups();
@@ -617,8 +657,29 @@ export default function DashboardScreen() {
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     const resolvedAt = `${pad(now.getHours())}:${pad(now.getMinutes())} ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
+    const { buildingId, roomId, msgId } = selectedMsg;
+
+    setBuildings(prev => prev.map(b => {
+      if (b.id !== buildingId) return b;
+      return {
+        ...b,
+        floors: b.floors.map(f => ({
+          ...f,
+          rooms: f.rooms.map(r => {
+            if (r.id !== roomId) return r;
+            const updatedMessages = (r.messages || []).map(m =>
+              m.id === msgId ? { ...m, resolved: true, resolvedBy } : m
+            );
+            const stillPending = updatedMessages.some(m => !m.resolved);
+            const newStatus = !stillPending && r.tenant &&
+              (r.status === 'maintenance' || r.status === 'urgent') ? 'occupied' : r.status;
+            return { ...r, messages: updatedMessages, status: newStatus, currentIssue: stillPending ? r.currentIssue : null };
+          }),
+        })),
+      };
+    }));
+
     setResolvedHistory(prev => [{ ...selectedMsg, resolvedBy, resolvedAt }, ...prev]);
-    setMessages(prev => prev.filter(m => m.id !== selectedMsg.id));
     setResolveVisible(false);
     setSelectedMsg(null);
   };
@@ -803,25 +864,35 @@ export default function DashboardScreen() {
           <View style={s.ovPanel}>
 
             <Text style={s.ovSubTitle}>🏢 Nhà đang quản lý</Text>
-            {ADMIN_BUILDINGS.map((b, i) => {
-              const pct = Math.round(b.occupied / b.total * 100);
+            {adminBuildings.map((b, i) => {
+              const pct = b.total > 0 ? Math.round(b.occupied / b.total * 100) : 0;
+              const accent = '#4facfe';
               return (
-                <View key={i} style={s.ovBuildingRow}>
-                  <View style={s.ovBuildingIcon}><Text style={{ fontSize: 18 }}>🏢</Text></View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.ovBuildingName}>{b.name}</Text>
-                    <Text style={s.ovBuildingMeta}>📍 {b.address}</Text>
-                    <Text style={s.ovBuildingStaff}>👤 {b.staff}</Text>
+                <View key={i} style={[s.ovBuildingCard, { borderColor: `${accent}30` }]}>
+                  <View style={[s.ovBuildingAccent, { backgroundColor: accent }]} />
+                  <View style={{ flex: 1, padding: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.ovBuildingName}>{b.name}</Text>
+                        {b.code && (
+                          <View style={[s.ovCodeBadge, { alignSelf: 'flex-start', marginTop: 4, marginBottom: 4, borderColor: `${accent}55`, backgroundColor: `${accent}18` }]}>
+                            <Text style={[s.ovCodeText, { color: accent }]}>{b.code}</Text>
+                          </View>
+                        )}
+                        <Text style={s.ovBuildingMeta}>📍 {b.address}</Text>
+                        <Text style={s.ovBuildingStaff}>👤 {b.staff}</Text>
+                      </View>
+                      <View style={[s.ovRoomBadge, { borderColor: `${accent}40`, backgroundColor: `${accent}12` }]}>
+                        <Text style={[s.ovRoomBadgeNum, { color: accent }]}>{b.total}</Text>
+                        <Text style={[s.ovRoomBadgeLbl, { color: accent }]}>phòng</Text>
+                      </View>
+                    </View>
                     <View style={s.ovOccRow}>
                       <View style={s.ovOccBar}>
-                        <View style={[s.ovOccFill, { width: `${pct}%` }]} />
+                        <View style={[s.ovOccFill, { width: `${pct}%`, backgroundColor: accent }]} />
                       </View>
                       <Text style={s.ovOccPct}>{pct}% ({b.occupied}/{b.total})</Text>
                     </View>
-                  </View>
-                  <View style={s.ovRoomBadge}>
-                    <Text style={s.ovRoomBadgeNum}>{b.total}</Text>
-                    <Text style={s.ovRoomBadgeLbl}>phòng</Text>
                   </View>
                 </View>
               );
@@ -831,7 +902,7 @@ export default function DashboardScreen() {
 
             <Text style={s.ovSubTitle}>📊 Tình trạng phòng</Text>
             <View style={s.ovStatRow}>
-              {STATS.map((stat, i) => (
+              {stats.map((stat, i) => (
                 <View key={i} style={[s.ovStatCard, { borderColor: stat.borderColor }]}>
                   <Text style={[s.ovStatNum, { color: stat.numColor }]}>{stat.value}</Text>
                   <Text style={s.ovStatLbl}>{stat.label}</Text>
@@ -845,24 +916,24 @@ export default function DashboardScreen() {
         <View style={s.section}>
           <View style={s.sectionTitleRow}>
             <Text style={s.sectionTitle}>💬 Tin nhắn sự cố</Text>
-            {messages.length > 0 && (
+            {pendingMessages.length > 0 && (
               <View style={s.badgeRed}>
-                <Text style={s.badgeRedText}>{messages.length} chờ xử lý</Text>
+                <Text style={s.badgeRedText}>{pendingMessages.length} chờ xử lý</Text>
               </View>
             )}
           </View>
           <View style={s.notifPanel}>
-            {messages.length === 0 ? (
+            {pendingMessages.length === 0 ? (
               <View style={s.emptyBox}>
                 <Text style={s.emptyText}>✅ Hiện không có tin nhắn chờ của khách</Text>
               </View>
             ) : (
               <>
-                <ScrollView nestedScrollEnabled style={s.ovMsgScroll} showsVerticalScrollIndicator={messages.length > 4}>
-                  {messages.map(msg => (
+                <ScrollView nestedScrollEnabled style={s.ovMsgScroll} showsVerticalScrollIndicator={pendingMessages.length > 4}>
+                  {pendingMessages.map(msg => (
                     <TouchableOpacity key={msg.id} style={s.ovMsgRow} onPress={() => openDetail(msg)} activeOpacity={0.75}>
                       <View style={s.ovMsgLeft}>
-                        <Text style={s.ovMsgRoom}>Phòng {msg.room}</Text>
+                        <Text style={s.ovMsgRoom}>{msg.room}</Text>
                         <Text style={s.ovMsgBuilding}>{msg.building}</Text>
                         <Text style={s.ovMsgStaff}>💼 {msg.staff}</Text>
                       </View>
@@ -1178,8 +1249,12 @@ const s = StyleSheet.create({
   ovSubTitle:     { color: '#fff', fontSize: 13, fontWeight: '800', marginBottom: 12, letterSpacing: 0.3 },
   ovDivider:      { height: 1, backgroundColor: 'rgba(255,255,255,0.07)', marginVertical: 16 },
   ovBuildingRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  ovBuildingCard: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, borderWidth: 1, marginBottom: 10, overflow: 'hidden' },
+  ovBuildingAccent: { width: 4, borderRadius: 0 },
   ovBuildingIcon: { width: 38, height: 38, borderRadius: 10, backgroundColor: 'rgba(79,172,254,0.1)', justifyContent: 'center', alignItems: 'center' },
   ovBuildingName: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  ovCodeBadge:    { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(79,172,254,0.35)' },
+  ovCodeText:     { color: '#4facfe', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   ovBuildingMeta: { color: '#8892b0', fontSize: 11, marginTop: 1 },
   ovBuildingStaff:{ color: '#4facfe', fontSize: 11, marginTop: 2, fontWeight: '600' },
   ovOccRow:       { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5 },
