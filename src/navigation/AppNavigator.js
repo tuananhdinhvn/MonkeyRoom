@@ -4,6 +4,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import { BuildingsProvider } from '../context/BuildingsContext';
+import { StaffProvider } from '../context/StaffContext';
+import { NotificationsProvider } from '../context/NotificationsContext';
+import { LanguageProvider, useLanguage } from '../context/LanguageContext';
 
 import LoginScreen from '../screens/LoginScreen';
 
@@ -44,10 +47,10 @@ const tabItemStyle = {
 
 // ─── Admin Tabs ───────────────────────────────────────────
 function AdminTabs() {
+  const { t } = useLanguage();
   const color = '#e94560';
   return (
-    <BuildingsProvider>
-      <Tab.Navigator
+    <Tab.Navigator
         screenOptions={{
           headerShown: false,
           tabBarStyle,
@@ -59,20 +62,20 @@ function AdminTabs() {
         }}
       >
         <Tab.Screen name="Dashboard" component={DashboardScreen}
-          options={{ tabBarLabel: 'Tổng quan', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>📊</Text> }} />
+          options={{ tabBarLabel: t('nav.overview'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>📊</Text> }} />
         <Tab.Screen name="Rooms" component={RoomsScreen}
-          options={{ tabBarLabel: 'Phòng', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏠</Text> }} />
+          options={{ tabBarLabel: t('nav.rooms'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏠</Text> }} />
         <Tab.Screen name="Customers" component={CustomersScreen}
-          options={{ tabBarLabel: 'Khách hàng', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👥</Text> }} />
+          options={{ tabBarLabel: t('nav.customers'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👥</Text> }} />
         <Tab.Screen name="Staff" component={StaffScreen}
-          options={{ tabBarLabel: 'Nhân viên', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👨‍💼</Text> }} />
+          options={{ tabBarLabel: t('nav.staff'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👨‍💼</Text> }} />
       </Tab.Navigator>
-    </BuildingsProvider>
   );
 }
 
 // ─── Staff Tabs ───────────────────────────────────────────
 function StaffTabs() {
+  const { t } = useLanguage();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -86,15 +89,16 @@ function StaffTabs() {
       }}
     >
       <Tab.Screen name="StaffRooms" component={StaffRoomsScreen}
-        options={{ tabBarLabel: 'Tổng quan phòng', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏠</Text> }} />
+        options={{ tabBarLabel: t('nav.roomsOverview'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏠</Text> }} />
       <Tab.Screen name="StaffCustomers" component={StaffCustomersScreen}
-        options={{ tabBarLabel: 'Khách hàng', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👥</Text> }} />
+        options={{ tabBarLabel: t('nav.customers'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👥</Text> }} />
     </Tab.Navigator>
   );
 }
 
 // ─── Tenant Tabs ──────────────────────────────────────────
 function TenantTabs() {
+  const { t } = useLanguage();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -108,11 +112,11 @@ function TenantTabs() {
       }}
     >
       <Tab.Screen name="TenantHome" component={TenantHomeScreen}
-        options={{ tabBarLabel: 'Trang chủ', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏠</Text> }} />
+        options={{ tabBarLabel: t('nav.home'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏠</Text> }} />
       <Tab.Screen name="TenantPayment" component={TenantPaymentScreen}
-        options={{ tabBarLabel: 'Thanh toán', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>💳</Text> }} />
+        options={{ tabBarLabel: t('nav.payment'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>💳</Text> }} />
       <Tab.Screen name="TenantReport" component={TenantReportScreen}
-        options={{ tabBarLabel: 'Báo sự cố', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🔧</Text> }} />
+        options={{ tabBarLabel: t('nav.report'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🔧</Text> }} />
     </Tab.Navigator>
   );
 }
@@ -120,13 +124,21 @@ function TenantTabs() {
 // ─── Root Navigator ───────────────────────────────────────
 export default function AppNavigator() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="AdminMain" component={AdminTabs} />
-        <Stack.Screen name="StaffMain" component={StaffTabs} />
-        <Stack.Screen name="TenantMain" component={TenantTabs} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <LanguageProvider>
+      <BuildingsProvider>
+        <StaffProvider>
+          <NotificationsProvider>
+            <NavigationContainer>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Login" component={LoginScreen} />
+                <Stack.Screen name="AdminMain" component={AdminTabs} />
+                <Stack.Screen name="StaffMain" component={StaffTabs} />
+                <Stack.Screen name="TenantMain" component={TenantTabs} />
+              </Stack.Navigator>
+            </NavigationContainer>
+          </NotificationsProvider>
+        </StaffProvider>
+      </BuildingsProvider>
+    </LanguageProvider>
   );
 }

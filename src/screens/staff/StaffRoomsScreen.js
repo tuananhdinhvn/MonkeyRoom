@@ -12,299 +12,145 @@ if (Platform.OS === 'android') {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { useStaff } from '../../context/StaffContext';
+import { useBuildings } from '../../context/BuildingsContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 
 const SCREEN_H = Dimensions.get('window').height;
 const DEMO_NOW = '22/04/2026';
 const DEMO_NOW_DISPLAY = '22/04/2026 08:00';
 
-// ─── Dữ liệu ban đầu ─────────────────────────────────────
-const INITIAL_BUILDINGS = [
-  {
-    id: 'b1', name: 'Nhà A - Green Home', address: '12 Nguyễn Trãi, Q.1',
-    floors: [
-      { floor: 1, rooms: [
-        { id: '101', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          tenant: 'Nguyễn Văn An', phone: '0912345678', sinceDate: '05/01/2025',
-          emptyFrom: null, currentIssue: null,
-          issueHistory: [
-            { id: 'h1', title: 'Máy lạnh không mát', reportedAt: '10/03/2026 08:30', resolvedAt: '11/03/2026 14:00', resolvedBy: 'Thợ điện lạnh Minh' },
-            { id: 'h2', title: 'Bóng đèn phòng tắm cháy', reportedAt: '02/02/2026 19:15', resolvedAt: '03/02/2026 10:00', resolvedBy: 'NV Bảo' },
-          ],
-          messages: [
-            { id: 'm1', text: 'Vòi nước bị nhỏ giọt, phiền anh kiểm tra giúp', time: '20/04/2026 09:12', resolved: false },
-          ],
-          paymentHistory: [
-            { month: '04/2026', rent: '3,500,000', elecKwh: 45, elecTotal: '135,000', waterM3: 3, waterTotal: '45,000', total: '3,680,000', paid: true, paidAt: '02/04/2026' },
-            { month: '03/2026', rent: '3,500,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,671,000', paid: true, paidAt: '05/03/2026' },
-            { month: '02/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '03/02/2026' },
-          ],
-        },
-        { id: '102', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'urgent',
-          tenant: null, phone: null, sinceDate: null, emptyFrom: '01/04/2026',
-          currentIssue: { title: 'Trần nhà bị thấm nước nghiêm trọng', reportedAt: '19/04/2026 07:45', reportedBy: 'NV Tuấn (phát hiện)' },
-          issueHistory: [
-            { id: 'h1', title: 'Tường bị ẩm mốc', reportedAt: '10/02/2026 09:00', resolvedAt: '15/02/2026 16:00', resolvedBy: 'Thợ xây Hùng' },
-          ],
-          messages: [], paymentHistory: [],
-        },
-        { id: '103', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          tenant: 'Trần Thị Bích', phone: '0987654321', sinceDate: '15/03/2025',
-          emptyFrom: null, currentIssue: null, issueHistory: [], messages: [],
-          paymentHistory: [
-            { month: '04/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 2, waterTotal: '30,000', total: '3,650,000', paid: true, paidAt: '02/04/2026' },
-            { month: '03/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '05/03/2026' },
-          ],
-        },
-        { id: '104', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'occupied',
-          tenant: 'Vũ Thị Lan', phone: '0966333444', sinceDate: '01/02/2026',
-          emptyFrom: null, currentIssue: null,
-          issueHistory: [
-            { id: 'h1', title: 'Khóa cửa bị hỏng', reportedAt: '05/03/2026 11:00', resolvedAt: '05/03/2026 15:30', resolvedBy: 'NV Bảo' },
-          ],
-          messages: [
-            { id: 'm1', text: 'Bồn cầu bị tắc, chị xử lý giúp em với ạ', time: '21/04/2026 22:05', resolved: false },
-            { id: 'm2', text: 'Cửa sổ phòng em bị kẹt không mở được', time: '18/04/2026 08:30', resolved: true },
-          ],
-          paymentHistory: [
-            { month: '04/2026', rent: '4,800,000', elecKwh: 50, elecTotal: '150,000', waterM3: 4, waterTotal: '60,000', total: '5,010,000', paid: false, paidAt: null },
-            { month: '03/2026', rent: '4,800,000', elecKwh: 48, elecTotal: '144,000', waterM3: 4, waterTotal: '60,000', total: '5,004,000', paid: true, paidAt: '10/03/2026' },
-            { month: '02/2026', rent: '4,800,000', elecKwh: 45, elecTotal: '135,000', waterM3: 3, waterTotal: '45,000', total: '4,980,000', paid: true, paidAt: '05/02/2026' },
-          ],
-        },
-      ]},
-      { floor: 2, rooms: [
-        { id: '201', type: 'Studio', area: '35m²', price: '6,000,000', status: 'occupied',
-          tenant: 'Lê Minh Tuấn', phone: '0909111222', sinceDate: '20/06/2024',
-          emptyFrom: null, currentIssue: null,
-          issueHistory: [
-            { id: 'h1', title: 'Điều hòa chảy nước', reportedAt: '01/04/2026 14:00', resolvedAt: '02/04/2026 10:00', resolvedBy: 'Thợ điện lạnh Minh' },
-          ],
-          messages: [],
-          paymentHistory: [
-            { month: '04/2026', rent: '6,000,000', elecKwh: 80, elecTotal: '240,000', waterM3: 5, waterTotal: '75,000', total: '6,315,000', paid: false, paidAt: null },
-            { month: '03/2026', rent: '6,000,000', elecKwh: 75, elecTotal: '225,000', waterM3: 5, waterTotal: '75,000', total: '6,300,000', paid: false, paidAt: null },
-            { month: '02/2026', rent: '6,000,000', elecKwh: 70, elecTotal: '210,000', waterM3: 5, waterTotal: '75,000', total: '6,285,000', paid: true, paidAt: '05/02/2026' },
-          ],
-        },
-        { id: '202', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'maintenance',
-          tenant: null, phone: null, sinceDate: null, emptyFrom: '15/03/2026',
-          currentIssue: { title: 'Hệ thống điện bị chập — đang thay lại toàn bộ dây', reportedAt: '15/03/2026 08:00', reportedBy: 'Thợ điện Quân' },
-          issueHistory: [
-            { id: 'h1', title: 'Cầu dao tự động nhảy liên tục', reportedAt: '10/03/2026 18:30', resolvedAt: null, resolvedBy: null },
-          ],
-          messages: [], paymentHistory: [],
-        },
-        { id: '203', type: 'Studio', area: '35m²', price: '6,000,000', status: 'empty',
-          tenant: null, phone: null, sinceDate: null, emptyFrom: '01/02/2026',
-          currentIssue: null, issueHistory: [], messages: [], paymentHistory: [],
-        },
-        { id: '204', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          tenant: 'Đỗ Hữu Nghĩa', phone: '0944222111', sinceDate: '10/08/2025',
-          emptyFrom: null, currentIssue: null, issueHistory: [], messages: [],
-          paymentHistory: [
-            { month: '04/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 2, waterTotal: '30,000', total: '3,650,000', paid: true, paidAt: '03/04/2026' },
-            { month: '03/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '05/03/2026' },
-          ],
-        },
-      ]},
-      { floor: 3, rooms: [
-        { id: '301', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          tenant: 'Phạm Thu Hà', phone: '0978888999', sinceDate: '05/09/2024',
-          emptyFrom: null, currentIssue: null,
-          issueHistory: [
-            { id: 'h1', title: 'Bình nóng lạnh hỏng', reportedAt: '20/03/2026 07:00', resolvedAt: '21/03/2026 11:00', resolvedBy: 'Thợ nước Dũng' },
-          ],
-          messages: [],
-          paymentHistory: [
-            { month: '04/2026', rent: '3,500,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,671,000', paid: true, paidAt: '04/04/2026' },
-            { month: '03/2026', rent: '3,500,000', elecKwh: 40, elecTotal: '120,000', waterM3: 3, waterTotal: '45,000', total: '3,665,000', paid: true, paidAt: '05/03/2026' },
-            { month: '02/2026', rent: '3,500,000', elecKwh: 38, elecTotal: '114,000', waterM3: 2, waterTotal: '30,000', total: '3,644,000', paid: true, paidAt: '04/02/2026' },
-          ],
-        },
-        { id: '302', type: 'Phòng VIP', area: '45m²', price: '8,500,000', status: 'occupied',
-          tenant: 'Hoàng Đức Minh', phone: '0933222111', sinceDate: '01/11/2024',
-          emptyFrom: null, currentIssue: null, issueHistory: [],
-          messages: [
-            { id: 'm1', text: 'Thang máy tầng 3 thỉnh thoảng kêu tiếng lạ', time: '22/04/2026 10:00', resolved: false },
-          ],
-          paymentHistory: [
-            { month: '04/2026', rent: '8,500,000', elecKwh: 120, elecTotal: '360,000', waterM3: 8, waterTotal: '120,000', total: '8,980,000', paid: true, paidAt: '02/04/2026' },
-            { month: '03/2026', rent: '8,500,000', elecKwh: 115, elecTotal: '345,000', waterM3: 8, waterTotal: '120,000', total: '8,965,000', paid: true, paidAt: '05/03/2026' },
-            { month: '02/2026', rent: '8,500,000', elecKwh: 110, elecTotal: '330,000', waterM3: 7, waterTotal: '105,000', total: '8,935,000', paid: true, paidAt: '04/02/2026' },
-          ],
-        },
-        { id: '303', type: 'Studio', area: '35m²', price: '6,000,000', status: 'empty',
-          tenant: null, phone: null, sinceDate: null, emptyFrom: '10/03/2026',
-          currentIssue: null, issueHistory: [], messages: [], paymentHistory: [],
-        },
-      ]},
-    ],
-  },
-  {
-    id: 'b2', name: 'Nhà B - Blue Sky', address: '45 Lê Lợi, Q.3',
-    floors: [
-      { floor: 1, rooms: [
-        { id: 'B101', type: 'Phòng đơn', area: '22m²', price: '3,800,000', status: 'occupied',
-          tenant: 'Mai Thị Hoa', phone: '0911000111', sinceDate: '10/04/2025',
-          emptyFrom: null, currentIssue: null, issueHistory: [], messages: [],
-          paymentHistory: [
-            { month: '04/2026', rent: '3,800,000', elecKwh: 42, elecTotal: '126,000', waterM3: 3, waterTotal: '45,000', total: '3,971,000', paid: true, paidAt: '03/04/2026' },
-            { month: '03/2026', rent: '3,800,000', elecKwh: 40, elecTotal: '120,000', waterM3: 3, waterTotal: '45,000', total: '3,965,000', paid: true, paidAt: '05/03/2026' },
-          ],
-        },
-        { id: 'B102', type: 'Phòng đôi', area: '30m²', price: '5,000,000', status: 'occupied',
-          tenant: 'Bùi Văn Tài', phone: '0922000222', sinceDate: '05/07/2025',
-          emptyFrom: null, currentIssue: null,
-          issueHistory: [
-            { id: 'h1', title: 'Vòi sen bị hỏng', reportedAt: '08/04/2026 08:00', resolvedAt: '09/04/2026 14:00', resolvedBy: 'Thợ nước Dũng' },
-          ],
-          messages: [],
-          paymentHistory: [
-            { month: '04/2026', rent: '5,000,000', elecKwh: 60, elecTotal: '180,000', waterM3: 4, waterTotal: '60,000', total: '5,240,000', paid: false, paidAt: null },
-            { month: '03/2026', rent: '5,000,000', elecKwh: 58, elecTotal: '174,000', waterM3: 4, waterTotal: '60,000', total: '5,234,000', paid: true, paidAt: '08/03/2026' },
-          ],
-        },
-        { id: 'B103', type: 'Phòng đơn', area: '22m²', price: '3,800,000', status: 'maintenance',
-          tenant: null, phone: null, sinceDate: null, emptyFrom: '20/03/2026',
-          currentIssue: { title: 'Sơn lại toàn bộ phòng sau khi khách trả', reportedAt: '20/03/2026 10:00', reportedBy: 'NV Thu' },
-          issueHistory: [], messages: [], paymentHistory: [],
-        },
-      ]},
-      { floor: 2, rooms: [
-        { id: 'B201', type: 'Studio', area: '38m²', price: '6,500,000', status: 'empty',
-          tenant: null, phone: null, sinceDate: null, emptyFrom: '15/01/2026',
-          currentIssue: null, issueHistory: [], messages: [], paymentHistory: [],
-        },
-        { id: 'B202', type: 'Phòng đôi', area: '30m²', price: '5,000,000', status: 'occupied',
-          tenant: 'Ngô Thị Kim', phone: '0955000333', sinceDate: '12/10/2025',
-          emptyFrom: null, currentIssue: null, issueHistory: [], messages: [],
-          paymentHistory: [
-            { month: '04/2026', rent: '5,000,000', elecKwh: 55, elecTotal: '165,000', waterM3: 4, waterTotal: '60,000', total: '5,225,000', paid: true, paidAt: '04/04/2026' },
-            { month: '03/2026', rent: '5,000,000', elecKwh: 52, elecTotal: '156,000', waterM3: 4, waterTotal: '60,000', total: '5,216,000', paid: true, paidAt: '05/03/2026' },
-          ],
-        },
-        { id: 'B203', type: 'Studio', area: '38m²', price: '6,500,000', status: 'empty',
-          tenant: null, phone: null, sinceDate: null, emptyFrom: '28/03/2026',
-          currentIssue: null, issueHistory: [], messages: [], paymentHistory: [],
-        },
-      ]},
-    ],
-  },
-];
-
 // ─── Helpers ──────────────────────────────────────────────
 const STATUS = {
-  occupied:    { label: 'Đang thuê', color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.35)',  icon: '✅' },
-  empty:       { label: 'Trống',     color: '#8892b0', bg: 'rgba(136,146,176,0.1)',  border: 'rgba(136,146,176,0.25)', icon: '🔓' },
-  maintenance: { label: 'Bảo trì',   color: '#f1c40f', bg: 'rgba(241,196,15,0.12)',  border: 'rgba(241,196,15,0.35)',  icon: '🔧' },
-  urgent:      { label: 'Khẩn cấp', color: '#e94560', bg: 'rgba(233,69,96,0.12)',   border: 'rgba(233,69,96,0.4)',    icon: '🚨' },
+  occupied:    { tKey: 'status.occupied',    color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.35)',  icon: '✅' },
+  empty:       { tKey: 'status.vacant',      color: '#8892b0', bg: 'rgba(136,146,176,0.1)',  border: 'rgba(136,146,176,0.25)', icon: '🔓' },
+  maintenance: { tKey: 'status.issue',       color: '#f1c40f', bg: 'rgba(241,196,15,0.12)',  border: 'rgba(241,196,15,0.35)',  icon: '🔧' },
+  urgent:      { tKey: 'status.issue',       color: '#f1c40f', bg: 'rgba(241,196,15,0.12)',  border: 'rgba(241,196,15,0.35)',  icon: '🚨' },
 };
 
-const FILTERS = ['Tất cả', 'Đang thuê', 'Trống', 'Bảo trì', 'Khẩn cấp'];
-const FILTER_MAP = { 'Đang thuê': 'occupied', 'Trống': 'empty', 'Bảo trì': 'maintenance', 'Khẩn cấp': 'urgent' };
+const FILTERS    = ['all', 'occupied', 'empty', 'incident'];
+const FILTER_MAP = { 'occupied': 'occupied', 'empty': 'empty' };
+const STAFF_LIST = ['Trần Thị Thu', 'Nguyễn Văn Bảo', 'Lê Thị Hương'];
 
 function daysSince(dateStr) {
   if (!dateStr) return 0;
   const [d, m, y] = dateStr.split('/').map(Number);
-  const diff = new Date(2026, 3, 22) - new Date(y, m - 1, d);
-  return Math.max(0, Math.floor(diff / 86400000));
+  return Math.max(0, Math.floor((Date.now() - new Date(y, m - 1, d).getTime()) / 86400000));
 }
 
 function countRooms(building) {
   const all = building.floors.flatMap(f => f.rooms);
+  const hasPending = r => (r.messages || []).some(m => !m.resolved);
   return {
-    total: all.length,
-    occupied: all.filter(r => r.status === 'occupied').length,
-    empty: all.filter(r => r.status === 'empty').length,
-    maintenance: all.filter(r => r.status === 'maintenance').length,
-    urgent: all.filter(r => r.status === 'urgent').length,
+    total:         all.length,
+    occupied:      all.filter(r => r.tenant).length,
+    occupiedClean: all.filter(r => r.status === 'occupied' && !hasPending(r)).length,
+    empty:         all.filter(r => r.status === 'empty').length,
+    issues:        all.filter(r => r.status === 'maintenance' || r.status === 'urgent' || (r.status === 'occupied' && hasPending(r))).length,
   };
 }
 
 // ─── Room Detail Modal ────────────────────────────────────
-// resolverType: 'self' | 'contractor'
-function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessage }) {
-  const translateY = useRef(new Animated.Value(SCREEN_H)).current;
-  const backdrop   = useRef(new Animated.Value(0)).current;
-  const [visible,        setVisible]       = useState(false);
-  const [resolving,      setResolving]     = useState(false);
-  const [resolverType,   setResolverType]  = useState('self');
-  const [contractorName, setContractorName]= useState('');
-  const [resolveNote,    setResolveNote]   = useState('');
-  const [confirmed,      setConfirmed]     = useState(false);
-  // message resolution state
-  const [resolvingMsgId,  setResolvingMsgId]  = useState(null);
-  const [msgResolverType, setMsgResolverType] = useState('self');
-  const [msgContractor,   setMsgContractor]   = useState('');
-  const [msgNote,         setMsgNote]         = useState('');
+function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose, onResolveMessage, onSaveCccdImages, onCheckout, onStartCheckIn }) {
+  const { t } = useLanguage();
+  const translateY   = useRef(new Animated.Value(SCREEN_H)).current;
+  const backdrop     = useRef(new Animated.Value(0)).current;
+  const openedRoomId = useRef(null);
+  const [visible,       setVisible]      = useState(false);
+  const [resolvingId,      setResolvingId]      = useState(null);
+  const [resolveType,      setResolveType]      = useState('self');
+  const [resolveStaff,     setResolveStaff]     = useState(STAFF_LIST[0]);
+  const [contractorName,   setContractorName]   = useState('');
+  const [contractorNote,   setContractorNote]   = useState('');
+  const [resolveNote,      setResolveNote]      = useState('');
+  const [cccdImgs,         setCccdImgs]         = useState([]);
+  const [checkoutStep,     setCheckoutStep]     = useState(null);
 
   useEffect(() => {
     if (room) {
-      setVisible(true);
-      setResolving(false);
-      setResolverType('self');
-      setContractorName('');
-      setResolveNote('');
-      setConfirmed(false);
-      setResolvingMsgId(null);
-      setMsgResolverType('self');
-      setMsgContractor('');
-      setMsgNote('');
-      Animated.parallel([
-        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 130 }),
-        Animated.timing(backdrop,   { toValue: 1, duration: 250, useNativeDriver: true }),
-      ]).start();
+      if (room.id !== openedRoomId.current) {
+        openedRoomId.current = room.id;
+        setResolvingId(null);
+        setResolveType('self');
+        setResolveStaff(STAFF_LIST[0]);
+        setContractorName('');
+        setContractorNote('');
+        setResolveNote('');
+        setCccdImgs(room.cccdImages || []);
+        setCheckoutStep(null);
+        setVisible(true);
+        Animated.parallel([
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 130 }),
+          Animated.timing(backdrop,   { toValue: 1, duration: 250, useNativeDriver: true }),
+        ]).start();
+      }
     }
   }, [room]);
 
   const handleClose = () => {
+    openedRoomId.current = null;
     Animated.parallel([
       Animated.timing(translateY, { toValue: SCREEN_H, duration: 300, useNativeDriver: true }),
-      Animated.timing(backdrop,   { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(backdrop,   { toValue: 0,        duration: 250, useNativeDriver: true }),
     ]).start(() => { setVisible(false); onClose(); });
   };
 
-  const handleConfirmResolve = () => {
-    const resolverName = resolverType === 'self'
-      ? staff.name
-      : contractorName.trim();
-    if (!resolverName) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên thợ xử lý.');
+  const pickCccdImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('common.permTitle'), t('common.permLibrary'));
       return;
     }
-    onResolveIssue(room.id, resolverName, resolveNote.trim());
-    setConfirmed(true);
-    setTimeout(handleClose, 1200);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: Math.max(1, 4 - cccdImgs.length),
+      quality: 0.85,
+    });
+    if (!result.canceled) {
+      const next = [...cccdImgs, ...result.assets.map(a => a.uri)].slice(0, 4);
+      setCccdImgs(next);
+      if (onSaveCccdImages && room) onSaveCccdImages(room.id, next);
+    }
   };
 
-  const handleConfirmMsgResolve = msgId => {
-    const resolver = msgResolverType === 'self' ? staff.name : msgContractor.trim();
-    if (!resolver) { Alert.alert('Thiếu thông tin', 'Vui lòng nhập tên người xử lý.'); return; }
-    onResolveMessage(room.id, msgId, resolver, msgNote.trim());
-    setResolvingMsgId(null);
-    setMsgResolverType('self');
-    setMsgContractor('');
-    setMsgNote('');
+  const removeCccdImg = idx => {
+    const next = cccdImgs.filter((_, i) => i !== idx);
+    setCccdImgs(next);
+    if (onSaveCccdImages && room) onSaveCccdImages(room.id, next);
   };
 
   if (!room && !visible) return null;
 
-  const st           = room ? STATUS[room.status] : STATUS.empty;
-  const isIssue      = room && (room.status === 'maintenance' || room.status === 'urgent');
-  const isEmpty      = room && room.status === 'empty';
-  const vacantDays   = room ? daysSince(room.emptyFrom) : 0;
-  const pendingMsgs  = room ? (room.messages || []).filter(m => !m.resolved) : [];
+  const pendingMsgs   = room ? (room.messages || []).filter(m => !m.resolved) : [];
+  const isIssueSt     = room && (room.status === 'maintenance' || room.status === 'urgent');
+  const hasPendingOcc = room && room.status === 'occupied' && pendingMsgs.length > 0;
+  const st            = room ? (hasPendingOcc ? STATUS.maintenance : STATUS[room.status]) : STATUS.empty;
+  const showTenant    = room && room.tenant && (room.status === 'occupied' || isIssueSt);
+  const roommates     = room ? (room.roommates || []) : [];
+  const canCheckout   = room && room.status === 'occupied' && pendingMsgs.length === 0 && !room.currentIssue;
+
+  const handleConfirmResolve = () => {
+    const data = {
+      type: resolveType,
+      staff:          resolveType === 'staff'      ? resolveStaff    : null,
+      contractorName: resolveType === 'contractor' ? contractorName  : null,
+      contractorNote: resolveType === 'contractor' ? contractorNote  : null,
+      note:           resolveType === 'staff'      ? resolveNote     : null,
+    };
+    onResolveMessage(room.id, resolvingId, data);
+    setResolvingId(null);
+    setContractorName(''); setContractorNote(''); setResolveNote('');
+  };
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
       <Animated.View style={[md.backdrop, { opacity: backdrop }]}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleClose} />
       </Animated.View>
-
       <Animated.View style={[md.sheet, { transform: [{ translateY }] }]}>
         <View style={md.handle} />
-
         {room && <>
           {/* Header */}
           <View style={[md.header, { borderLeftColor: st.color, borderLeftWidth: 4 }]}>
@@ -312,11 +158,11 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
               <Text style={{ fontSize: 22 }}>{st.icon}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={md.roomTitle}>Phòng {room.id}</Text>
+              <Text style={md.roomTitle}>{buildingCode ? `${buildingCode}-${room.id}` : t('rooms.roomTitle').replace('{id}', room.id)}</Text>
               <Text style={md.roomSub}>{room.type} · {room.area} · {room.price} ₫/tháng</Text>
             </View>
             <View style={[md.statusBadge, { backgroundColor: st.bg, borderColor: st.border }]}>
-              <Text style={[md.statusBadgeText, { color: st.color }]}>{st.label}</Text>
+              <Text style={[md.statusBadgeText, { color: st.color }]}>{t(st.tKey)}</Text>
             </View>
             <TouchableOpacity style={md.closeBtn} onPress={handleClose}>
               <Text style={md.closeBtnText}>✕</Text>
@@ -325,325 +171,242 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
 
           <ScrollView style={md.scroll} showsVerticalScrollIndicator={false}>
 
-            {/* ── Khách đang thuê ── */}
-            {room.status === 'occupied' && (
-              <Section title="👤 Khách đang thuê">
-                <View style={md.infoCard}>
-                  <InfoRow label="Tên khách"     value={room.tenant} />
-                  <InfoRow label="Thuê từ ngày"  value={room.sinceDate} accent />
-                  <InfoRow label="Số ngày đã ở"  value={`${daysSince(room.sinceDate)} ngày`} />
-                  <InfoRow label="Số điện thoại" value={room.phone} />
+            {/* Building + Staff strip */}
+            <View style={md.infoStrip}>
+              <View style={md.infoStripItem}>
+                <Text style={md.infoStripLabel}>{t('rooms.stripBuilding')}</Text>
+                <Text style={md.infoStripValue}>{buildingName}</Text>
+                {buildingCode && <Text style={md.infoStripCode}>#{buildingCode}</Text>}
+              </View>
+              <View style={md.infoStripDiv} />
+              <View style={md.infoStripItem}>
+                <Text style={md.infoStripLabel}>{t('rooms.stripStaff')}</Text>
+                <Text style={md.infoStripValue}>{staffName}</Text>
+              </View>
+            </View>
+
+            {/* Check-in button */}
+            {room.status === 'empty' && (
+              <TouchableOpacity style={md.checkInBtn} onPress={() => { handleClose(); setTimeout(() => onStartCheckIn(room), 350); }} activeOpacity={0.8}>
+                <Text style={md.checkInBtnText}>{t('rooms.checkInBtn')}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Checkout button */}
+            {canCheckout && checkoutStep === null && (
+              <TouchableOpacity style={md.checkoutBtn} onPress={() => setCheckoutStep('confirm')} activeOpacity={0.8}>
+                <Text style={md.checkoutBtnText}>{t('rooms.checkoutBtn')}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Checkout confirmation panel */}
+            {canCheckout && checkoutStep === 'confirm' && (
+              <View style={md.checkoutPanel}>
+                <Text style={md.checkoutPanelTitle}>{t('rooms.checkoutConfirmTitle')}</Text>
+                <Text style={md.checkoutPanelSub}>{t('rooms.checkoutConfirmSub')}</Text>
+                <View style={md.checkoutChecklist}>
+                  {[t('rooms.checkoutCheck1'), t('rooms.checkoutCheck2'), t('rooms.checkoutCheck3')].map((item, i) => (
+                    <View key={i} style={md.checkoutCheckItem}>
+                      <Text style={md.checkoutCheckIcon}>✅</Text>
+                      <Text style={md.checkoutCheckText}>{item}</Text>
+                    </View>
+                  ))}
                 </View>
-                <TouchableOpacity style={md.callBtn} onPress={() => Linking.openURL(`tel:${room.phone}`)}>
-                  <Text style={md.callBtnText}>📞  Gọi điện cho {room.tenant}</Text>
-                </TouchableOpacity>
-              </Section>
-            )}
-
-            {/* ── Lịch sử thanh toán ── */}
-            {room.status === 'occupied' && (room.paymentHistory || []).length > 0 && (
-              <Section title="💰 Lịch sử thanh toán">
-                {room.paymentHistory.map((p, idx) => (
-                  <View key={idx} style={[md.payCard, !p.paid && md.payCardUnpaid]}>
-                    <View style={md.payCardHeader}>
-                      <Text style={md.payMonth}>Tháng {p.month}</Text>
-                      <View style={[md.payStatusBadge, p.paid ? md.payStatusPaid : md.payStatusUnpaid]}>
-                        <Text style={[md.payStatusText, { color: p.paid ? '#2ecc71' : '#e94560' }]}>
-                          {p.paid ? '✅ Đã đóng' : '❌ Chưa đóng'}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={md.payRow}>
-                      <Text style={md.payLabel}>Tiền thuê</Text>
-                      <Text style={md.payValue}>{p.rent} ₫</Text>
-                    </View>
-                    <View style={md.payRow}>
-                      <Text style={md.payLabel}>Điện ({p.elecKwh} kWh × 3,000)</Text>
-                      <Text style={md.payValue}>{p.elecTotal} ₫</Text>
-                    </View>
-                    <View style={md.payRow}>
-                      <Text style={md.payLabel}>Nước ({p.waterM3} m³ × 15,000)</Text>
-                      <Text style={md.payValue}>{p.waterTotal} ₫</Text>
-                    </View>
-                    <View style={md.payDivider} />
-                    <View style={md.payRow}>
-                      <Text style={md.payTotalLabel}>Tổng cộng</Text>
-                      <Text style={[md.payTotalVal, { color: p.paid ? '#2ecc71' : '#e94560' }]}>{p.total} ₫</Text>
-                    </View>
-                    {p.paid && p.paidAt && (
-                      <Text style={md.payPaidAt}>📅 Ngày đóng: {p.paidAt}</Text>
-                    )}
-                  </View>
-                ))}
-              </Section>
-            )}
-
-            {/* ── Phòng trống ── */}
-            {isEmpty && (
-              <Section title="🔓 Tình trạng trống">
-                <View style={md.vacantCard}>
-                  <Text style={md.vacantLabel}>Trống từ ngày</Text>
-                  <Text style={md.vacantDate}>{room.emptyFrom}</Text>
-                  <View style={md.vacantCountBox}>
-                    <Text style={md.vacantCount}>{vacantDays}</Text>
-                    <Text style={md.vacantCountLabel}>ngày chưa có khách</Text>
-                  </View>
-                  {vacantDays > 30 && (
-                    <View style={md.vacantAlert}>
-                      <Text style={md.vacantAlertText}>⚠️ Trống hơn 30 ngày — cần đăng tin cho thuê</Text>
-                    </View>
-                  )}
+                <View style={md.checkoutActions}>
+                  <TouchableOpacity style={md.checkoutCancel} onPress={() => setCheckoutStep(null)} activeOpacity={0.7}>
+                    <Text style={md.checkoutCancelText}>{t('common.cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={md.checkoutConfirm} activeOpacity={0.8} onPress={() => { onCheckout(room.id); handleClose(); }}>
+                    <Text style={md.checkoutConfirmText}>{t('rooms.checkoutConfirmTitle')}</Text>
+                  </TouchableOpacity>
                 </View>
-              </Section>
+              </View>
             )}
 
-            {/* ── Vấn đề đang xảy ra ── */}
-            {isIssue && room.currentIssue && (
-              <Section title={room.status === 'urgent' ? '🚨 Vấn đề khẩn cấp' : '🔧 Vấn đề đang xử lý'}>
-                <View style={[md.issueCard, room.status === 'urgent' && md.issueCardUrgent]}>
-                  <Text style={[md.issueTitleText, room.status === 'urgent' && { color: '#e94560' }]}>
-                    {room.currentIssue.title}
-                  </Text>
-                  <View style={md.issueMetaBox}>
-                    <Text style={md.issueMeta}>📅 Phát hiện: {room.currentIssue.reportedAt}</Text>
-                    <Text style={md.issueMeta}>👤 Bởi: {room.currentIssue.reportedBy}</Text>
-                    {room.emptyFrom && (
-                      <Text style={md.issueMeta}>🏠 Phòng dừng cho thuê từ: {room.emptyFrom} ({daysSince(room.emptyFrom)} ngày)</Text>
-                    )}
-                  </View>
-                </View>
-
-                {/* ── Xác nhận xử lý xong ── */}
-                {confirmed ? (
-                  <View style={md.confirmedBox}>
-                    <Text style={md.confirmedText}>✅  Đã xác nhận xử lý xong! Đang cập nhật hệ thống...</Text>
-                  </View>
-                ) : (
-                  <View style={md.resolveBox}>
-                    <TouchableOpacity
-                      style={md.resolveToggle}
-                      onPress={() => setResolving(r => !r)}
-                    >
-                      <View style={[md.checkbox, resolving && md.checkboxChecked]}>
-                        {resolving && <Text style={md.checkmark}>✓</Text>}
-                      </View>
-                      <Text style={md.resolveToggleText}>Đánh dấu đã xử lý xong vấn đề này</Text>
-                    </TouchableOpacity>
-
-                    {resolving && (
-                      <View style={md.resolveForm}>
-                        {/* Dropdown: người xử lý */}
-                        <Text style={md.resolveFormLabel}>Người xử lý vấn đề *</Text>
-                        <View style={md.dropdownBox}>
-                          <TouchableOpacity
-                            style={[md.dropdownOption, resolverType === 'self' && md.dropdownSelected]}
-                            onPress={() => setResolverType('self')}
-                          >
-                            <View style={[md.radioCircle, resolverType === 'self' && md.radioSelected]}>
-                              {resolverType === 'self' && <View style={md.radioDot} />}
-                            </View>
-                            <View style={md.dropdownOptionContent}>
-                              <Text style={md.dropdownOptionTitle}>Tự xử lý</Text>
-                              <Text style={md.dropdownOptionSub}>{staff.avatar}  {staff.name}</Text>
-                            </View>
-                          </TouchableOpacity>
-                          <View style={md.dropdownDivider} />
-                          <TouchableOpacity
-                            style={[md.dropdownOption, resolverType === 'contractor' && md.dropdownSelected]}
-                            onPress={() => setResolverType('contractor')}
-                          >
-                            <View style={[md.radioCircle, resolverType === 'contractor' && md.radioSelected]}>
-                              {resolverType === 'contractor' && <View style={md.radioDot} />}
-                            </View>
-                            <View style={md.dropdownOptionContent}>
-                              <Text style={md.dropdownOptionTitle}>Thợ bên ngoài</Text>
-                              <Text style={md.dropdownOptionSub}>👷  Nhập tên thợ bên dưới</Text>
-                            </View>
-                          </TouchableOpacity>
-                        </View>
-
-                        {resolverType === 'contractor' && (
-                          <TextInput
-                            style={md.resolveInput}
-                            placeholder="Tên thợ / đơn vị thi công..."
-                            placeholderTextColor="#8892b0"
-                            value={contractorName}
-                            onChangeText={setContractorName}
-                          />
-                        )}
-
-                        <Text style={[md.resolveFormLabel, { marginTop: 12 }]}>Ghi chú kết quả xử lý (tùy chọn)</Text>
-                        <TextInput
-                          style={[md.resolveInput, md.resolveInputMulti]}
-                          placeholder="VD: Đã thay mới ống nước, kiểm tra hoàn tất..."
-                          placeholderTextColor="#8892b0"
-                          value={resolveNote}
-                          onChangeText={setResolveNote}
-                          multiline
-                          numberOfLines={3}
-                        />
-                        <View style={md.resolveTimestamp}>
-                          <Text style={md.resolveTimestampText}>🕐 Thời gian xác nhận: {DEMO_NOW_DISPLAY}</Text>
-                        </View>
-                        <TouchableOpacity style={md.confirmBtn} onPress={handleConfirmResolve}>
-                          <LinearGradient colors={['#2ecc71', '#27ae60']} style={md.confirmGradient}>
-                            <Text style={md.confirmBtnText}>✅  Xác nhận đã xử lý xong</Text>
-                          </LinearGradient>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </Section>
-            )}
-
-            {/* ── Tin nhắn từ khách ── */}
-            {(room.messages || []).length > 0 && (
-              <Section title="💬 Tin nhắn từ khách" badge={pendingMsgs.length > 0 ? `${pendingMsgs.length} chờ xử lý` : null}>
-                {room.messages.map(msg => (
-                  <View key={msg.id} style={[md.msgCard, !msg.resolved && md.msgCardPending]}>
-                    <View style={md.msgTop}>
+            {/* Messages section */}
+            {showTenant && (
+              <MdSection title={t('rooms.msgFromTenant')}>
+                {pendingMsgs.length > 0 ? pendingMsgs.map(msg => (
+                  <View key={msg.id}>
+                    <View style={md.msgCard}>
                       <Text style={md.msgTime}>{msg.time}</Text>
-                      <View style={[md.msgTag, msg.resolved && md.msgTagDone]}>
-                        <Text style={[md.msgTagText, msg.resolved && { color: '#2ecc71' }]}>
-                          {msg.resolved ? '✅ Đã xử lý' : '⏳ Chờ xử lý'}
-                        </Text>
-                      </View>
+                      <Text style={md.msgText}>"{msg.text}"</Text>
+                      {resolvingId !== msg.id && (
+                        <TouchableOpacity style={md.resolveToggle} onPress={() => { setResolvingId(msg.id); setResolveType('self'); setResolveStaff(STAFF_LIST[0]); setContractorName(''); setContractorNote(''); setResolveNote(''); }}>
+                          <Text style={md.resolveToggleText}>{t('staffRooms.resolveToggle')}</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    <Text style={md.msgText}>"{msg.text}"</Text>
-
-                    {/* Resolved info */}
-                    {msg.resolved && msg.resolvedBy && (
-                      <View style={md.msgResolvedInfo}>
-                        <Text style={md.msgResolvedText}>👷 Xử lý bởi: {msg.resolvedBy}</Text>
-                        {msg.resolvedAt   && <Text style={md.msgResolvedDate}>🕐 {msg.resolvedAt}</Text>}
-                        {msg.resolveNote  && <Text style={md.msgResolvedNote}>📝 {msg.resolveNote}</Text>}
-                      </View>
-                    )}
-
-                    {/* Action buttons */}
-                    {!msg.resolved && (
-                      <>
-                        <View style={md.msgActions}>
-                          {room.phone && (
-                            <TouchableOpacity style={md.msgCallBtn} onPress={() => Linking.openURL(`tel:${room.phone}`)}>
-                              <Text style={md.msgCallText}>📞 Gọi xử lý</Text>
-                            </TouchableOpacity>
-                          )}
-                          <TouchableOpacity
-                            style={[md.msgDoneBtn, resolvingMsgId === msg.id && md.msgDoneBtnActive]}
-                            onPress={() => {
-                              if (resolvingMsgId === msg.id) {
-                                setResolvingMsgId(null);
-                              } else {
-                                setResolvingMsgId(msg.id);
-                                setMsgResolverType('self');
-                                setMsgContractor('');
-                                setMsgNote('');
-                              }
-                            }}
-                          >
-                            <Text style={[md.msgDoneText, resolvingMsgId === msg.id && { color: '#f1c40f' }]}>
-                              {resolvingMsgId === msg.id ? '▲ Thu gọn' : '✓ Xác nhận đã xử lý'}
-                            </Text>
+                    {resolvingId === msg.id && (
+                      <View style={md.resolveBox}>
+                        <Text style={md.resolveLabel}>{t('staffRooms.resolveMethod')}</Text>
+                        {[
+                          { key: 'self',       icon: '🔧', tKey: 'staffRooms.self'        },
+                          { key: 'contractor', icon: '👷', tKey: 'staffRooms.contractor'   },
+                          { key: 'staff',      icon: '👤', tKey: 'staffRooms.staffSystem'  },
+                        ].map(opt => (
+                          <TouchableOpacity key={opt.key} style={[md.resolveOpt, resolveType === opt.key && md.resolveOptActive]} onPress={() => setResolveType(opt.key)}>
+                            <View style={[md.resolveRadio, resolveType === opt.key && md.resolveRadioActive]}>
+                              {resolveType === opt.key && <View style={md.resolveRadioDot} />}
+                            </View>
+                            <Text style={[md.resolveOptText, resolveType === opt.key && { color: '#fff' }]}>{opt.icon}  {t(opt.tKey)}</Text>
                           </TouchableOpacity>
-                        </View>
-
-                        {/* Inline resolution form */}
-                        {resolvingMsgId === msg.id && (
-                          <View style={md.msgResolveForm}>
-                            <Text style={md.resolveFormLabel}>Người xử lý vấn đề *</Text>
-                            <View style={md.dropdownBox}>
-                              <TouchableOpacity
-                                style={[md.dropdownOption, msgResolverType === 'self' && md.dropdownSelected]}
-                                onPress={() => setMsgResolverType('self')}
-                              >
-                                <View style={[md.radioCircle, msgResolverType === 'self' && md.radioSelected]}>
-                                  {msgResolverType === 'self' && <View style={md.radioDot} />}
-                                </View>
-                                <View style={md.dropdownOptionContent}>
-                                  <Text style={md.dropdownOptionTitle}>Tự xử lý</Text>
-                                  <Text style={md.dropdownOptionSub}>{staff.avatar}  {staff.name}</Text>
-                                </View>
-                              </TouchableOpacity>
-                              <View style={md.dropdownDivider} />
-                              <TouchableOpacity
-                                style={[md.dropdownOption, msgResolverType === 'contractor' && md.dropdownSelected]}
-                                onPress={() => setMsgResolverType('contractor')}
-                              >
-                                <View style={[md.radioCircle, msgResolverType === 'contractor' && md.radioSelected]}>
-                                  {msgResolverType === 'contractor' && <View style={md.radioDot} />}
-                                </View>
-                                <View style={md.dropdownOptionContent}>
-                                  <Text style={md.dropdownOptionTitle}>Thợ bên ngoài</Text>
-                                  <Text style={md.dropdownOptionSub}>👷  Nhập tên thợ bên dưới</Text>
-                                </View>
-                              </TouchableOpacity>
-                            </View>
-
-                            {msgResolverType === 'contractor' && (
-                              <TextInput
-                                style={md.resolveInput}
-                                placeholder="Tên thợ / đơn vị xử lý..."
-                                placeholderTextColor="#8892b0"
-                                value={msgContractor}
-                                onChangeText={setMsgContractor}
-                              />
-                            )}
-
-                            <Text style={[md.resolveFormLabel, { marginTop: 12 }]}>Ghi chú kết quả (tùy chọn)</Text>
+                        ))}
+                        {resolveType === 'contractor' && (
+                          <View style={md.contractorWrap}>
+                            <Text style={md.contractorFieldLabel}>{t('staffRooms.contractorName')}</Text>
                             <TextInput
-                              style={[md.resolveInput, md.resolveInputMulti]}
-                              placeholder="VD: Đã liên hệ khách, vấn đề đã được xử lý..."
+                              style={md.contractorInput}
+                              value={contractorName}
+                              onChangeText={setContractorName}
+                              placeholder={t('staffRooms.contractorNamePh')}
                               placeholderTextColor="#8892b0"
-                              value={msgNote}
-                              onChangeText={setMsgNote}
-                              multiline
-                              numberOfLines={3}
                             />
-                            <View style={md.resolveTimestamp}>
-                              <Text style={md.resolveTimestampText}>🕐 Thời gian xác nhận: {DEMO_NOW_DISPLAY}</Text>
-                            </View>
-                            <TouchableOpacity style={md.confirmBtn} onPress={() => handleConfirmMsgResolve(msg.id)}>
-                              <LinearGradient colors={['#2ecc71', '#27ae60']} style={md.confirmGradient}>
-                                <Text style={md.confirmBtnText}>✅  Xác nhận đã xử lý xong</Text>
-                              </LinearGradient>
-                            </TouchableOpacity>
+                            <Text style={[md.contractorFieldLabel, { marginTop: 10 }]}>{t('staffRooms.cost')}</Text>
+                            <TextInput
+                              style={[md.contractorInput, md.contractorInputMulti]}
+                              value={contractorNote}
+                              onChangeText={setContractorNote}
+                              placeholder={t('staffRooms.costPh')}
+                              placeholderTextColor="#8892b0"
+                              multiline
+                            />
                           </View>
                         )}
-                      </>
+                        {resolveType === 'staff' && (
+                          <View style={md.staffPickerWrap}>
+                            <Text style={md.staffPickerLabel}>{t('staffRooms.selectStaff')}</Text>
+                            {STAFF_LIST.map(sv => (
+                              <TouchableOpacity key={sv} style={[md.staffOpt, resolveStaff === sv && md.staffOptActive]} onPress={() => setResolveStaff(sv)}>
+                                <Text style={[md.staffOptText, resolveStaff === sv && { color: '#4facfe', fontWeight: '700' }]}>
+                                  {resolveStaff === sv ? '✔  ' : '     '}{sv}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                            <Text style={[md.staffPickerLabel, { marginTop: 10 }]}>{t('staffRooms.note')}</Text>
+                            <TextInput
+                              style={[md.contractorInput, md.contractorInputMulti]}
+                              value={resolveNote}
+                              onChangeText={setResolveNote}
+                              placeholder={t('staffRooms.notePh')}
+                              placeholderTextColor="#8892b0"
+                              multiline
+                            />
+                          </View>
+                        )}
+                        <View style={md.resolveBtnRow}>
+                          <TouchableOpacity style={md.resolveCancelBtn} onPress={() => setResolvingId(null)}>
+                            <Text style={md.resolveCancelText}>{t('staffRooms.cancelBtn')}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={md.resolveConfirmBtn} onPress={handleConfirmResolve}>
+                            <Text style={md.resolveConfirmText}>{t('staffRooms.confirmBtn')}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
                     )}
                   </View>
-                ))}
-              </Section>
+                )) : (
+                  <View style={md.normalState}>
+                    <Text style={md.normalStateText}>{t('rooms.normalState')}</Text>
+                  </View>
+                )}
+              </MdSection>
             )}
 
-            {/* ── Lịch sử giải quyết sự cố ── */}
-            <Section title="📋 Lịch sử giải quyết sự cố">
-              {(room.issueHistory || []).length === 0 ? (
-                <View style={md.emptyHistory}>
-                  <Text style={md.emptyHistoryText}>✅  Chưa có vấn đề nào được ghi nhận</Text>
+            {/* Tenant info */}
+            {showTenant && (
+              <MdSection title={t('rooms.currentTenant')}>
+                <View style={[md.card, isIssueSt && md.cardIssue]}>
+                  <MdRow label={t('rooms.tenantName')}     value={room.tenant} />
+                  {room.tenantCccd && <MdRow label="CCCD" value={room.tenantCccd} />}
+                  <MdRow label={t('rooms.sinceDate')}  value={room.sinceDate} accent />
+                  <MdRow label={t('rooms.phone')} value={room.phone} />
                 </View>
-              ) : (
-                room.issueHistory.map((issue, idx) => (
-                  <View key={issue.id} style={md.timelineRow}>
-                    <View style={md.timelineLeft}>
-                      <View style={[md.dot, { backgroundColor: issue.resolvedAt ? '#2ecc71' : '#f1c40f' }]} />
-                      {idx < room.issueHistory.length - 1 && <View style={md.timelineBar} />}
+                {room.phone && (
+                  <TouchableOpacity style={[md.callBtn, isIssueSt && md.callBtnIssue]} onPress={() => Linking.openURL(`tel:${room.phone}`)}>
+                    <Text style={[md.callBtnText, isIssueSt && { color: '#f1c40f' }]}>{t('rooms.callTenant').replace('{name}', room.tenant)}</Text>
+                  </TouchableOpacity>
+                )}
+              </MdSection>
+            )}
+
+            {/* CCCD images */}
+            {showTenant && (
+              <MdSection title={t('staffRooms.idCard')}>
+                {cccdImgs.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 10, paddingBottom: 4 }}>
+                      {cccdImgs.map((uri, i) => (
+                        <View key={i} style={md.cccdImgWrap}>
+                          <Image source={{ uri }} style={md.cccdImg} />
+                          <TouchableOpacity style={md.cccdRemove} onPress={() => removeCccdImg(i)}>
+                            <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      {cccdImgs.length < 4 && (
+                        <TouchableOpacity style={md.cccdAddBtn} onPress={pickCccdImage}>
+                          <Text style={{ fontSize: 20 }}>🪪</Text>
+                          <Text style={md.cccdAddText}>{t('rooms.cccdAdd')}</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    <View style={md.timelineContent}>
-                      <Text style={md.historyTitle}>{issue.title}</Text>
-                      <HistoryRow label="📅 Phản ánh:"   value={issue.reportedAt} />
-                      {issue.resolvedAt
-                        ? <HistoryRow label="✅ Xử lý xong:" value={issue.resolvedAt} valueColor="#2ecc71" />
-                        : <HistoryRow label="⏳ Trạng thái:" value="Đang xử lý" valueColor="#f1c40f" />
-                      }
-                      {issue.resolvedBy && <HistoryRow label="👷 Người xử lý:" value={issue.resolvedBy} />}
+                  </ScrollView>
+                ) : (
+                  <View style={md.cccdEmpty}>
+                    <Text style={{ fontSize: 28 }}>🪪</Text>
+                    <Text style={md.cccdEmptyText}>{t('rooms.cccdEmpty')}</Text>
+                    <TouchableOpacity style={md.cccdPickBtn} onPress={pickCccdImage}>
+                      <Text style={md.cccdPickText}>{t('rooms.cccdAddBtn')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </MdSection>
+            )}
+
+            {/* Roommates */}
+            {showTenant && roommates.length > 0 && (
+              <MdSection title={t('rooms.roommatesTitle').replace('{n}', roommates.length)}>
+                <View style={md.rmTable}>
+                  <View style={md.rmHeader}>
+                    <Text style={[md.rmHeaderCell, { flex: 3 }]}>{t('rooms.rmFullName')}</Text>
+                    <Text style={[md.rmHeaderCell, { flex: 2 }]}>{t('rooms.rmCccdNum')}</Text>
+                  </View>
+                  {roommates.map((rm, i) => (
+                    <View key={rm.id || i} style={[md.rmRow, i % 2 !== 0 && md.rmRowAlt]}>
+                      <Text style={[md.rmCell, { flex: 3 }]}>{rm.name}</Text>
+                      <Text style={[md.rmCellMono, { flex: 2 }]}>{rm.cccd}</Text>
+                    </View>
+                  ))}
+                </View>
+              </MdSection>
+            )}
+
+            {/* Payment history */}
+            {(room.paymentHistory || []).length > 0 && (
+              <MdSection title={t('rooms.payHistory')}>
+                {room.paymentHistory.map((p, i) => (
+                  <View key={i} style={[md.payRow, !p.paid && md.payRowUnpaid]}>
+                    <Text style={md.payMonth}>{t('rooms.payMonth').replace('{n}', p.month)}</Text>
+                    <View style={[md.payBadge, p.paid ? md.payBadgePaid : md.payBadgeUnpaid]}>
+                      <Text style={{ color: p.paid ? '#2ecc71' : '#e94560', fontSize: 11, fontWeight: '700' }}>
+                        {p.paid ? t('status.paid') : t('status.unpaid')}
+                      </Text>
                     </View>
                   </View>
-                ))
-              )}
-            </Section>
+                ))}
+              </MdSection>
+            )}
+
+            {/* Current issue */}
+            {room.currentIssue && (
+              <MdSection title={t('rooms.issueHistory')}>
+                <View style={md.issueCard}>
+                  <Text style={md.issueTitle}>{room.currentIssue.title}</Text>
+                  <Text style={md.issueMeta}>{t('rooms.issueRecorded').replace('{date}', room.currentIssue.reportedAt)}</Text>
+                </View>
+              </MdSection>
+            )}
 
             <View style={{ height: 48 }} />
           </ScrollView>
@@ -653,46 +416,35 @@ function RoomDetailModal({ room, staff, onClose, onResolveIssue, onResolveMessag
   );
 }
 
-function Section({ title, badge, children }) {
+function MdSection({ title, children }) {
   return (
     <View style={md.section}>
-      <View style={md.sectionHeader}>
-        <Text style={md.sectionTitle}>{title}</Text>
-        {badge && <View style={md.badge}><Text style={md.badgeText}>{badge}</Text></View>}
-      </View>
+      <Text style={md.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
 }
 
-function InfoRow({ label, value, accent }) {
+function MdRow({ label, value, accent }) {
   return (
-    <View style={md.infoRow}>
-      <Text style={md.infoLabel}>{label}</Text>
-      <Text style={[md.infoValue, accent && { color: '#4facfe' }]}>{value || '—'}</Text>
-    </View>
-  );
-}
-
-function HistoryRow({ label, value, valueColor }) {
-  return (
-    <View style={md.historyMetaRow}>
-      <Text style={md.historyMetaLabel}>{label}</Text>
-      <Text style={[md.historyMetaVal, valueColor && { color: valueColor }]}>{value}</Text>
+    <View style={md.row}>
+      <Text style={md.rowLabel}>{label}</Text>
+      <Text style={[md.rowValue, accent && { color: '#4facfe' }]}>{value || '—'}</Text>
     </View>
   );
 }
 
 // ─── Building Rooms Modal ─────────────────────────────────
 const ROOMS_MODAL_CFG = {
-  all:         { title: 'Tất cả phòng',        icon: '🏢', color: '#4facfe' },
-  occupied:    { title: 'Phòng đang cho thuê',  icon: '✅', color: '#2ecc71' },
-  empty:       { title: 'Phòng đang trống',     icon: '🔓', color: '#8892b0' },
-  maintenance: { title: 'Phòng đang bảo trì',   icon: '🔧', color: '#f1c40f' },
-  urgent:      { title: 'Phòng khẩn cấp',       icon: '🚨', color: '#e94560' },
+  all:         { tKey: 'staffRooms.cfgAll',         icon: '🏢', color: '#4facfe' },
+  occupied:    { tKey: 'staffRooms.cfgOccupied',    icon: '✅', color: '#2ecc71' },
+  empty:       { tKey: 'staffRooms.cfgEmpty',       icon: '🔓', color: '#8892b0' },
+  maintenance: { tKey: 'staffRooms.cfgMaintenance', icon: '🔧', color: '#f1c40f' },
+  urgent:      { tKey: 'staffRooms.cfgUrgent',      icon: '🚨', color: '#e94560' },
 };
 
 function BuildingRoomsModal({ data, onClose, onSelectRoom }) {
+  const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdrop   = useRef(new Animated.Value(0)).current;
 
@@ -738,8 +490,8 @@ function BuildingRoomsModal({ data, onClose, onSelectRoom }) {
             <Text style={{ fontSize: 22 }}>{cfg.icon}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={md.roomTitle}>{cfg.title}</Text>
-            <Text style={md.roomSub}>🏢 {data.building.name} · {filtered.length} phòng</Text>
+            <Text style={md.roomTitle}>{t(cfg.tKey)}</Text>
+            <Text style={md.roomSub}>🏢 {data.building.name} · {t('rooms.floorRooms').replace('{n}', filtered.length)}</Text>
           </View>
           <TouchableOpacity style={md.closeBtn} onPress={handleClose}>
             <Text style={md.closeBtnText}>✕</Text>
@@ -750,14 +502,14 @@ function BuildingRoomsModal({ data, onClose, onSelectRoom }) {
           {filtered.length === 0 ? (
             <View style={{ alignItems: 'center', padding: 44 }}>
               <Text style={{ fontSize: 40, marginBottom: 12 }}>✅</Text>
-              <Text style={{ color: '#8892b0', fontSize: 14 }}>Không có phòng nào trong danh sách này</Text>
+              <Text style={{ color: '#8892b0', fontSize: 14 }}>{t('rooms.noRooms')}</Text>
             </View>
           ) : (
             byFloor.map(({ floor, rooms }) => (
               <View key={floor} style={{ marginTop: 16 }}>
                 <View style={rm.floorBar}>
-                  <Text style={rm.floorBarText}>Tầng {floor}</Text>
-                  <Text style={rm.floorBarCount}>{rooms.length} phòng</Text>
+                  <Text style={rm.floorBarText}>{t('rooms.floorLabel').replace('{n}', floor)}</Text>
+                  <Text style={rm.floorBarCount}>{t('rooms.floorRooms').replace('{n}', rooms.length)}</Text>
                 </View>
                 {rooms.map(room => {
                   const st = STATUS[room.status];
@@ -774,23 +526,23 @@ function BuildingRoomsModal({ data, onClose, onSelectRoom }) {
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={rm.roomId}>Phòng {room.id}</Text>
+                          <Text style={rm.roomId}>{t('rooms.roomTitle').replace('{id}', room.id)}</Text>
                           <View style={[rm.statusTag, { backgroundColor: st.bg, borderColor: st.border }]}>
-                            <Text style={[rm.statusTagText, { color: st.color }]}>{st.label}</Text>
+                            <Text style={[rm.statusTagText, { color: st.color }]}>{t(st.tKey)}</Text>
                           </View>
                         </View>
                         <Text style={rm.roomMeta}>{room.type} · {room.area} · {room.price} ₫/tháng</Text>
                         {room.tenant && (
-                          <Text style={rm.tenantLine}>👤 {room.tenant}  ·  Từ {room.sinceDate}</Text>
+                          <Text style={rm.tenantLine}>👤 {room.tenant}  ·  {t('rooms.sinceDate')} {room.sinceDate}</Text>
                         )}
                         {room.currentIssue && (
                           <Text style={rm.issueLine} numberOfLines={1}>⚠️ {room.currentIssue.title}</Text>
                         )}
                         {!room.tenant && room.emptyFrom && (
-                          <Text style={rm.emptyLine}>🔓 Trống từ {room.emptyFrom} · {daysSince(room.emptyFrom)} ngày</Text>
+                          <Text style={rm.emptyLine}>🔓 {t('status.vacant')} {t('staffRooms.emptyFrom')} {room.emptyFrom} · {daysSince(room.emptyFrom)} {t('staffRooms.days')}</Text>
                         )}
                         {pending > 0 && (
-                          <Text style={rm.pendingLine}>💬 {pending} tin nhắn chờ xử lý</Text>
+                          <Text style={rm.pendingLine}>💬 {pending} {t('staffRooms.pendingMsgs')}</Text>
                         )}
                       </View>
                       <Text style={rm.arrow}>›</Text>
@@ -809,6 +561,7 @@ function BuildingRoomsModal({ data, onClose, onSelectRoom }) {
 
 // ─── Pending Messages Modal ───────────────────────────────
 function PendingMessagesModal({ buildings, onClose, onResolveMessage }) {
+  const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdrop   = useRef(new Animated.Value(0)).current;
 
@@ -849,8 +602,8 @@ function PendingMessagesModal({ buildings, onClose, onResolveMessage }) {
             <Text style={{ fontSize: 22 }}>💬</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={md.roomTitle}>Tin nhắn chờ xử lý</Text>
-            <Text style={md.roomSub}>{pendingList.length} tin nhắn cần phản hồi</Text>
+            <Text style={md.roomTitle}>{t('staffRooms.pendingTitle')}</Text>
+            <Text style={md.roomSub}>{pendingList.length} {t('staffRooms.pendingCount')}</Text>
           </View>
           <TouchableOpacity style={md.closeBtn} onPress={handleClose}>
             <Text style={md.closeBtnText}>✕</Text>
@@ -861,14 +614,14 @@ function PendingMessagesModal({ buildings, onClose, onResolveMessage }) {
           {pendingList.length === 0 ? (
             <View style={{ alignItems: 'center', padding: 40 }}>
               <Text style={{ fontSize: 40, marginBottom: 12 }}>✅</Text>
-              <Text style={{ color: '#2ecc71', fontSize: 14, fontWeight: '700' }}>Không có tin nhắn chờ xử lý</Text>
+              <Text style={{ color: '#2ecc71', fontSize: 14, fontWeight: '700' }}>{t('staffRooms.noPending')}</Text>
             </View>
           ) : (
             pendingList.map((msg, idx) => (
               <View key={`${msg.roomId}-${msg.id}`} style={[md.msgCard, md.msgCardPending, { marginTop: idx === 0 ? 16 : 0 }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                   <View>
-                    <Text style={{ color: '#4facfe', fontSize: 13, fontWeight: '700' }}>Phòng {msg.roomId}</Text>
+                    <Text style={{ color: '#4facfe', fontSize: 13, fontWeight: '700' }}>{t('rooms.roomTitle').replace('{id}', msg.roomId)}</Text>
                     <Text style={{ color: '#8892b0', fontSize: 11, marginTop: 1 }}>🏢 {msg.buildingName}</Text>
                   </View>
                   <Text style={md.msgTime}>{msg.time}</Text>
@@ -880,11 +633,11 @@ function PendingMessagesModal({ buildings, onClose, onResolveMessage }) {
                 <View style={md.msgActions}>
                   {msg.phone && (
                     <TouchableOpacity style={md.msgCallBtn} onPress={() => Linking.openURL(`tel:${msg.phone}`)}>
-                      <Text style={md.msgCallText}>📞 Gọi xử lý</Text>
+                      <Text style={md.msgCallText}>{t('staffRooms.callHandle')}</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity style={md.msgDoneBtn} onPress={() => onResolveMessage(msg.roomId, msg.id)}>
-                    <Text style={md.msgDoneText}>✓ Đã xử lý</Text>
+                    <Text style={md.msgDoneText}>{t('staffRooms.doneBtn')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -899,6 +652,7 @@ function PendingMessagesModal({ buildings, onClose, onResolveMessage }) {
 
 // ─── Staff Profile Modal ──────────────────────────────────
 function StaffProfileModal({ staff, onClose, onSave }) {
+  const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdrop   = useRef(new Animated.Value(0)).current;
   const [name,      setName]      = useState(staff.name);
@@ -926,7 +680,7 @@ function StaffProfileModal({ staff, onClose, onSave }) {
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cho phép ứng dụng truy cập thư viện ảnh.');
+      Alert.alert(t('staffCust.needPerm'), t('staffCust.permMsg'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -937,7 +691,7 @@ function StaffProfileModal({ staff, onClose, onSave }) {
   };
 
   const handleSave = () => {
-    if (!name.trim()) { Alert.alert('Thiếu thông tin', 'Vui lòng nhập họ tên.'); return; }
+    if (!name.trim()) { Alert.alert(t('staffCust.missingInfo'), t('staffCust.missingName')); return; }
     const avatar = gender === 'male' ? '👨' : '👩';
     onSave({ name: name.trim(), phone: phone.trim(), avatar, gender, photoUri });
     handleClose();
@@ -953,7 +707,7 @@ function StaffProfileModal({ staff, onClose, onSave }) {
       <Animated.View style={[md.sheet, { transform: [{ translateY }], maxHeight: '78%' }]}>
         <View style={md.handle} />
         <View style={pf.header}>
-          <Text style={pf.title}>Cập nhật thông tin</Text>
+          <Text style={pf.title}>{t('staffCust.profileTitle')}</Text>
           <TouchableOpacity style={md.closeBtn} onPress={handleClose}>
             <Text style={md.closeBtnText}>✕</Text>
           </TouchableOpacity>
@@ -969,27 +723,27 @@ function StaffProfileModal({ staff, onClose, onSave }) {
               }
             </View>
             <View style={pf.previewActions}>
-              <Text style={pf.previewName}>{name || 'Họ và tên'}</Text>
+              <Text style={pf.previewName}>{name || t('staffCust.namePh')}</Text>
               <TouchableOpacity style={pf.uploadBtn} onPress={handlePickImage}>
-                <Text style={pf.uploadBtnText}>📷  Tải ảnh lên</Text>
+                <Text style={pf.uploadBtnText}>{t('staffCust.uploadPhoto')}</Text>
               </TouchableOpacity>
               {photoUri && (
                 <TouchableOpacity style={pf.removePhotoBtn} onPress={() => setPhotoUri(null)}>
-                  <Text style={pf.removePhotoText}>✕ Bỏ ảnh</Text>
+                  <Text style={pf.removePhotoText}>{t('staffCust.removePhoto')}</Text>
                 </TouchableOpacity>
               )}
             </View>
           </View>
 
           {/* Gender */}
-          <Text style={pf.label}>Giới tính</Text>
+          <Text style={pf.label}>{t('staffCust.gender')}</Text>
           <View style={pf.genderRow}>
             <TouchableOpacity
               style={[pf.genderBtn, gender === 'female' && pf.genderSelected]}
               onPress={() => { setGender('female'); setPhotoUri(null); }}
             >
               <Text style={pf.genderEmoji}>👩</Text>
-              <Text style={[pf.genderLabel, gender === 'female' && { color: '#4facfe' }]}>Nữ</Text>
+              <Text style={[pf.genderLabel, gender === 'female' && { color: '#4facfe' }]}>{t('staffCust.female')}</Text>
               {gender === 'female' && !photoUri && <View style={pf.genderCheck}><Text style={{ color: '#fff', fontSize: 10 }}>✓</Text></View>}
             </TouchableOpacity>
             <TouchableOpacity
@@ -997,19 +751,19 @@ function StaffProfileModal({ staff, onClose, onSave }) {
               onPress={() => { setGender('male'); setPhotoUri(null); }}
             >
               <Text style={pf.genderEmoji}>👨</Text>
-              <Text style={[pf.genderLabel, gender === 'male' && { color: '#4facfe' }]}>Nam</Text>
+              <Text style={[pf.genderLabel, gender === 'male' && { color: '#4facfe' }]}>{t('staffCust.male')}</Text>
               {gender === 'male' && !photoUri && <View style={pf.genderCheck}><Text style={{ color: '#fff', fontSize: 10 }}>✓</Text></View>}
             </TouchableOpacity>
           </View>
 
-          <Text style={pf.label}>Họ và tên *</Text>
-          <TextInput style={pf.input} value={name} onChangeText={setName} placeholder="Nhập họ tên..." placeholderTextColor="#8892b0" />
-          <Text style={pf.label}>Số điện thoại</Text>
-          <TextInput style={pf.input} value={phone} onChangeText={setPhone} placeholder="Nhập SĐT..." placeholderTextColor="#8892b0" keyboardType="phone-pad" />
+          <Text style={pf.label}>{t('staffCust.nameLabel')}</Text>
+          <TextInput style={pf.input} value={name} onChangeText={setName} placeholder={t('staffCust.namePh')} placeholderTextColor="#8892b0" />
+          <Text style={pf.label}>{t('customers.phone')}</Text>
+          <TextInput style={pf.input} value={phone} onChangeText={setPhone} placeholder={t('staffCust.phonePh')} placeholderTextColor="#8892b0" keyboardType="phone-pad" />
 
           <TouchableOpacity style={pf.saveBtn} onPress={handleSave}>
             <LinearGradient colors={['#4facfe', '#3a8de0']} style={pf.saveGradient}>
-              <Text style={pf.saveBtnText}>💾  Lưu thông tin</Text>
+              <Text style={pf.saveBtnText}>{t('staffCust.saveBtn')}</Text>
             </LinearGradient>
           </TouchableOpacity>
           <View style={{ height: 32 }} />
@@ -1019,27 +773,434 @@ function StaffProfileModal({ staff, onClose, onSave }) {
   );
 }
 
+// ─── Date Picker Helpers ──────────────────────────────────
+
+function parseDDMMYYYY(str) {
+  if (!str) return null;
+  const [d, m, y] = str.split('/').map(Number);
+  if (!d || !m || !y) return null;
+  return new Date(y, m - 1, d);
+}
+function formatDDMMYYYY(date) {
+  if (!date) return '';
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${d}/${m}/${date.getFullYear()}`;
+}
+
+// ─── Date Picker Modal ────────────────────────────────────
+function DatePickerModal({ visible, value, onSelect, onClose }) {
+  const { t } = useLanguage();
+  const MONTHS = t('date.months');
+  const DAYS   = t('date.days');
+  const today    = new Date();
+  const initDate = parseDDMMYYYY(value) || new Date(2000, 0, 1);
+  const [viewYear,  setViewYear]  = useState(initDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initDate.getMonth());
+  const [selected,  setSelected]  = useState(parseDDMMYYYY(value));
+  const [yearMode,  setYearMode]  = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      const d = parseDDMMYYYY(value) || new Date(2000, 0, 1);
+      setViewYear(d.getFullYear()); setViewMonth(d.getMonth());
+      setSelected(parseDDMMYYYY(value)); setYearMode(false);
+    }
+  }, [visible]);
+
+  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); };
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDow    = new Date(viewYear, viewMonth, 1).getDay();
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const isSelected = d => d && selected && selected.getDate() === d && selected.getMonth() === viewMonth && selected.getFullYear() === viewYear;
+  const isToday    = d => d && today.getDate() === d && today.getMonth() === viewMonth && today.getFullYear() === viewYear;
+  const isFuture   = d => d && new Date(viewYear, viewMonth, d) > today;
+  const yearRange  = Array.from({ length: 100 }, (_, i) => today.getFullYear() - i);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={dp.overlay}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} />
+        <View style={dp.card}>
+          {!yearMode ? (
+            <View style={dp.nav}>
+              <TouchableOpacity style={dp.navBtn} onPress={prevMonth}><Text style={dp.navArrow}>‹</Text></TouchableOpacity>
+              <TouchableOpacity style={dp.navCenter} onPress={() => setYearMode(true)}>
+                <Text style={dp.navTitle}>{MONTHS[viewMonth]} {viewYear}</Text>
+                <Text style={dp.navHint}>▼</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={dp.navBtn} onPress={nextMonth}><Text style={dp.navArrow}>›</Text></TouchableOpacity>
+            </View>
+          ) : (
+            <View style={dp.nav}>
+              <Text style={dp.navTitle}>Chọn năm</Text>
+              <TouchableOpacity style={dp.navBtn} onPress={() => setYearMode(false)}><Text style={dp.navArrow}>✕</Text></TouchableOpacity>
+            </View>
+          )}
+          {yearMode ? (
+            <ScrollView style={dp.yearList} showsVerticalScrollIndicator={false}>
+              {yearRange.map(y => (
+                <TouchableOpacity key={y} style={[dp.yearItem, y === viewYear && dp.yearItemActive]}
+                  onPress={() => { setViewYear(y); setYearMode(false); }}>
+                  <Text style={[dp.yearText, y === viewYear && dp.yearTextActive]}>{y}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <>
+              <View style={dp.weekRow}>
+                {DAYS.map((d, idx) => <Text key={idx} style={[dp.weekDay, idx === 0 && { color: '#e94560' }]}>{d}</Text>)}
+              </View>
+              <View style={dp.grid}>
+                {cells.map((d, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[dp.cell, isSelected(d) && dp.cellSelected, isToday(d) && !isSelected(d) && dp.cellToday]}
+                    onPress={() => d && !isFuture(d) && setSelected(new Date(viewYear, viewMonth, d))}
+                    activeOpacity={d && !isFuture(d) ? 0.7 : 1}
+                  >
+                    <Text style={[dp.cellText, isSelected(d) && dp.cellTextSelected, isToday(d) && !isSelected(d) && dp.cellTextToday, isFuture(d) && dp.cellTextFuture, !d && { opacity: 0 }]}>
+                      {d || 0}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+          <View style={dp.actions}>
+            <TouchableOpacity style={dp.cancelBtn} onPress={onClose}><Text style={dp.cancelText}>{t('common.cancel')}</Text></TouchableOpacity>
+            <TouchableOpacity
+              style={[dp.confirmBtn, !selected && dp.confirmBtnDisabled]}
+              onPress={() => { if (selected) { onSelect(formatDDMMYYYY(selected)); onClose(); } }}
+            >
+              <Text style={dp.confirmText}>{selected ? `${t('customers.datePicker')}: ${formatDDMMYYYY(selected)}` : t('customers.noDateSelected')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <TouchableOpacity style={{ flex: 0.2 }} onPress={onClose} />
+      </View>
+    </Modal>
+  );
+}
+
+const dp = StyleSheet.create({
+  overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 20 },
+  card:       { backgroundColor: '#16213e', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', padding: 16 },
+  nav:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  navBtn:     { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
+  navArrow:   { color: '#ccd6f6', fontSize: 20, fontWeight: '600' },
+  navCenter:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  navTitle:   { color: '#fff', fontSize: 15, fontWeight: '800' },
+  navHint:    { color: '#8892b0', fontSize: 10 },
+  weekRow:    { flexDirection: 'row', marginBottom: 6 },
+  weekDay:    { flex: 1, textAlign: 'center', color: '#8892b0', fontSize: 11, fontWeight: '700' },
+  grid:       { flexDirection: 'row', flexWrap: 'wrap' },
+  cell:       { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 100 },
+  cellSelected:     { backgroundColor: '#4facfe' },
+  cellToday:        { borderWidth: 1.5, borderColor: '#4facfe' },
+  cellText:         { color: '#ccd6f6', fontSize: 13, fontWeight: '500' },
+  cellTextSelected: { color: '#fff', fontWeight: '800' },
+  cellTextToday:    { color: '#4facfe', fontWeight: '800' },
+  cellTextFuture:   { color: 'rgba(136,146,176,0.35)' },
+  yearList:         { maxHeight: 220 },
+  yearItem:         { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 },
+  yearItemActive:   { backgroundColor: 'rgba(79,172,254,0.15)' },
+  yearText:         { color: '#ccd6f6', fontSize: 14, textAlign: 'center' },
+  yearTextActive:   { color: '#4facfe', fontWeight: '800' },
+  actions:    { flexDirection: 'row', gap: 10, marginTop: 16 },
+  cancelBtn:  { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  cancelText: { color: '#8892b0', fontWeight: '700', fontSize: 13 },
+  confirmBtn: { flex: 2, paddingVertical: 12, borderRadius: 12, alignItems: 'center', backgroundColor: '#4facfe' },
+  confirmBtnDisabled: { backgroundColor: 'rgba(79,172,254,0.3)' },
+  confirmText: { color: '#1a1a2e', fontWeight: '800', fontSize: 13 },
+});
+
+// ─── Check-In Modal ───────────────────────────────────────
+function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, onCheckIn }) {
+  const { t } = useLanguage();
+  const translateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const backdropOp = useRef(new Animated.Value(0)).current;
+
+  const [mode,          setMode]          = useState('new');
+  const [searchQ,       setSearchQ]       = useState('');
+  const [showResults,   setShowResults]   = useState(false);
+  const [name,          setName]          = useState('');
+  const [dob,           setDob]           = useState('');
+  const [showDobPicker, setShowDobPicker] = useState(false);
+  const [cccd,          setCccd]          = useState('');
+  const [phone,         setPhone]         = useState('');
+  const [email,         setEmail]         = useState('');
+  const [cccdFront,     setCccdFront]     = useState(null);
+  const [cccdBack,      setCccdBack]      = useState(null);
+  const [roommates,     setRoommates]     = useState([]);
+
+  const resetForm = () => {
+    setMode('new'); setSearchQ(''); setShowResults(false);
+    setName(''); setDob(''); setCccd(''); setPhone(''); setEmail('');
+    setCccdFront(null); setCccdBack(null); setRoommates([]);
+  };
+
+  useEffect(() => {
+    if (visible) {
+      resetForm();
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 180 }),
+        Animated.timing(backdropOp, { toValue: 1, useNativeDriver: true, duration: 250 }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(translateY, { toValue: SCREEN_H, useNativeDriver: true, duration: 220 }),
+        Animated.timing(backdropOp, { toValue: 0,         useNativeDriver: true, duration: 200 }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const searchResults = searchQ.length > 1
+    ? existingTenants.filter(t =>
+        t.name.toLowerCase().includes(searchQ.toLowerCase()) ||
+        (t.cccd && t.cccd.includes(searchQ))
+      ).slice(0, 6)
+    : [];
+
+  const fillFromExisting = t => {
+    setName(t.name); setCccd(t.cccd || ''); setPhone(t.phone || '');
+    setDob(t.dob || ''); setEmail(t.email || '');
+    setSearchQ(t.name); setShowResults(false);
+  };
+
+  const pickCccdPhoto = async side => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.9 });
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      side === 'front' ? setCccdFront(uri) : setCccdBack(uri);
+    }
+  };
+
+  const addRoommate    = () => setRoommates(p => [...p, { id: 'rm' + Date.now(), name: '', cccd: '' }]);
+  const removeRoommate = id => setRoommates(p => p.filter(r => r.id !== id));
+  const updateRoommate = (id, field, val) => setRoommates(p => p.map(r => r.id === id ? { ...r, [field]: val } : r));
+
+  const roommatesValid = roommates.every(r => r.name.trim() && r.cccd.trim());
+  const canSubmit = name.trim() && dob.trim() && cccd.trim() && phone.trim() && roommatesValid;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    onCheckIn({ name: name.trim(), dob: dob.trim(), cccd: cccd.trim(), phone: phone.trim(), email: email.trim(), cccdFront, cccdBack, roommates: roommates.filter(r => r.name.trim()) });
+    onClose();
+  };
+
+  const roomCode = room ? (buildingCode ? `${buildingCode}-${room.id}` : room.id) : '';
+
+  const CiField = ({ label, value, onChange, placeholder, keyboardType, required }) => (
+    <View style={ci.fieldWrap}>
+      <Text style={ci.fieldLabel}>{label}{required && <Text style={{ color: '#e74c3c' }}> *</Text>}</Text>
+      <TextInput style={ci.fieldInput} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor="#8892b0" keyboardType={keyboardType || 'default'} />
+    </View>
+  );
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View style={[ci.backdrop, { opacity: backdropOp }]}>
+        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
+      </Animated.View>
+      <Animated.View style={[ci.sheet, { transform: [{ translateY }] }]}>
+        <View style={ci.handle} />
+        <View style={ci.header}>
+          <View style={ci.headerIcon}><Text style={{ fontSize: 20 }}>🏠</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={ci.headerTitle}>Khách nhận phòng</Text>
+            <Text style={ci.headerSub}>Phòng {roomCode}</Text>
+          </View>
+          <TouchableOpacity style={ci.closeBtn} onPress={onClose}>
+            <Text style={{ color: '#8892b0', fontSize: 18 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={ci.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <View style={ci.toggleRow}>
+            {['new', 'returning'].map(m => (
+              <TouchableOpacity key={m} style={[ci.toggleBtn, mode === m && ci.toggleBtnActive]} onPress={() => { setMode(m); resetForm(); setMode(m); }} activeOpacity={0.7}>
+                <Text style={[ci.toggleText, mode === m && ci.toggleTextActive]}>{m === 'new' ? `👤 ${t('rooms.tenantInfo')}` : `🔄 ${t('common.search')}`}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {mode === 'returning' && (
+            <View style={ci.searchSection}>
+              <Text style={ci.sectionTitle}>{t('rooms.searchCustomer')}</Text>
+              <View style={ci.searchBox}>
+                <Text style={{ fontSize: 15, marginRight: 8 }}>🔍</Text>
+                <TextInput style={ci.searchInput} value={searchQ} onChangeText={v => { setSearchQ(v); setShowResults(true); }} onFocus={() => setShowResults(true)} placeholder={t('rooms.searchCccdPh')} placeholderTextColor="#8892b0" />
+                {searchQ.length > 0 && <TouchableOpacity onPress={() => { setSearchQ(''); setShowResults(false); }}><Text style={{ color: '#8892b0', paddingHorizontal: 4 }}>✕</Text></TouchableOpacity>}
+              </View>
+              {showResults && searchResults.length > 0 && (
+                <View style={ci.resultList}>
+                  {searchResults.map(t => (
+                    <TouchableOpacity key={t.id} style={ci.resultItem} onPress={() => fillFromExisting(t)} activeOpacity={0.7}>
+                      <Text style={ci.resultName}>{t.name}</Text>
+                      <Text style={ci.resultMeta}>{t.cccd} · {t.phone}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {showResults && searchQ.length > 1 && searchResults.length === 0 && (
+                <View style={ci.resultEmpty}><Text style={ci.resultEmptyText}>{t('rooms.noCustomerFound')}</Text></View>
+              )}
+            </View>
+          )}
+
+          <Text style={ci.sectionTitle}>{t('rooms.tenantInfoSection')}</Text>
+          <CiField label={t('customers.fullName')}                 value={name}  onChange={setName}  placeholder="Nguyễn Văn A"     required />
+          <View style={ci.fieldWrap}>
+            <Text style={ci.fieldLabel}>{t('rooms.dob')}<Text style={{ color: '#e74c3c' }}> *</Text></Text>
+            <TouchableOpacity style={[ci.fieldInput, ci.dobBtn]} onPress={() => setShowDobPicker(true)} activeOpacity={0.7}>
+              <Text style={dob ? ci.dobValue : ci.dobPlaceholder}>{dob || t('rooms.dobPh')}</Text>
+              <Text style={ci.dobIcon}>📅</Text>
+            </TouchableOpacity>
+          </View>
+          <DatePickerModal visible={showDobPicker} value={dob} onSelect={setDob} onClose={() => setShowDobPicker(false)} />
+          <CiField label={t('staff.idLabel').replace(' *', '')}  value={cccd}  onChange={setCccd}  placeholder="0xx xxx xxx xxx" keyboardType="numeric" required />
+          <CiField label={t('rooms.phone')}                       value={phone} onChange={setPhone} placeholder="09xx xxx xxx"   keyboardType="phone-pad" required />
+          <CiField label="Email"                                  value={email} onChange={setEmail} placeholder="example@email.com" keyboardType="email-address" />
+
+          <Text style={[ci.sectionTitle, { marginTop: 20 }]}>{t('rooms.cccdSection')}</Text>
+          <View style={ci.cccdRow}>
+            {[{ key: 'front', tKey: 'customers.idFront', val: cccdFront, set: setCccdFront }, { key: 'back', tKey: 'customers.idBack', val: cccdBack, set: setCccdBack }].map(side => (
+              <TouchableOpacity key={side.key} style={ci.cccdSlot} onPress={() => pickCccdPhoto(side.key)} activeOpacity={0.75}>
+                {side.val
+                  ? <Image source={{ uri: side.val }} style={ci.cccdImg} />
+                  : <View style={ci.cccdEmpty}><Text style={{ fontSize: 28, marginBottom: 6 }}>📷</Text><Text style={ci.cccdEmptyLabel}>{t(side.tKey)}</Text></View>
+                }
+                {side.val && <TouchableOpacity style={ci.cccdRemove} onPress={() => side.set(null)}><Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>✕</Text></TouchableOpacity>}
+                <Text style={ci.cccdSlotLabel}>{t(side.tKey)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={ci.roommateHeader}>
+            <Text style={ci.sectionTitle}>{t('rooms.roommatesSection')}</Text>
+            <TouchableOpacity style={ci.addRmBtn} onPress={addRoommate} activeOpacity={0.7}>
+              <Text style={ci.addRmText}>{t('rooms.addRoommate')}</Text>
+            </TouchableOpacity>
+          </View>
+          {roommates.length === 0 && <Text style={ci.rmEmpty}>{t('rooms.noRoommates')}</Text>}
+          {roommates.map((rm, i) => (
+            <View key={rm.id} style={ci.rmCard}>
+              <View style={ci.rmCardHeader}>
+                <Text style={ci.rmCardNum}>{t('rooms.roommateN').replace('{n}', i + 1)}</Text>
+                <TouchableOpacity onPress={() => removeRoommate(rm.id)}><Text style={ci.rmRemove}>{t('rooms.removeRoommate')}</Text></TouchableOpacity>
+              </View>
+              <TextInput style={ci.rmInput} value={rm.name} onChangeText={v => updateRoommate(rm.id, 'name', v)} placeholder="Họ và tên..." placeholderTextColor="#8892b0" />
+              <TextInput style={[ci.rmInput, { marginTop: 8 }]} value={rm.cccd} onChangeText={v => updateRoommate(rm.id, 'cccd', v)} placeholder="Số CCCD..." placeholderTextColor="#8892b0" keyboardType="numeric" />
+            </View>
+          ))}
+
+          {!canSubmit && (
+            <Text style={ci.required}>
+              {!roommatesValid ? t('rooms.reqRoommates') : t('rooms.reqFields')}
+            </Text>
+          )}
+          <TouchableOpacity style={[ci.submitBtn, !canSubmit && ci.submitBtnDisabled]} onPress={handleSubmit} activeOpacity={0.8}>
+            <Text style={ci.submitText}>✅  {t('common.confirm')} {t('rooms.checkIn')}</Text>
+          </TouchableOpacity>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const ci = StyleSheet.create({
+  backdrop:    { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)' },
+  sheet:       { position: 'absolute', bottom: 0, left: 0, right: 0, maxHeight: SCREEN_H * 0.95, backgroundColor: '#16213e', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  handle:      { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
+  header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' },
+  headerIcon:  { width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(46,204,113,0.12)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  headerSub:   { color: '#8892b0', fontSize: 12, marginTop: 2 },
+  closeBtn:    { padding: 6 },
+  body:        { paddingHorizontal: 20, paddingTop: 16 },
+  toggleRow:       { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  toggleBtn:       { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center' },
+  toggleBtnActive: { backgroundColor: 'rgba(79,172,254,0.18)', borderWidth: 1, borderColor: 'rgba(79,172,254,0.4)' },
+  toggleText:      { color: '#8892b0', fontSize: 13, fontWeight: '600' },
+  toggleTextActive:{ color: '#4facfe', fontWeight: '800' },
+  searchSection: { marginBottom: 20 },
+  searchBox:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  searchInput:   { flex: 1, color: '#fff', paddingVertical: 12, fontSize: 14 },
+  resultList:    { marginTop: 6, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  resultItem:    { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  resultName:    { color: '#ccd6f6', fontSize: 14, fontWeight: '700' },
+  resultMeta:    { color: '#8892b0', fontSize: 12, marginTop: 2 },
+  resultEmpty:   { marginTop: 6, padding: 12, alignItems: 'center' },
+  resultEmptyText: { color: '#8892b0', fontSize: 13 },
+  sectionTitle:  { color: '#8892b0', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
+  fieldWrap:     { marginBottom: 14 },
+  fieldLabel:    { color: '#ccd6f6', fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  fieldInput:    { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 14, paddingHorizontal: 14, paddingVertical: 11 },
+  dobBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dobValue:      { color: '#fff', fontSize: 14 },
+  dobPlaceholder:{ color: '#8892b0', fontSize: 14 },
+  dobIcon:       { fontSize: 16 },
+  cccdRow:       { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  cccdSlot:      { flex: 1, borderRadius: 12, overflow: 'visible' },
+  cccdImg:       { width: '100%', aspectRatio: 1.6, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)' },
+  cccdEmpty:     { width: '100%', aspectRatio: 1.6, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
+  cccdEmptyLabel:{ color: '#8892b0', fontSize: 12, fontWeight: '600' },
+  cccdRemove:    { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: '#e94560', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  cccdSlotLabel: { color: '#8892b0', fontSize: 11, textAlign: 'center', marginTop: 6 },
+  roommateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 8 },
+  addRmBtn:       { backgroundColor: 'rgba(46,204,113,0.1)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(46,204,113,0.3)' },
+  addRmText:      { color: '#2ecc71', fontSize: 12, fontWeight: '700' },
+  rmEmpty:        { color: '#8892b0', fontSize: 13, marginBottom: 16, fontStyle: 'italic' },
+  rmCard:         { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  rmCardHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  rmCardNum:      { color: '#4facfe', fontSize: 12, fontWeight: '700' },
+  rmRemove:       { color: '#e94560', fontSize: 12, fontWeight: '600' },
+  rmInput:        { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  required:        { color: '#e74c3c', fontSize: 11, marginBottom: 12, marginTop: 4 },
+  submitBtn:       { backgroundColor: '#2ecc71', borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 8 },
+  submitBtnDisabled: { backgroundColor: 'rgba(46,204,113,0.3)' },
+  submitText:      { color: '#1a1a2e', fontSize: 15, fontWeight: '800' },
+});
+
 // ─── Main Screen ──────────────────────────────────────────
 export default function StaffRoomsScreen() {
-  const [buildings,    setBuildings]    = useState(INITIAL_BUILDINGS);
+  const { t } = useLanguage();
+  const { buildings, setBuildings } = useBuildings();
   const [search,       setSearch]       = useState('');
-  const [filter,       setFilter]       = useState('Tất cả');
-  const [collapsed,    setCollapsed]    = useState({});
+  const [filter,       setFilter]       = useState('all');
   const [selected,     setSelected]     = useState(null);
+  const [selBuilding,  setSelBuilding]  = useState(null);
   const [showProfile,  setShowProfile]  = useState(false);
   const [showMessages, setShowMessages] = useState(false);
   const [roomsModal,   setRoomsModal]   = useState(null);
+  const [checkInRoom,  setCheckInRoom]  = useState(null);
   const { staff, updateStaff: setStaff } = useStaff();
+  const myBuildings = buildings.filter(b => b.staff === staff.name);
   const navigation = useNavigation();
+
+  const handleSelectRoom = room => {
+    const b = myBuildings.find(b => b.floors.some(fl => fl.rooms.some(r => r.id === room.id)));
+    setSelBuilding(b || null);
+    setSelected(room);
+  };
 
   const handleLogout = () => {
     Alert.alert(
-      'Xác nhận đăng xuất',
-      'Bạn có chắc chắn muốn đăng xuất không?',
+      t('staffCust.logoutTitle'),
+      t('staffCust.logoutMsg'),
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Đồng ý',
+          text: t('common.confirm'),
           style: 'destructive',
           onPress: () => navigation.getParent()?.dispatch(
             CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
@@ -1049,106 +1210,103 @@ export default function StaffRoomsScreen() {
     );
   };
 
-  const toggleBuilding = id => {
-    LayoutAnimation.configureNext({
-      duration: 280,
-      create: { type: 'easeInEaseOut', property: 'opacity' },
-      update: { type: 'spring', springDamping: 0.75 },
-      delete: { type: 'easeInEaseOut', property: 'opacity' },
-    });
-    setCollapsed(p => ({ ...p, [id]: !p[id] }));
-  };
-
-  // ── Xác nhận xử lý xong vấn đề ──
-  const handleResolveIssue = (roomId, staffName, note) => {
-    setBuildings(prev => prev.map(b => ({
-      ...b,
-      floors: b.floors.map(fl => ({
-        ...fl,
-        rooms: fl.rooms.map(r => {
-          if (r.id !== roomId || !r.currentIssue) return r;
-          const resolvedEntry = {
-            id: `h${Date.now()}`,
-            title: r.currentIssue.title,
-            reportedAt: r.currentIssue.reportedAt,
-            resolvedAt: DEMO_NOW_DISPLAY,
-            resolvedBy: staffName + (note ? ` — ${note}` : ''),
-          };
-          return {
-            ...r,
-            status: 'empty',
-            emptyFrom: DEMO_NOW,
-            currentIssue: null,
-            issueHistory: [...(r.issueHistory || []), resolvedEntry],
-          };
-        }),
-      })),
-    })));
-    // Cập nhật selected room để modal phản ánh ngay
-    setSelected(prev => {
-      if (!prev || prev.id !== roomId) return prev;
-      const resolvedEntry = {
-        id: `h${Date.now()}`,
-        title: prev.currentIssue.title,
-        reportedAt: prev.currentIssue.reportedAt,
-        resolvedAt: DEMO_NOW_DISPLAY,
-        resolvedBy: staffName + (note ? ` — ${note}` : ''),
-      };
-      return {
-        ...prev,
-        status: 'empty',
-        emptyFrom: DEMO_NOW,
-        currentIssue: null,
-        issueHistory: [...(prev.issueHistory || []), resolvedEntry],
-      };
-    });
-  };
-
   // ── Đánh dấu tin nhắn đã xử lý ──
-  const handleResolveMessage = (roomId, msgId, resolverName = null, note = null) => {
-    const update = m => m.id !== msgId ? m : {
-      ...m, resolved: true,
-      ...(resolverName && { resolvedBy: resolverName }),
-      ...(note         && { resolveNote: note }),
-      resolvedAt: DEMO_NOW_DISPLAY,
-    };
+  const handleResolveMessage = (roomId, msgId, resolveData) => {
+    const updater = rooms => rooms.map(r => {
+      if (r.id !== roomId) return r;
+      const updatedMessages = r.messages.map(m =>
+        m.id === msgId ? { ...m, resolved: true, resolvedBy: resolveData } : m
+      );
+      const stillPending = updatedMessages.some(m => !m.resolved);
+      const newStatus = !stillPending && r.tenant &&
+        (r.status === 'maintenance' || r.status === 'urgent') ? 'occupied' : r.status;
+      return { ...r, messages: updatedMessages, status: newStatus, currentIssue: stillPending ? r.currentIssue : null };
+    });
     setBuildings(prev => prev.map(b => ({
-      ...b,
-      floors: b.floors.map(fl => ({
-        ...fl,
-        rooms: fl.rooms.map(r => r.id !== roomId ? r : { ...r, messages: r.messages.map(update) }),
+      ...b, floors: b.floors.map(f => ({ ...f, rooms: updater(f.rooms) })),
+    })));
+    setSelected(prev => prev?.id === roomId ? updater([prev])[0] : prev);
+  };
+
+  const handleSaveCccdImages = (roomId, images) => {
+    setBuildings(prev => prev.map(b => ({
+      ...b, floors: b.floors.map(f => ({
+        ...f, rooms: f.rooms.map(r => r.id === roomId ? { ...r, cccdImages: images } : r),
       })),
     })));
-    setSelected(prev => prev && prev.id === roomId
-      ? { ...prev, messages: prev.messages.map(update) }
-      : prev);
   };
 
-  const matchRoom = room => {
-    const q = search.toLowerCase();
-    const matchSearch = !q
-      || room.id.toLowerCase().includes(q)
-      || (room.tenant && room.tenant.toLowerCase().includes(q))
-      || (room.phone && room.phone.includes(q));
-    const matchFilter = filter === 'Tất cả' || room.status === FILTER_MAP[filter];
-    return matchSearch && matchFilter;
-  };
-
-  const allRooms    = buildings.flatMap(b => b.floors.flatMap(f => f.rooms));
-  const urgentCount = allRooms.filter(r => r.status === 'urgent').length;
-  const maintCount  = allRooms.filter(r => r.status === 'maintenance').length;
+  const allRooms   = myBuildings.flatMap(b => b.floors.flatMap(f => f.rooms));
+  const hasPendingIssue = r => (r.messages || []).some(m => !m.resolved);
+  const issueCount = allRooms.filter(r =>
+    r.status === 'urgent' || r.status === 'maintenance' ||
+    (r.status === 'occupied' && hasPendingIssue(r))
+  ).length;
   const pendingMsgs = allRooms.flatMap(r => (r.messages || []).filter(m => !m.resolved));
+  const existingTenants = allRooms
+    .filter(r => r.tenant)
+    .map(r => ({ id: r.id, name: r.tenant, cccd: r.tenantCccd || '', phone: r.phone || '', dob: '', email: '' }));
+
+  const handleCheckIn = (roomId, tenantData) => {
+    setBuildings(prev => prev.map(b => ({
+      ...b,
+      floors: b.floors.map(f => ({
+        ...f,
+        rooms: f.rooms.map(r => r.id === roomId ? {
+          ...r,
+          status: 'occupied',
+          tenant: tenantData.name,
+          tenantCccd: tenantData.cccd,
+          phone: tenantData.phone,
+          sinceDate: new Date().toLocaleDateString('vi-VN'),
+          residents: 1 + tenantData.roommates.length,
+          roommates: tenantData.roommates,
+          cccdImages: [tenantData.cccdFront, tenantData.cccdBack].filter(Boolean),
+          emptySince: null,
+          messages: [],
+          paymentHistory: [],
+          currentIssue: null,
+        } : r),
+      })),
+    })));
+    setCheckInRoom(null);
+  };
+
+  const handleCheckout = roomId => {
+    setBuildings(prev => prev.map(b => ({
+      ...b,
+      floors: b.floors.map(f => ({
+        ...f,
+        rooms: f.rooms.map(r => r.id === roomId
+          ? { ...r, status: 'empty', tenant: null, tenantCccd: null, phone: null, sinceDate: null, residents: null, roommates: [], cccdImages: [], paymentHistory: [], currentIssue: null, emptySince: new Date().toLocaleDateString('vi-VN') }
+          : r),
+      })),
+    })));
+  };
 
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" />
 
+      <CheckInModal
+        visible={!!checkInRoom}
+        room={checkInRoom}
+        buildingCode={checkInRoom ? myBuildings.find(b => b.floors.some(f => f.rooms.some(r => r.id === checkInRoom.id)))?.code : null}
+        existingTenants={existingTenants}
+        onClose={() => setCheckInRoom(null)}
+        onCheckIn={(data) => handleCheckIn(checkInRoom.id, data)}
+      />
+
       <RoomDetailModal
         room={selected}
-        staff={staff}
-        onClose={() => setSelected(null)}
-        onResolveIssue={handleResolveIssue}
+        buildingName={selBuilding?.name}
+        buildingCode={selBuilding?.code}
+        staffName={selBuilding?.staff}
+        onClose={() => { setSelected(null); setSelBuilding(null); }}
         onResolveMessage={handleResolveMessage}
+        onSaveCccdImages={handleSaveCccdImages}
+        onCheckout={handleCheckout}
+        onStartCheckIn={room => setCheckInRoom(room)}
       />
 
       {showProfile && (
@@ -1163,7 +1321,7 @@ export default function StaffRoomsScreen() {
         <BuildingRoomsModal
           data={roomsModal}
           onClose={() => setRoomsModal(null)}
-          onSelectRoom={room => { setRoomsModal(null); setSelected(room); }}
+          onSelectRoom={room => { setRoomsModal(null); handleSelectRoom(room); }}
         />
       )}
 
@@ -1188,47 +1346,36 @@ export default function StaffRoomsScreen() {
               <View style={s.staffInfo}>
                 <Text style={s.staffName}>{staff.name}</Text>
                 <View style={s.staffRoleBadge}>
-                  <Text style={s.staffRoleText}>💼 Nhân viên quản lý</Text>
+                  <Text style={s.staffRoleText}>{t('staffCust.roleBadge')}</Text>
                 </View>
                 <Text style={s.staffPhone}>{staff.phone}</Text>
               </View>
               <View style={s.staffActions}>
                 <TouchableOpacity style={s.editBadge} onPress={() => setShowProfile(true)}>
-                  <Text style={s.editBadgeText}>✎  Chỉnh sửa</Text>
+                  <Text style={s.editBadgeText}>{t('staffCust.editBtn')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.logoutBadge} onPress={handleLogout}>
-                  <Text style={s.logoutBadgeText}>⏻  Đăng xuất</Text>
+                  <Text style={s.logoutBadgeText}>{t('staffCust.logoutBtn')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
+            <View style={{ alignItems: 'flex-end', paddingTop: 4 }}>
+              <LanguageSwitcher />
+            </View>
           </View>
-          <Text style={s.title}>Tổng quan phòng</Text>
+          <Text style={s.title}>{t('nav.roomsOverview')}</Text>
           <Text style={s.subtitle}>22/04/2026</Text>
         </LinearGradient>
 
         {/* ── Tóm tắt công việc ── */}
-        {(urgentCount > 0 || maintCount > 0 || pendingMsgs.length > 0) && (
+        {issueCount > 0 && (
           <View style={s.taskPanel}>
-            <Text style={s.taskPanelTitle}>⚡ Việc cần xử lý hôm nay</Text>
+            <Text style={s.taskPanelTitle}>{t('staffRooms.todayTasks')}</Text>
             <View style={s.taskRow}>
-              {urgentCount > 0 && (
-                <TouchableOpacity style={[s.taskCard, s.taskCardRed]} onPress={() => setFilter('Khẩn cấp')}>
-                  <Text style={s.taskCardNum}>{urgentCount}</Text>
-                  <Text style={s.taskCardLabel}>Khẩn cấp</Text>
-                </TouchableOpacity>
-              )}
-              {maintCount > 0 && (
-                <TouchableOpacity style={[s.taskCard, s.taskCardYellow]} onPress={() => setFilter('Bảo trì')}>
-                  <Text style={s.taskCardNum}>{maintCount}</Text>
-                  <Text style={s.taskCardLabel}>Bảo trì</Text>
-                </TouchableOpacity>
-              )}
-              {pendingMsgs.length > 0 && (
-                <TouchableOpacity style={[s.taskCard, s.taskCardBlue]} onPress={() => setShowMessages(true)}>
-                  <Text style={s.taskCardNum}>{pendingMsgs.length}</Text>
-                  <Text style={s.taskCardLabel}>Tin nhắn</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity style={[s.taskCard, s.taskCardYellow]} onPress={() => setFilter('incident')}>
+                <Text style={s.taskCardNum}>{issueCount}</Text>
+                <Text style={s.taskCardLabel}>{t('rooms.filterIncident')}</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -1238,7 +1385,7 @@ export default function StaffRoomsScreen() {
           <Text style={s.searchIcon}>🔍</Text>
           <TextInput
             style={s.searchInput}
-            placeholder="Tìm mã phòng, tên khách, SĐT..."
+            placeholder={t('staffRooms.searchPh')}
             placeholderTextColor="#8892b0"
             value={search}
             onChangeText={setSearch}
@@ -1250,118 +1397,18 @@ export default function StaffRoomsScreen() {
           )}
         </View>
 
-        {/* Filters */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterScroll} contentContainerStyle={s.filterRow}>
-          {FILTERS.map(f => (
-            <TouchableOpacity key={f} style={[s.filterBtn, filter === f && s.filterActive]} onPress={() => setFilter(f)}>
-              <Text style={[s.filterText, filter === f && s.filterTextActive]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
         {/* Buildings */}
-        {buildings.map(building => {
-          const counts = countRooms(building);
-          const isOpen = !collapsed[building.id];
-          const pct    = Math.round((counts.occupied / counts.total) * 100);
-          const hasMatch = building.floors.some(fl => fl.rooms.some(matchRoom));
-          if (!hasMatch) return null;
+        {myBuildings.map(b => (
+          <StaffBuildingCard
+            key={b.id}
+            building={b}
+            filter={filter}
+            search={search}
+            onSelectRoom={handleSelectRoom}
+            onRoomsModal={setRoomsModal}
+          />
+        ))}
 
-          return (
-            <View key={building.id} style={s.buildingCard}>
-              <TouchableOpacity style={s.buildingHeader} onPress={() => toggleBuilding(building.id)}>
-                <View style={s.buildingIconBox}><Text style={{ fontSize: 20 }}>🏢</Text></View>
-                <View style={s.buildingMeta}>
-                  <Text style={s.buildingName}>{building.name}</Text>
-                  <Text style={s.buildingAddr}>📍 {building.address}</Text>
-                </View>
-                <Text style={s.collapseIcon}>{isOpen ? '▲' : '▼'}</Text>
-              </TouchableOpacity>
-
-              <View style={s.pillRow}>
-                <Pill val={counts.total}    lbl="Tổng phòng"
-                  onPress={() => setRoomsModal({ type: 'all', building })} />
-                <Pill val={counts.occupied} lbl="Cho thuê"  color="#2ecc71"
-                  onPress={() => setRoomsModal({ type: 'occupied', building })} />
-                <Pill val={counts.empty}    lbl="Trống"     color="#8892b0"
-                  onPress={() => setRoomsModal({ type: 'empty', building })} />
-                {counts.maintenance > 0 && (
-                  <Pill val={counts.maintenance} lbl="Bảo trì"  color="#f1c40f"
-                    onPress={() => setRoomsModal({ type: 'maintenance', building })} />
-                )}
-                {counts.urgent > 0 && (
-                  <Pill val={counts.urgent} lbl="Khẩn cấp" color="#e94560" urgent
-                    onPress={() => setRoomsModal({ type: 'urgent', building })} />
-                )}
-              </View>
-
-              <View style={s.pctRow}>
-                <View style={s.bar}>
-                  <View style={[s.barSeg, { flex: counts.occupied,    backgroundColor: '#2ecc71' }]} />
-                  <View style={[s.barSeg, { flex: counts.empty,       backgroundColor: '#333' }]} />
-                  <View style={[s.barSeg, { flex: counts.maintenance, backgroundColor: '#f1c40f' }]} />
-                  <View style={[s.barSeg, { flex: counts.urgent,      backgroundColor: '#e94560' }]} />
-                </View>
-                <Text style={s.pctLabel}><Text style={s.pctNum}>{pct}%</Text>  lấp đầy</Text>
-              </View>
-
-              {isOpen && <FloorDiagram floors={building.floors} onSelectRoom={setSelected} />}
-
-              {isOpen && building.floors.map(floor => {
-                const visible = floor.rooms.filter(matchRoom);
-                if (!visible.length) return null;
-                return (
-                  <View key={floor.floor} style={s.floorSection}>
-                    <View style={s.floorLabel}>
-                      <Text style={s.floorText}>Tầng {floor.floor}</Text>
-                      <Text style={s.floorCount}>{visible.length} phòng</Text>
-                    </View>
-                    {visible.map(room => {
-                      const st = STATUS[room.status];
-                      const pending = (room.messages || []).filter(m => !m.resolved).length;
-                      return (
-                        <TouchableOpacity
-                          key={room.id}
-                          style={[s.roomRow, { borderLeftColor: st.color }]}
-                          onPress={() => setSelected(room)}
-                        >
-                          <View style={s.roomLeft}>
-                            <Text style={s.roomId}>P{room.id}</Text>
-                            <Text style={s.roomType}>{room.type}</Text>
-                            <Text style={s.roomArea}>{room.area}</Text>
-                          </View>
-                          <View style={s.roomMid}>
-                            {room.tenant
-                              ? <>
-                                  <Text style={s.tenantName}>👤 {room.tenant}</Text>
-                                  <Text style={s.tenantSince}>Từ {room.sinceDate}</Text>
-                                </>
-                              : <Text style={[s.noTenant, room.status === 'urgent' && { color: '#e94560', fontWeight: '700' }]}>
-                                  {room.status === 'urgent' ? '🚨 Cần xử lý khẩn' : room.status === 'maintenance' ? '🔧 Đang bảo trì' : `🔓 Trống ${daysSince(room.emptyFrom)} ngày`}
-                                </Text>
-                            }
-                            {room.currentIssue && (
-                              <Text style={s.issuePeek} numberOfLines={1}>⚠️ {room.currentIssue.title}</Text>
-                            )}
-                            {pending > 0 && (
-                              <View style={s.msgBadge}><Text style={s.msgBadgeText}>💬 {pending} tin chờ</Text></View>
-                            )}
-                          </View>
-                          <View style={s.roomRight}>
-                            <View style={[s.statusPill, { backgroundColor: st.bg, borderColor: st.border }]}>
-                              <Text style={[s.statusText, { color: st.color }]}>{st.icon} {st.label}</Text>
-                            </View>
-                            <Text style={[s.roomPrice, { color: st.color }]}>{room.price} ₫</Text>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                );
-              })}
-            </View>
-          );
-        })}
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
@@ -1369,7 +1416,7 @@ export default function StaffRoomsScreen() {
 }
 
 // ─── Floor Diagram ────────────────────────────────────────
-function FloorDiagram({ floors, onSelectRoom }) {
+function FloorDiagram({ floors, buildingCode, onSelectRoom }) {
   const sorted = [...floors].sort((a, b) => a.floor - b.floor);
   return (
     <View style={fd.wrap}>
@@ -1380,7 +1427,8 @@ function FloorDiagram({ floors, onSelectRoom }) {
           </View>
           <View style={fd.rooms}>
             {fl.rooms.map(room => {
-              const st = STATUS[room.status];
+              const pending = (room.messages || []).filter(m => !m.resolved).length;
+              const st = (pending > 0 && room.status === 'occupied') ? STATUS.maintenance : STATUS[room.status];
               return (
                 <TouchableOpacity
                   key={room.id}
@@ -1389,7 +1437,12 @@ function FloorDiagram({ floors, onSelectRoom }) {
                   activeOpacity={0.75}
                 >
                   <Text style={[fd.boxId, { color: st.color }]}>{room.id}</Text>
-                  <Text style={fd.boxIcon}>{st.icon}</Text>
+                  {room.tenant
+                    ? <Text style={[fd.boxSub, { color: st.color }]}>{room.residents ?? 1}👤</Text>
+                    : room.status === 'empty'
+                    ? <Text style={[fd.boxSub, { color: '#8892b0' }]}>{daysSince(room.emptySince || room.emptyFrom)}d</Text>
+                    : <Text style={fd.boxIcon}>{st.icon}</Text>
+                  }
                 </TouchableOpacity>
               );
             })}
@@ -1400,17 +1453,162 @@ function FloorDiagram({ floors, onSelectRoom }) {
   );
 }
 
-function Pill({ val, lbl, color, urgent, onPress }) {
+function Pill({ val, lbl, color, active, onPress }) {
   const Wrap = onPress ? TouchableOpacity : View;
   return (
     <Wrap
-      style={[s.pill, color && { borderColor: color + '44' }, urgent && { backgroundColor: 'rgba(233,69,96,0.08)' }]}
+      style={[s.pill, color && { borderColor: color + '44' }, active && color && { backgroundColor: color + '22', borderColor: color }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
       <Text style={[s.pillVal, color && { color }]}>{val}</Text>
       <Text style={s.pillLbl}>{lbl}</Text>
     </Wrap>
+  );
+}
+
+// ─── Staff Building Card ──────────────────────────────────
+function StaffBuildingCard({ building, filter, search, onSelectRoom, onRoomsModal }) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(true);
+  const [pillFilter, setPillFilter] = useState(null);
+  const cnt = countRooms(building);
+  const pct = cnt.total > 0 ? Math.round((cnt.occupied / cnt.total) * 100) : 0;
+
+  const hasPending = room => (room.messages || []).some(m => !m.resolved);
+
+  const matchRoom = room => {
+    const q = search.toLowerCase().trim();
+    const fullCode = building.code ? `${building.code}-${room.id}`.toLowerCase() : room.id.toLowerCase();
+    const matchSrc = !q
+      || room.id.toLowerCase().includes(q)
+      || fullCode.includes(q)
+      || (building.code && building.code.toLowerCase().includes(q))
+      || (room.tenant && room.tenant.toLowerCase().includes(q))
+      || (room.phone  && room.phone.includes(q));
+    const matchFlt = filter === 'all'
+      || (filter === 'incident' && (room.status === 'maintenance' || room.status === 'urgent' || (room.status === 'occupied' && hasPending(room))))
+      || (FILTER_MAP[filter] && room.status === FILTER_MAP[filter]);
+    const matchPill = !pillFilter || pillFilter === 'total'
+      || (pillFilter === 'occupied' && room.status === 'occupied' && !hasPending(room))
+      || (pillFilter === 'empty'    && room.status === 'empty')
+      || (pillFilter === 'incident' && (room.status === 'maintenance' || room.status === 'urgent' || (room.status === 'occupied' && hasPending(room))));
+    return matchSrc && matchFlt && matchPill;
+  };
+
+  const togglePill = key => setPillFilter(p => p === key ? null : key);
+
+  if (building.floors.length > 0 && !building.floors.some(fl => fl.rooms.some(matchRoom))) return null;
+
+  const toggle = () => {
+    LayoutAnimation.configureNext({
+      duration: 280,
+      create: { type: 'easeInEaseOut', property: 'opacity' },
+      update: { type: 'spring', springDamping: 0.75 },
+      delete: { type: 'easeInEaseOut', property: 'opacity' },
+    });
+    setOpen(o => !o);
+  };
+
+  return (
+    <View style={s.buildingCard}>
+
+      {/* Card header */}
+      <TouchableOpacity style={s.buildingHeader} onPress={toggle} activeOpacity={0.8}>
+        <View style={s.buildingIconBox}><Text style={{ fontSize: 20 }}>🏢</Text></View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.buildingName}>{building.name}</Text>
+          {building.code && <Text style={s.buildingCode}>#{building.code}</Text>}
+          <Text style={s.buildingAddr}>📍 {building.address}</Text>
+        </View>
+        <Text style={s.collapseIcon}>{open ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+
+      {/* Occupancy bar */}
+      {cnt.total > 0 && (
+        <View style={s.occRow}>
+          <View style={s.occBar}>
+            <View style={[s.occFill, { width: `${pct}%` }]} />
+          </View>
+          <Text style={s.occText}>{pct}% ({cnt.occupied}/{cnt.total})</Text>
+        </View>
+      )}
+
+      {/* Status pills */}
+      {cnt.total > 0 && (
+        <View style={s.pillRow}>
+          <Pill val={cnt.total}         lbl={t('rooms.pillTotal')}    active={pillFilter === 'total'}    onPress={() => togglePill('total')} />
+          <Pill val={cnt.occupiedClean} lbl={t('rooms.pillOccupied')} color="#2ecc71" active={pillFilter === 'occupied'} onPress={() => togglePill('occupied')} />
+          <Pill val={cnt.empty}         lbl={t('rooms.pillEmpty')}    color="#8892b0" active={pillFilter === 'empty'}    onPress={() => togglePill('empty')} />
+          <Pill val={cnt.issues}        lbl={t('rooms.pillIncident')} color="#f1c40f" active={pillFilter === 'incident'} onPress={() => togglePill('incident')} />
+        </View>
+      )}
+
+      {/* Floor diagram */}
+      {open && building.floors.length > 0 && (
+        <FloorDiagram floors={building.floors} buildingCode={building.code} onSelectRoom={onSelectRoom} />
+      )}
+
+      {/* Floor list with room rows */}
+      {open && building.floors.map(floor => {
+        const visible = floor.rooms.filter(matchRoom);
+        if (!visible.length) return null;
+        return (
+          <View key={floor.floor} style={s.floorSection}>
+            <View style={s.floorLabel}>
+              <Text style={s.floorText}>{t('rooms.floorLabel').replace('{n}', floor.floor)}</Text>
+              <Text style={s.floorCount}>{t('rooms.floorRooms').replace('{n}', visible.length)}</Text>
+            </View>
+            {visible.map(room => {
+              const pending = (room.messages || []).filter(m => !m.resolved).length;
+              const baseSt  = STATUS[room.status];
+              const st      = (pending > 0 && room.status === 'occupied') ? STATUS.maintenance : baseSt;
+              return (
+                <TouchableOpacity
+                  key={room.id}
+                  style={[s.roomRow, { borderLeftColor: st.color }]}
+                  onPress={() => onSelectRoom(room)}
+                  activeOpacity={0.75}
+                >
+                  <View style={s.roomLeft}>
+                    <Text style={s.roomId}>{building.code ? `${building.code}-${room.id}` : room.id}</Text>
+                    <Text style={s.roomType}>{room.type}</Text>
+                    <Text style={s.roomArea}>{room.area}</Text>
+                  </View>
+                  <View style={s.roomMid}>
+                    {room.tenant
+                      ? <Text style={s.tenantName} numberOfLines={1}>{room.tenant}</Text>
+                      : <Text style={[s.noTenant, (room.status === 'urgent' || room.status === 'maintenance') && { color: '#f1c40f', fontWeight: '700' }]}>
+                          {room.status === 'urgent'       ? t('rooms.statusUrgent')
+                            : room.status === 'maintenance' ? t('rooms.statusMaint')
+                            : t('rooms.statusEmptyRoom')}
+                        </Text>
+                    }
+                    {room.tenant && (
+                      <View style={s.roomMidRow2}>
+                        <Text style={s.residentCount}>{room.residents ?? 1} 👤</Text>
+                        <View style={[s.msgBadge, pending > 0 && s.msgBadgeActive]}>
+                          <Text style={[s.msgBadgeText, pending > 0 && s.msgBadgeTextActive]}>{pending} 💬</Text>
+                        </View>
+                      </View>
+                    )}
+                    {room.currentIssue && (
+                      <Text style={s.issuePeek} numberOfLines={1}>⚠️ {room.currentIssue.title}</Text>
+                    )}
+                  </View>
+                  <View style={s.roomRight}>
+                    <View style={[s.statusPill, { backgroundColor: st.bg, borderColor: st.border }]}>
+                      <Text style={[s.statusText, { color: st.color }]}>{st.icon} {t(st.tKey)}</Text>
+                    </View>
+                    <Text style={s.roomPrice}>{room.price} ₫</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -1455,155 +1653,145 @@ const s = StyleSheet.create({
   filterActive: { backgroundColor: '#e94560', borderColor: '#e94560' },
   filterText: { color: '#8892b0', fontSize: 13, fontWeight: '600' },
   filterTextActive: { color: '#fff' },
-  buildingCard: { marginHorizontal: 16, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  buildingHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  buildingCard:    { marginHorizontal: 16, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  buildingHeader:  { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   buildingIconBox: { width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(79,172,254,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  buildingMeta: { flex: 1 },
-  buildingName: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  buildingAddr: { color: '#8892b0', fontSize: 12, marginTop: 2 },
-  collapseIcon: { color: '#8892b0', fontSize: 12 },
-  pillRow: { flexDirection: 'row', alignItems: 'stretch', gap: 5, marginBottom: 10 },
-  pill: { flex: 1, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
-  pillVal: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  buildingName:    { color: '#fff', fontSize: 15, fontWeight: '800' },
+  buildingCode:    { color: '#4facfe', fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: 1 },
+  buildingAddr:    { color: '#8892b0', fontSize: 12, marginTop: 2 },
+  collapseIcon:    { color: '#8892b0', fontSize: 12 },
+  occRow:          { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  occBar:          { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  occFill:         { height: 5, backgroundColor: '#2ecc71', borderRadius: 3 },
+  occText:         { color: '#2ecc71', fontSize: 10, fontWeight: '700', width: 80 },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10 },
+  pill:    { borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingVertical: 6, paddingHorizontal: 8, alignItems: 'center', minWidth: 44 },
+  pillVal: { color: '#fff', fontSize: 13, fontWeight: '800' },
   pillLbl: { color: '#8892b0', fontSize: 9, marginTop: 1 },
-  pctRow: { marginBottom: 12, gap: 6 },
-  bar: { flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#1e1e2e' },
-  barSeg: { height: 6 },
-  pctLabel: { color: '#8892b0', fontSize: 11, marginTop: 4 },
-  pctNum: { color: '#4facfe', fontWeight: '800', fontSize: 13 },
   floorSection: { marginTop: 4 },
-  floorLabel: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  floorText: { color: '#4facfe', fontSize: 13, fontWeight: '700' },
-  floorCount: { color: '#8892b0', fontSize: 12 },
-  roomRow: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, marginBottom: 8, borderLeftWidth: 4 },
-  roomLeft: { width: 72 },
-  roomId: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  roomType: { color: '#8892b0', fontSize: 11, marginTop: 1 },
-  roomArea: { color: '#8892b0', fontSize: 11 },
-  roomMid: { flex: 1, paddingHorizontal: 10 },
-  tenantName: { color: '#ccd6f6', fontSize: 13, fontWeight: '600' },
-  tenantSince: { color: '#8892b0', fontSize: 11, marginTop: 2 },
-  noTenant: { color: '#8892b0', fontSize: 12 },
-  issuePeek: { color: '#f1c40f', fontSize: 11, marginTop: 3 },
-  msgBadge: { backgroundColor: 'rgba(233,69,96,0.15)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginTop: 4, alignSelf: 'flex-start' },
-  msgBadgeText: { color: '#e94560', fontSize: 10, fontWeight: '700' },
-  roomRight: { alignItems: 'flex-end', gap: 5 },
+  floorLabel:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  floorText:    { color: '#4facfe', fontSize: 13, fontWeight: '700' },
+  floorCount:   { color: '#8892b0', fontSize: 12 },
+  roomRow:    { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, marginBottom: 8, borderLeftWidth: 4 },
+  roomLeft:   { width: 72 },
+  roomId:     { color: '#fff', fontSize: 14, fontWeight: '800' },
+  roomType:   { color: '#8892b0', fontSize: 11, marginTop: 1 },
+  roomArea:   { color: '#8892b0', fontSize: 11 },
+  roomMid:       { flex: 1, paddingHorizontal: 10 },
+  tenantName:    { color: '#ccd6f6', fontSize: 13, fontWeight: '600' },
+  noTenant:      { color: '#8892b0', fontSize: 12 },
+  roomMidRow2:      { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 5 },
+  residentCount:    { color: '#8892b0', fontSize: 12, fontWeight: '600' },
+  msgBadge:         { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  msgBadgeActive:   { backgroundColor: 'rgba(241,196,15,0.12)', borderColor: 'rgba(241,196,15,0.35)' },
+  msgBadgeText:     { color: '#8892b0', fontSize: 11, fontWeight: '600' },
+  msgBadgeTextActive: { color: '#f1c40f' },
+  issuePeek:  { color: '#f1c40f', fontSize: 11, marginTop: 3 },
+  roomRight:  { alignItems: 'flex-end', gap: 5 },
   statusPill: { flexDirection: 'row', borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '700' },
-  roomPrice: { fontSize: 12, fontWeight: '700' },
+  roomPrice:  { color: '#4facfe', fontSize: 12, fontWeight: '700' },
 });
 
 const md = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.75)' },
-  sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#111827', borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '93%', paddingTop: 12 },
-  handle: { width: 40, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-  statusIcon: { width: 46, height: 46, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  roomTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  roomSub: { color: '#8892b0', fontSize: 12, marginTop: 2 },
-  statusBadge: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
+  backdrop:        { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.75)' },
+  sheet:           { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#111827', borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '92%', paddingTop: 12 },
+  handle:          { width: 40, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  header:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  statusIcon:      { width: 46, height: 46, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  roomTitle:       { color: '#fff', fontSize: 22, fontWeight: '800' },
+  roomSub:         { color: '#8892b0', fontSize: 12, marginTop: 2 },
+  statusBadge:     { borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
   statusBadgeText: { fontSize: 12, fontWeight: '700' },
-  closeBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' },
-  closeBtnText: { color: '#8892b0', fontSize: 14 },
-  scroll: { paddingHorizontal: 20 },
-  section: { marginTop: 20 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  sectionTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  badge: { backgroundColor: 'rgba(233,69,96,0.2)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  badgeText: { color: '#e94560', fontSize: 11, fontWeight: '700' },
-  infoCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 16, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  infoLabel: { color: '#8892b0', fontSize: 13 },
-  infoValue: { color: '#ccd6f6', fontSize: 13, fontWeight: '600' },
-  callBtn: { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.12)', borderRadius: 12, paddingVertical: 13, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.35)' },
-  callBtnText: { color: '#2ecc71', fontWeight: '800', fontSize: 14 },
-  vacantCard: { backgroundColor: 'rgba(136,146,176,0.07)', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(136,146,176,0.15)' },
-  vacantLabel: { color: '#8892b0', fontSize: 13, marginBottom: 4 },
-  vacantDate: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 16 },
-  vacantCountBox: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 },
-  vacantCount: { color: '#fff', fontSize: 44, fontWeight: '900' },
-  vacantCountLabel: { color: '#8892b0', fontSize: 13, marginTop: 2 },
-  vacantAlert: { marginTop: 14, backgroundColor: 'rgba(254,225,64,0.1)', borderRadius: 10, padding: 12, width: '100%' },
-  vacantAlertText: { color: '#f1c40f', fontSize: 12, textAlign: 'center' },
-  issueCard: { backgroundColor: 'rgba(241,196,15,0.07)', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: 'rgba(241,196,15,0.25)', marginBottom: 12 },
-  issueCardUrgent: { backgroundColor: 'rgba(233,69,96,0.07)', borderColor: 'rgba(233,69,96,0.35)' },
-  issueTitleText: { color: '#f1c40f', fontSize: 15, fontWeight: '700', marginBottom: 12 },
-  issueMetaBox: { gap: 6 },
-  issueMeta: { color: '#8892b0', fontSize: 13 },
-  resolveBox: { backgroundColor: 'rgba(46,204,113,0.05)', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: 'rgba(46,204,113,0.2)' },
-  resolveToggle: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#2ecc71', justifyContent: 'center', alignItems: 'center' },
-  checkboxChecked: { backgroundColor: '#2ecc71' },
-  checkmark: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  resolveToggleText: { color: '#ccd6f6', fontSize: 14, fontWeight: '600', flex: 1 },
-  resolveForm: { marginTop: 16, gap: 8 },
-  resolveFormLabel: { color: '#8892b0', fontSize: 12, fontWeight: '600' },
-  resolveInput: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, padding: 13, color: '#fff', fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  resolveInputMulti: { height: 80, textAlignVertical: 'top' },
-  resolveTimestamp: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 10 },
-  resolveTimestampText: { color: '#8892b0', fontSize: 12 },
-  confirmBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 4 },
-  confirmGradient: { paddingVertical: 14, alignItems: 'center' },
-  confirmBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  confirmedBox: { backgroundColor: 'rgba(46,204,113,0.15)', borderRadius: 14, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.4)' },
-  confirmedText: { color: '#2ecc71', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  msgCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  msgCardPending: { borderColor: 'rgba(233,69,96,0.3)', backgroundColor: 'rgba(233,69,96,0.04)' },
-  msgTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  msgTime: { color: '#8892b0', fontSize: 12 },
-  msgTag: { backgroundColor: 'rgba(241,196,15,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  msgTagDone: { backgroundColor: 'rgba(46,204,113,0.15)' },
-  msgTagText: { color: '#f1c40f', fontSize: 11, fontWeight: '600' },
-  msgText: { color: '#ccd6f6', fontSize: 13, fontStyle: 'italic', lineHeight: 20 },
-  msgActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  msgCallBtn: { flex: 1, backgroundColor: 'rgba(79,172,254,0.12)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)' },
-  msgCallText: { color: '#4facfe', fontSize: 12, fontWeight: '700' },
-  msgDoneBtn: { flex: 1, backgroundColor: 'rgba(46,204,113,0.12)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.3)' },
-  msgDoneBtnActive: { backgroundColor: 'rgba(241,196,15,0.1)', borderColor: 'rgba(241,196,15,0.35)' },
-  msgDoneText: { color: '#2ecc71', fontSize: 12, fontWeight: '700' },
-  msgResolveForm: { marginTop: 12, backgroundColor: 'rgba(46,204,113,0.05)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(46,204,113,0.2)', gap: 8 },
-  msgResolvedInfo: { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.07)', borderRadius: 10, padding: 10, gap: 3, borderWidth: 1, borderColor: 'rgba(46,204,113,0.2)' },
-  msgResolvedText: { color: '#2ecc71', fontSize: 12, fontWeight: '700' },
-  msgResolvedDate: { color: '#8892b0', fontSize: 11 },
-  msgResolvedNote: { color: '#ccd6f6', fontSize: 12, fontStyle: 'italic' },
-  emptyHistory: { backgroundColor: 'rgba(46,204,113,0.07)', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.15)' },
-  emptyHistoryText: { color: '#8892b0', fontSize: 13 },
-  timelineRow: { flexDirection: 'row', marginBottom: 6 },
-  timelineLeft: { width: 20, alignItems: 'center', paddingTop: 4 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  timelineBar: { width: 2, flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 4 },
-  timelineContent: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, marginLeft: 10, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-  historyTitle: { color: '#ccd6f6', fontSize: 13, fontWeight: '700', marginBottom: 8 },
-  historyMetaRow: { flexDirection: 'row', gap: 6, marginBottom: 4 },
-  historyMetaLabel: { color: '#8892b0', fontSize: 12, width: 112 },
-  historyMetaVal: { color: '#ccd6f6', fontSize: 12, flex: 1 },
-  // dropdown
-  dropdownBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden', marginBottom: 10 },
-  dropdownOption: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  dropdownSelected: { backgroundColor: 'rgba(46,204,113,0.08)' },
-  dropdownDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.07)' },
-  dropdownOptionContent: {},
-  dropdownOptionTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  dropdownOptionSub: { color: '#8892b0', fontSize: 12, marginTop: 2 },
-  radioCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#8892b0', justifyContent: 'center', alignItems: 'center' },
-  radioSelected: { borderColor: '#2ecc71' },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#2ecc71' },
-  // Payment history
-  payCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  payCardUnpaid: { borderColor: 'rgba(233,69,96,0.3)', backgroundColor: 'rgba(233,69,96,0.03)' },
-  payCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  payMonth: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  payStatusBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  payStatusPaid: { backgroundColor: 'rgba(46,204,113,0.15)' },
-  payStatusUnpaid: { backgroundColor: 'rgba(233,69,96,0.15)' },
-  payStatusText: { fontSize: 12, fontWeight: '700' },
-  payRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
-  payLabel: { color: '#8892b0', fontSize: 12 },
-  payValue: { color: '#ccd6f6', fontSize: 12, fontWeight: '600' },
-  payDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 8 },
-  payTotalLabel: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  payTotalVal: { fontSize: 14, fontWeight: '800' },
-  payPaidAt: { color: '#8892b0', fontSize: 11, marginTop: 6 },
+  closeBtn:        { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' },
+  closeBtnText:    { color: '#8892b0', fontSize: 14 },
+  scroll:          { paddingHorizontal: 20 },
+  infoStrip:       { flexDirection: 'row', backgroundColor: 'rgba(79,172,254,0.07)', borderRadius: 14, padding: 14, marginTop: 16, borderWidth: 1, borderColor: 'rgba(79,172,254,0.15)' },
+  infoStripItem:   { flex: 1, alignItems: 'center' },
+  infoStripLabel:  { color: '#8892b0', fontSize: 11, marginBottom: 4 },
+  infoStripValue:  { color: '#fff', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  infoStripCode:   { color: '#4facfe', fontSize: 10, fontWeight: '700', letterSpacing: 1, marginTop: 2, textAlign: 'center' },
+  infoStripDiv:    { width: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
+  checkInBtn:      { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.1)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.35)' },
+  checkInBtnText:  { color: '#2ecc71', fontWeight: '700', fontSize: 13 },
+  checkoutBtn:     { marginTop: 10, backgroundColor: 'rgba(231,76,60,0.08)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(231,76,60,0.3)' },
+  checkoutBtnText: { color: '#e74c3c', fontWeight: '700', fontSize: 13 },
+  checkoutPanel:      { marginTop: 10, backgroundColor: 'rgba(231,76,60,0.06)', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: 'rgba(231,76,60,0.25)' },
+  checkoutPanelTitle: { color: '#e74c3c', fontSize: 15, fontWeight: '800', marginBottom: 6 },
+  checkoutPanelSub:   { color: '#8892b0', fontSize: 12, marginBottom: 14 },
+  checkoutChecklist:  { gap: 8, marginBottom: 16 },
+  checkoutCheckItem:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  checkoutCheckIcon:  { fontSize: 14 },
+  checkoutCheckText:  { color: '#ccd6f6', fontSize: 13 },
+  checkoutActions:    { flexDirection: 'row', gap: 10 },
+  checkoutCancel:     { flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  checkoutCancelText: { color: '#8892b0', fontWeight: '700', fontSize: 13 },
+  checkoutConfirm:    { flex: 2, paddingVertical: 11, borderRadius: 10, alignItems: 'center', backgroundColor: '#e74c3c' },
+  checkoutConfirmText:{ color: '#fff', fontWeight: '800', fontSize: 13 },
+  section:         { marginTop: 20 },
+  sectionTitle:    { color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 10 },
+  card:            { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 16, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  row:             { flexDirection: 'row', justifyContent: 'space-between' },
+  rowLabel:        { color: '#8892b0', fontSize: 13 },
+  rowValue:        { color: '#ccd6f6', fontSize: 13, fontWeight: '600' },
+  callBtn:         { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.12)', borderRadius: 12, paddingVertical: 13, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.35)' },
+  callBtnText:     { color: '#2ecc71', fontWeight: '800', fontSize: 14 },
+  issueCard:       { backgroundColor: 'rgba(241,196,15,0.07)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(241,196,15,0.25)' },
+  issueTitle:      { color: '#f1c40f', fontSize: 14, fontWeight: '700', marginBottom: 6 },
+  issueMeta:       { color: '#8892b0', fontSize: 12 },
+  payRow:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  payRowUnpaid:    { borderColor: 'rgba(233,69,96,0.25)', backgroundColor: 'rgba(233,69,96,0.04)' },
+  payMonth:        { color: '#fff', fontSize: 13, fontWeight: '700' },
+  payBadge:        { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  payBadgePaid:    { backgroundColor: 'rgba(46,204,113,0.15)' },
+  payBadgeUnpaid:  { backgroundColor: 'rgba(233,69,96,0.15)' },
+  msgCard:         { backgroundColor: 'rgba(233,69,96,0.05)', borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(233,69,96,0.2)' },
+  msgTime:         { color: '#8892b0', fontSize: 11, marginBottom: 4 },
+  msgText:         { color: '#ccd6f6', fontSize: 13, fontStyle: 'italic', marginBottom: 8 },
+  resolveToggle:   { backgroundColor: 'rgba(233,69,96,0.1)', borderRadius: 8, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(233,69,96,0.28)' },
+  resolveToggleText: { color: '#e94560', fontSize: 12, fontWeight: '700' },
+  resolveBox:      { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  resolveLabel:    { color: '#ccd6f6', fontSize: 13, fontWeight: '700', marginBottom: 10 },
+  resolveOpt:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 6, backgroundColor: 'rgba(255,255,255,0.03)' },
+  resolveOptActive:{ backgroundColor: 'rgba(79,172,254,0.1)', borderColor: 'rgba(79,172,254,0.35)' },
+  resolveRadio:    { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  resolveRadioActive: { borderColor: '#4facfe' },
+  resolveRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4facfe' },
+  resolveOptText:  { color: '#8892b0', fontSize: 13, flex: 1 },
+  staffPickerWrap: { backgroundColor: 'rgba(79,172,254,0.05)', borderRadius: 10, padding: 10, marginTop: 4, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(79,172,254,0.15)' },
+  staffPickerLabel:{ color: '#8892b0', fontSize: 12, fontWeight: '600', marginBottom: 8 },
+  staffOpt:        { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, marginBottom: 4, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  staffOptActive:  { backgroundColor: 'rgba(79,172,254,0.12)', borderColor: 'rgba(79,172,254,0.3)' },
+  staffOptText:    { color: '#ccd6f6', fontSize: 13 },
+  contractorWrap:       { backgroundColor: 'rgba(241,196,15,0.05)', borderRadius: 10, padding: 10, marginTop: 4, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(241,196,15,0.2)' },
+  contractorFieldLabel: { color: '#8892b0', fontSize: 12, fontWeight: '600', marginBottom: 6 },
+  contractorInput:      { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 9, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', color: '#fff', fontSize: 13, paddingHorizontal: 12, paddingVertical: 9 },
+  contractorInputMulti: { minHeight: 64, textAlignVertical: 'top', paddingTop: 9 },
+  resolveBtnRow:   { flexDirection: 'row', gap: 8, marginTop: 8 },
+  resolveCancelBtn:{ flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  resolveCancelText:{ color: '#8892b0', fontWeight: '700', fontSize: 13 },
+  resolveConfirmBtn:{ flex: 2, borderRadius: 10, paddingVertical: 10, alignItems: 'center', backgroundColor: 'rgba(46,204,113,0.15)', borderWidth: 1, borderColor: 'rgba(46,204,113,0.4)' },
+  resolveConfirmText:{ color: '#2ecc71', fontWeight: '800', fontSize: 13 },
+  normalState:     { backgroundColor: 'rgba(46,204,113,0.07)', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.2)' },
+  normalStateText: { color: '#2ecc71', fontSize: 13, fontWeight: '600' },
+  cardIssue:       { borderColor: 'rgba(241,196,15,0.35)', backgroundColor: 'rgba(241,196,15,0.05)' },
+  callBtnIssue:    { backgroundColor: 'rgba(241,196,15,0.1)', borderColor: 'rgba(241,196,15,0.35)' },
+  rmTable:      { borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  rmHeader:     { flexDirection: 'row', backgroundColor: 'rgba(79,172,254,0.12)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
+  rmHeaderCell: { color: '#4facfe', fontSize: 11, fontWeight: '800', paddingVertical: 9, paddingHorizontal: 14, textTransform: 'uppercase', letterSpacing: 0.4 },
+  rmRow:        { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  rmRowAlt:     { backgroundColor: 'rgba(255,255,255,0.02)' },
+  rmCell:       { color: '#ccd6f6', fontSize: 13, fontWeight: '600', paddingVertical: 11, paddingHorizontal: 14 },
+  rmCellMono:   { color: '#8892b0', fontSize: 12, paddingVertical: 11, paddingHorizontal: 14 },
+  cccdEmpty:    { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  cccdEmptyText:{ color: '#8892b0', fontSize: 13, fontWeight: '600', flex: 1 },
+  cccdPickBtn:  { backgroundColor: 'rgba(79,172,254,0.1)', borderRadius: 9, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(79,172,254,0.28)' },
+  cccdPickText: { color: '#4facfe', fontWeight: '700', fontSize: 12 },
+  cccdImgWrap:  { width: 120, height: 76, borderRadius: 10, overflow: 'visible' },
+  cccdImg:      { width: 120, height: 76, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.06)' },
+  cccdRemove:   { position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: '#e94560', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  cccdAddBtn:   { width: 120, height: 76, borderRadius: 10, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)', borderStyle: 'dashed', backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center', gap: 4 },
+  cccdAddText:  { color: '#8892b0', fontSize: 11, fontWeight: '600' },
 });
 
 const pf = StyleSheet.create({
@@ -1667,6 +1855,7 @@ const fd = StyleSheet.create({
   floorTagText: { color: '#4facfe', fontSize: 11, fontWeight: '800' },
   rooms: { flexDirection: 'row', gap: 5, justifyContent: 'flex-start' },
   box: { width: 54, borderRadius: 8, borderWidth: 1, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
-  boxId: { fontSize: 10, fontWeight: '800', lineHeight: 13 },
+  boxId:   { fontSize: 10, fontWeight: '800', lineHeight: 13 },
+  boxSub:  { fontSize: 9, fontWeight: '700', marginTop: 1 },
   boxIcon: { fontSize: 9, marginTop: 2 },
 });

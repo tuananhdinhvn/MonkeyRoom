@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useBuildings } from '../context/BuildingsContext';
+import { supabase } from '../lib/supabase';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Dimensions, Modal,
@@ -7,29 +8,18 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const SCREEN_W = Dimensions.get('window').width;
 const CHART_H  = 120;
 
 // ─── Static data ──────────────────────────────────────────
 
-
-const MOVEOUT_NOTICES = [
-  { id: 'mo1', room: 'B301', building: 'Nhà B - Blue Sky',   tenant: 'Nguyễn Thị Mai', phone: '0988123456', intendedDate: '01/05/2026', daysLeft: 7,  reason: 'Chuyển công tác xa, không tiện di chuyển hàng ngày', reportedAt: '09:30 20/04/2026', staff: 'Nguyễn Văn Bảo' },
-  { id: 'mo2', room: 'C105', building: 'Nhà C - Sunrise',    tenant: 'Trần Văn Hùng',  phone: '0977234567', intendedDate: '15/05/2026', daysLeft: 21, reason: 'Mua nhà riêng, không cần thuê nữa',               reportedAt: '15:00 19/04/2026', staff: 'Lê Thị Hương'   },
-  { id: 'mo3', room: '205',  building: 'Nhà A - Green Home', tenant: 'Phạm Thị Bích',  phone: '0966345678', intendedDate: '30/04/2026', daysLeft: 6,  reason: 'Về quê sinh sống lâu dài',                        reportedAt: '11:00 22/04/2026', staff: 'Trần Thị Thu'    },
-];
-
-const RESOLVE_STAFF = [
-  { id: 's1', name: 'Trần Thị Thu',    role: 'Nhân viên', building: 'Nhà A' },
-  { id: 's2', name: 'Nguyễn Văn Bảo', role: 'Nhân viên', building: 'Nhà B' },
-  { id: 's3', name: 'Lê Thị Hương',   role: 'Nhân viên', building: 'Nhà C' },
-];
-
 const RESOLVE_TYPES = [
-  { key: 'admin',      icon: '🧑‍💼', label: 'Admin tự xử lý',     color: '#a29bfe', bg: 'rgba(162,155,254,0.12)', border: 'rgba(162,155,254,0.35)' },
-  { key: 'staff',      icon: '💼',   label: 'Chỉ định nhân viên', color: '#74b9ff', bg: 'rgba(116,185,255,0.12)', border: 'rgba(116,185,255,0.35)' },
-  { key: 'contractor', icon: '🔧',   label: 'Thuê thợ bên ngoài', color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.35)'  },
+  { key: 'admin',      icon: '🧑‍💼', tKey: 'dashboard.resolveAdmin',      color: '#a29bfe', bg: 'rgba(162,155,254,0.12)', border: 'rgba(162,155,254,0.35)' },
+  { key: 'staff',      icon: '💼',   tKey: 'dashboard.resolveStaff',      color: '#74b9ff', bg: 'rgba(116,185,255,0.12)', border: 'rgba(116,185,255,0.35)' },
+  { key: 'contractor', icon: '🔧',   tKey: 'dashboard.resolveContractor', color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.35)'  },
 ];
 
 const STAFF_ACT_CFG = {
@@ -38,126 +28,20 @@ const STAFF_ACT_CFG = {
   maintenance: { color: '#fee140' },
 };
 
-const STAFF_ACTIVITIES = [
-  { name: 'Trần Thị Thu',    building: 'Nhà A', avatar: '👩', action: 'Thu tiền phòng 101, 103, 104',       time: '08:30 23/04/2026', type: 'payment'     },
-  { name: 'Nguyễn Văn Bảo', building: 'Nhà B', avatar: '👨', action: 'Xử lý bảo trì phòng B103',          time: '10:15 23/04/2026', type: 'maintenance'  },
-  { name: 'Lê Thị Hương',   building: 'Nhà C', avatar: '👩', action: 'Ký hợp đồng mới phòng C201',        time: '14:00 22/04/2026', type: 'contract'     },
-  { name: 'Trần Thị Thu',    building: 'Nhà A', avatar: '👩', action: 'Kiểm tra phòng 203 sau bảo trì',    time: '16:30 22/04/2026', type: 'maintenance'  },
-  { name: 'Nguyễn Văn Bảo', building: 'Nhà B', avatar: '👨', action: 'Gia hạn hợp đồng khách B202',       time: '09:00 21/04/2026', type: 'contract'     },
-  { name: 'Lê Thị Hương',   building: 'Nhà C', avatar: '👩', action: 'Bàn giao phòng C105 cho khách mới', time: '15:00 20/04/2026', type: 'contract'     },
-];
-
-const CUSTOMER_ACTIVITIES = [
-  { type: 'complaint', name: 'Vũ Thị Lan',     room: '104',  building: 'Nhà A', action: 'Phản ánh bồn cầu bị tắc',      reason: null, time: '22:05 21/04/2026' },
-  { type: 'checkin',   name: 'Đỗ Minh Khôi',   room: 'C201', building: 'Nhà C', action: 'Nhận phòng mới',               reason: null, time: '14:00 22/04/2026' },
-  { type: 'complaint', name: 'Hoàng Đức Minh',  room: '302',  building: 'Nhà A', action: 'Phản ánh tiếng ồn thang máy', reason: null, time: '10:00 22/04/2026' },
-  { type: 'checkin',   name: 'Phạm Thị Linh',   room: 'B204', building: 'Nhà B', action: 'Nhận phòng mới',               reason: null, time: '10:00 18/04/2026' },
-];
-
-const STAFF_REVENUE = {
-  week: [
-    { name: 'Trần Thị Thu',    avatar: '👩', collected: 8500000,  overdue: 1200000, rooms: 36 },
-    { name: 'Nguyễn Văn Bảo', avatar: '👨', collected: 6200000,  overdue: 1800000, rooms: 30 },
-    { name: 'Lê Thị Hương',   avatar: '👩', collected: 7100000,  overdue: 2400000, rooms: 38 },
-  ],
-  month: [
-    { name: 'Trần Thị Thu',    avatar: '👩', collected: 48500000, overdue: 4200000, rooms: 36 },
-    { name: 'Nguyễn Văn Bảo', avatar: '👨', collected: 37200000, overdue: 5800000, rooms: 30 },
-    { name: 'Lê Thị Hương',   avatar: '👩', collected: 38800000, overdue: 8500000, rooms: 38 },
-  ],
-  year: [
-    { name: 'Trần Thị Thu',    avatar: '👩', collected: 485000000, overdue: 42000000, rooms: 36 },
-    { name: 'Nguyễn Văn Bảo', avatar: '👨', collected: 372000000, overdue: 58000000, rooms: 30 },
-    { name: 'Lê Thị Hương',   avatar: '👩', collected: 391000000, overdue: 85000000, rooms: 38 },
-  ],
-};
-
 // ─── Birthday data ─────────────────────────────────────────
-const BIRTHDAY_PEOPLE = [
-  { name: 'Lê Minh Tuấn',   type: 'customer', sub: 'Phòng 201 · Nhà A - Green Home', dob: '23/04/1990', gender: 'male'   },
-  { name: 'Trần Thị Thu',    type: 'staff',    sub: 'S-0912333444 · Nhân viên',        dob: '23/04/1995', gender: 'female' },
-  { name: 'Nguyễn Văn An',  type: 'customer', sub: 'Phòng 101 · Nhà A - Green Home', dob: '24/04/1992', gender: 'male'   },
-  { name: 'Nguyễn Văn Bảo', type: 'staff',    sub: 'S-0923555666 · Nhân viên',        dob: '24/04/1993', gender: 'male'   },
-  { name: 'Phạm Thu Hà',    type: 'customer', sub: 'Phòng 301 · Nhà A - Green Home', dob: '25/04/1997', gender: 'female' },
-  { name: 'Nguyễn Quản Lý', type: 'staff',    sub: 'M-0901111222 · Quản lý',          dob: '25/04/1985', gender: 'male'   },
-];
 
 const BDAY_GROUPS = [
-  { key: 'yesterday', label: 'Hôm qua',  dayOffset: -1, color: '#8892b0', bg: 'rgba(136,146,176,0.1)',  border: 'rgba(136,146,176,0.22)' },
-  { key: 'today',     label: 'Hôm nay',  dayOffset:  0, color: '#f1c40f', bg: 'rgba(241,196,15,0.1)',   border: 'rgba(241,196,15,0.28)'  },
-  { key: 'tomorrow',  label: 'Ngày mai', dayOffset: +1, color: '#4facfe', bg: 'rgba(79,172,254,0.1)',   border: 'rgba(79,172,254,0.28)'  },
+  { key: 'yesterday', tKey: 'dashboard.yesterday', dayOffset: -1, color: '#8892b0', bg: 'rgba(136,146,176,0.1)',  border: 'rgba(136,146,176,0.22)' },
+  { key: 'today',     tKey: 'dashboard.today',     dayOffset:  0, color: '#f1c40f', bg: 'rgba(241,196,15,0.1)',   border: 'rgba(241,196,15,0.28)'  },
+  { key: 'tomorrow',  tKey: 'dashboard.tomorrow',  dayOffset: +1, color: '#4facfe', bg: 'rgba(79,172,254,0.1)',   border: 'rgba(79,172,254,0.28)'  },
 ];
 
-function buildBirthdayGroups() {
-  const base = new Date(2026, 3, 24);
-  return BDAY_GROUPS.map(g => {
-    const d = new Date(base);
-    d.setDate(base.getDate() + g.dayOffset);
-    const day = d.getDate(), month = d.getMonth() + 1;
-    const people = BIRTHDAY_PEOPLE.filter(p => {
-      const [pd, pm] = p.dob.split('/').map(Number);
-      return pd === day && pm === month;
-    });
-    return { ...g, people };
-  }).filter(g => g.people.length > 0);
-}
-
-// ─── Revenue data (dual-series: collected + overdue) ──────
-const REVENUE = {
-  week: {
-    title:     'Doanh thu tuần này',
-    collected: '28,450,000 ₫',
-    overdue:   '4,200,000 ₫',
-    footer:    '↑ 8% so với tuần trước',
-    bars: [
-      { label: '21/4', collected: 3200000, overdue: 400000 },
-      { label: '22/4', collected: 4100000, overdue: 800000 },
-      { label: '23/4', collected: 5800000, overdue: 500000 },
-      { label: '24/4', collected: 3800000, overdue: 900000 },
-      { label: '25/4', collected: 5200000, overdue: 700000 },
-      { label: '26/4', collected: 4350000, overdue: 600000 },
-      { label: '27/4', collected: 2000000, overdue: 300000 },
-    ],
-  },
-  month: {
-    title:     'Doanh thu tháng này',
-    collected: '124,500,000 ₫',
-    overdue:   '18,500,000 ₫',
-    footer:    '↑ 12% so với T3/2026',
-    bars: [
-      { label: 'T1',  collected: 98000000,  overdue: 12000000 },
-      { label: 'T2',  collected: 105000000, overdue: 15000000 },
-      { label: 'T3',  collected: 112000000, overdue: 14000000 },
-      { label: 'T4',  collected: 124500000, overdue: 18500000 },
-      { label: 'T5',  collected: 0, overdue: 0 },
-      { label: 'T6',  collected: 0, overdue: 0 },
-      { label: 'T7',  collected: 0, overdue: 0 },
-      { label: 'T8',  collected: 0, overdue: 0 },
-      { label: 'T9',  collected: 0, overdue: 0 },
-      { label: 'T10', collected: 0, overdue: 0 },
-      { label: 'T11', collected: 0, overdue: 0 },
-      { label: 'T12', collected: 0, overdue: 0 },
-    ],
-  },
-  year: {
-    title:     'Doanh thu năm nay',
-    collected: '1,248,000,000 ₫',
-    overdue:   '124,000,000 ₫',
-    footer:    '↑ 18% so với năm 2025',
-    bars: [
-      { label: '2022', collected: 820000000,  overdue: 95000000  },
-      { label: '2023', collected: 950000000,  overdue: 108000000 },
-      { label: '2024', collected: 1050000000, overdue: 115000000 },
-      { label: '2025', collected: 1120000000, overdue: 118000000 },
-      { label: '2026', collected: 1248000000, overdue: 124000000 },
-    ],
-  },
-};
+// ─── Revenue data computed from Supabase payments ────────
 
 const PERIODS = [
-  { key: 'week',  label: 'Tuần'  },
-  { key: 'month', label: 'Tháng' },
-  { key: 'year',  label: 'Năm'   },
+  { key: 'week',  tKey: 'dashboard.week'  },
+  { key: 'month', tKey: 'dashboard.month' },
+  { key: 'year',  tKey: 'dashboard.year'  },
 ];
 
 const CHART_TYPES = [
@@ -305,6 +189,7 @@ function LineChart({ bars }) {
 
 // ─── Message Detail Modal ─────────────────────────────────
 function MessageDetailModal({ visible, message: msg, onClose, onResolve }) {
+  const { t } = useLanguage();
   if (!msg) return null;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -312,15 +197,15 @@ function MessageDetailModal({ visible, message: msg, onClose, onResolve }) {
         <TouchableOpacity style={md.backdrop} onPress={onClose} activeOpacity={1} />
         <View style={md.sheet}>
           <View style={md.handle} />
-          <Text style={md.title}>Chi tiết phản ánh</Text>
+          <Text style={md.title}>{t('dashboard.msgDetailTitle')}</Text>
           <View style={md.infoBlock}>
             {[
-              { label: 'Phòng',      value: msg.room,     color: '#4facfe' },
-              { label: 'Tòa nhà',    value: msg.building, color: '#ccd6f6' },
-              { label: 'Khách thuê', value: msg.tenant,   color: '#fff'    },
-              { label: 'Nhân viên',  value: msg.staff,    color: '#f1c40f' },
-              { label: 'Thời gian',  value: msg.time,     color: '#8892b0' },
-            ].map(({ label, value, color }) => (
+              [t('dashboard.roomLabel'),     msg.room,     '#4facfe'],
+              [t('dashboard.buildingLabel'), msg.building, '#ccd6f6'],
+              [t('dashboard.tenantLabel'),   msg.tenant,   '#fff'   ],
+              [t('dashboard.staffLabel'),    msg.staff,    '#f1c40f'],
+              [t('dashboard.timeLabel'),     msg.time,     '#8892b0'],
+            ].map(([label, value, color]) => (
               <View key={label} style={md.infoRow}>
                 <Text style={md.infoLabel}>{label}</Text>
                 <Text style={[md.infoValue, { color }]}>{value}</Text>
@@ -328,19 +213,19 @@ function MessageDetailModal({ visible, message: msg, onClose, onResolve }) {
             ))}
           </View>
           <View style={md.msgBox}>
-            <Text style={md.msgBoxLabel}>Nội dung phản ánh</Text>
+            <Text style={md.msgBoxLabel}>{t('dashboard.msgContent')}</Text>
             <Text style={md.msgBoxText}>"{msg.text}"</Text>
           </View>
           <View style={md.actions}>
             <TouchableOpacity style={md.callBtn} onPress={() => Linking.openURL(`tel:${msg.phone}`)}>
-              <Text style={md.callBtnText}>📞  Gọi điện</Text>
+              <Text style={md.callBtnText}>{t('dashboard.callBtn')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={md.resolveBtn} onPress={onResolve}>
-              <Text style={md.resolveBtnText}>✅  Xác nhận xử lý</Text>
+              <Text style={md.resolveBtnText}>{t('dashboard.confirmResolve')}</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity style={md.closeBtn} onPress={onClose}>
-            <Text style={md.closeBtnText}>Đóng</Text>
+            <Text style={md.closeBtnText}>{t('common.close')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -350,6 +235,7 @@ function MessageDetailModal({ visible, message: msg, onClose, onResolve }) {
 
 // ─── Moveout Detail Modal ─────────────────────────────────
 function MoveoutDetailModal({ visible, notice: mo, onClose }) {
+  const { t } = useLanguage();
   if (!mo) return null;
   const urgent = mo.daysLeft <= 7;
   return (
@@ -360,23 +246,23 @@ function MoveoutDetailModal({ visible, notice: mo, onClose }) {
           <View style={md.handle} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
             <Text style={{ fontSize: 22 }}>🚚</Text>
-            <Text style={md.title}>Thông báo chuyển đi</Text>
+            <Text style={md.title}>{t('dashboard.moveoutTitle')}</Text>
           </View>
 
           <View style={[mo_s.urgentBanner, { backgroundColor: urgent ? 'rgba(233,69,96,0.1)' : 'rgba(241,196,15,0.08)', borderColor: urgent ? 'rgba(233,69,96,0.3)' : 'rgba(241,196,15,0.25)' }]}>
             <Text style={[mo_s.urgentText, { color: urgent ? '#e94560' : '#f1c40f' }]}>
-              {urgent ? '⚠️' : '📅'}  Còn {mo.daysLeft} ngày · Dự kiến trả phòng {mo.intendedDate}
+              {urgent ? '⚠️' : '📅'}  {t('dashboard.moveoutBanner', { n: mo.daysLeft, date: mo.intendedDate })}
             </Text>
           </View>
 
           <View style={md.infoBlock}>
             {[
-              { label: 'Phòng',         value: mo.room,        color: '#4facfe' },
-              { label: 'Tòa nhà',       value: mo.building,    color: '#ccd6f6' },
-              { label: 'Khách thuê',    value: mo.tenant,      color: '#fff'    },
-              { label: 'Nhân viên',     value: mo.staff,       color: '#f1c40f' },
-              { label: 'Thông báo lúc', value: mo.reportedAt,  color: '#8892b0' },
-            ].map(({ label, value, color }) => (
+              [t('dashboard.roomLabel'),     mo.room,       '#4facfe'],
+              [t('dashboard.buildingLabel'), mo.building,   '#ccd6f6'],
+              [t('dashboard.tenantLabel'),   mo.tenant,     '#fff'   ],
+              [t('dashboard.staffLabel'),    mo.staff,      '#f1c40f'],
+              [t('dashboard.reportedAt'),    mo.reportedAt, '#8892b0'],
+            ].map(([label, value, color]) => (
               <View key={label} style={md.infoRow}>
                 <Text style={md.infoLabel}>{label}</Text>
                 <Text style={[md.infoValue, { color }]}>{value}</Text>
@@ -385,15 +271,15 @@ function MoveoutDetailModal({ visible, notice: mo, onClose }) {
           </View>
 
           <View style={[md.msgBox, { backgroundColor: 'rgba(241,196,15,0.06)', borderColor: 'rgba(241,196,15,0.18)' }]}>
-            <Text style={md.msgBoxLabel}>Lý do chuyển đi</Text>
+            <Text style={md.msgBoxLabel}>{t('dashboard.moveoutReason')}</Text>
             <Text style={md.msgBoxText}>"{mo.reason}"</Text>
           </View>
 
           <TouchableOpacity style={md.callBtn} onPress={() => Linking.openURL(`tel:${mo.phone}`)}>
-            <Text style={md.callBtnText}>📞  Gọi xác nhận với khách</Text>
+            <Text style={md.callBtnText}>{t('dashboard.callConfirm')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[md.closeBtn, { marginTop: 10 }]} onPress={onClose}>
-            <Text style={md.closeBtnText}>Đóng</Text>
+            <Text style={md.closeBtnText}>{t('common.close')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -402,7 +288,8 @@ function MoveoutDetailModal({ visible, notice: mo, onClose }) {
 }
 
 // ─── Resolve Modal ────────────────────────────────────────
-function ResolveModal({ visible, message: msg, onConfirm, onClose }) {
+function ResolveModal({ visible, message: msg, staffList, onConfirm, onClose }) {
+  const { t } = useLanguage();
   const [resolveType,     setResolveType]     = useState('admin');
   const [selectedStaffId, setSelectedStaffId] = useState(null);
   const [contractorName,  setContractorName]  = useState('');
@@ -422,7 +309,9 @@ function ResolveModal({ visible, message: msg, onConfirm, onClose }) {
     if (resolveType === 'admin') {
       resolvedBy.name = 'Admin';
     } else if (resolveType === 'staff') {
-      resolvedBy.name = RESOLVE_STAFF.find(s => s.id === selectedStaffId)?.name || '';
+      const staffMember = staffList.find(s => s.id === selectedStaffId);
+      resolvedBy.name = staffMember?.name || '';
+      resolvedBy.staffId = selectedStaffId;
     } else {
       resolvedBy.name = contractorName.trim();
     }
@@ -436,9 +325,9 @@ function ResolveModal({ visible, message: msg, onConfirm, onClose }) {
         <TouchableOpacity style={rv.backdrop} onPress={onClose} activeOpacity={1} />
         <View style={rv.sheet}>
           <View style={rv.handle} />
-          <Text style={rv.title}>Xác nhận xử lý sự cố</Text>
-          <Text style={rv.sub}>Phòng {msg.room} · {msg.tenant}</Text>
-          <Text style={rv.label}>Hướng xử lý</Text>
+          <Text style={rv.title}>{t('dashboard.resolveTitle')}</Text>
+          <Text style={rv.sub}>{t('dashboard.roomLabel')} {msg.room} · {msg.tenant}</Text>
+          <Text style={rv.label}>{t('dashboard.resolveMethod')}</Text>
           <View style={rv.typeRow}>
             {RESOLVE_TYPES.map(rt => (
               <TouchableOpacity
@@ -448,15 +337,15 @@ function ResolveModal({ visible, message: msg, onConfirm, onClose }) {
               >
                 <Text style={rv.typeIcon}>{rt.icon}</Text>
                 <Text style={[rv.typeLabel, resolveType === rt.key && { color: rt.color, fontWeight: '700' }]}>
-                  {rt.label}
+                  {t(rt.tKey)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
           {resolveType === 'staff' && (
             <>
-              <Text style={rv.label}>Chọn nhân viên xử lý</Text>
-              {RESOLVE_STAFF.map(st => (
+              <Text style={rv.label}>{t('dashboard.selectStaff')}</Text>
+              {staffList.map(st => (
                 <TouchableOpacity
                   key={st.id}
                   style={[rv.staffRow, selectedStaffId === st.id && rv.staffRowActive]}
@@ -465,7 +354,7 @@ function ResolveModal({ visible, message: msg, onConfirm, onClose }) {
                   <Text style={rv.staffIcon}>💼</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={rv.staffName}>{st.name}</Text>
-                    <Text style={rv.staffSub}>{st.role} · {st.building}</Text>
+                    <Text style={rv.staffSub}>{st.role === 'manager' ? 'Quản lý' : 'Nhân viên'}</Text>
                   </View>
                   {selectedStaffId === st.id && <Text style={rv.staffCheck}>✓</Text>}
                 </TouchableOpacity>
@@ -474,25 +363,25 @@ function ResolveModal({ visible, message: msg, onConfirm, onClose }) {
           )}
           {resolveType === 'contractor' && (
             <>
-              <Text style={rv.label}>Thông tin thợ / đơn vị</Text>
+              <Text style={rv.label}>{t('dashboard.contractorInfo')}</Text>
               <TextInput
                 style={rv.input}
                 value={contractorName}
                 onChangeText={setContractorName}
-                placeholder="Tên thợ hoặc công ty sửa chữa"
+                placeholder={t('dashboard.contractorPh')}
                 placeholderTextColor="#8892b0"
               />
             </>
           )}
           <View style={rv.btnRow}>
             <TouchableOpacity style={rv.cancelBtn} onPress={onClose}>
-              <Text style={rv.cancelText}>Hủy</Text>
+              <Text style={rv.cancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[rv.confirmBtn, !canConfirm && rv.confirmDim]}
               onPress={handleConfirm}
             >
-              <Text style={rv.confirmText}>✅  Xác nhận xong</Text>
+              <Text style={rv.confirmText}>{t('dashboard.confirmDone')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -503,6 +392,7 @@ function ResolveModal({ visible, message: msg, onConfirm, onClose }) {
 
 // ─── Birthday Panel ───────────────────────────────────────
 function BirthdayPanel({ visible, groups, onClose }) {
+  const { t } = useLanguage();
   const total = groups.reduce((sum, g) => sum + g.people.length, 0);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -511,24 +401,24 @@ function BirthdayPanel({ visible, groups, onClose }) {
         <View style={bp.sheet}>
           <View style={bp.handle} />
           <View style={bp.titleRow}>
-            <Text style={bp.title}>🎂 Sinh nhật sắp tới</Text>
+            <Text style={bp.title}>{t('dashboard.bdayTitle')}</Text>
             <View style={bp.totalBadge}>
-              <Text style={bp.totalText}>{total} người</Text>
+              <Text style={bp.totalText}>{t('dashboard.personCount', { n: total })}</Text>
             </View>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
             {groups.length === 0 ? (
               <View style={bp.emptyBox}>
                 <Text style={bp.emptyIcon}>🎂</Text>
-                <Text style={bp.emptyText}>Không có sinh nhật trong 3 ngày này</Text>
+                <Text style={bp.emptyText}>{t('dashboard.noBday')}</Text>
               </View>
             ) : groups.map(group => (
               <View key={group.key} style={[bp.group, { borderColor: group.border }]}>
                 <View style={[bp.groupHeader, { backgroundColor: group.bg }]}>
                   <Text style={[bp.groupLabel, { color: group.color }]}>
-                    {group.key === 'today' ? '🎉' : '📅'}  {group.label}
+                    {group.key === 'today' ? '🎉' : '📅'}  {t(group.tKey)}
                   </Text>
-                  <Text style={[bp.groupCount, { color: group.color }]}>{group.people.length} người</Text>
+                  <Text style={[bp.groupCount, { color: group.color }]}>{t('dashboard.personCount', { n: group.people.length })}</Text>
                 </View>
                 {group.people.map((person, i) => {
                   const avatar = person.type === 'staff'
@@ -557,7 +447,7 @@ function BirthdayPanel({ visible, groups, onClose }) {
             ))}
           </ScrollView>
           <TouchableOpacity style={bp.closeBtn} onPress={onClose}>
-            <Text style={bp.closeBtnText}>Đóng</Text>
+            <Text style={bp.closeBtnText}>{t('common.close')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -567,14 +457,15 @@ function BirthdayPanel({ visible, groups, onClose }) {
 
 // ─── Main Screen ──────────────────────────────────────────
 const ACT_TYPE = {
-  complaint: { icon: '📢', color: '#e94560', bg: 'rgba(233,69,96,0.12)',  label: 'Phản ánh'   },
-  checkin:   { icon: '🏠', color: '#2ecc71', bg: 'rgba(46,204,113,0.12)', label: 'Nhận phòng' },
-  checkout:  { icon: '🚚', color: '#f1c40f', bg: 'rgba(241,196,15,0.12)', label: 'Chuyển đi'  },
-  birthday:  { icon: '🎂', color: '#f39c12', bg: 'rgba(243,156,18,0.12)', label: 'Sinh nhật'  },
+  complaint: { icon: '📢', color: '#e94560', bg: 'rgba(233,69,96,0.12)',  tKey: 'dashboard.actComplaint' },
+  checkin:   { icon: '🏠', color: '#2ecc71', bg: 'rgba(46,204,113,0.12)', tKey: 'dashboard.actCheckin'   },
+  checkout:  { icon: '🚚', color: '#f1c40f', bg: 'rgba(241,196,15,0.12)', tKey: 'dashboard.actCheckout'  },
+  birthday:  { icon: '🎂', color: '#f39c12', bg: 'rgba(243,156,18,0.12)', tKey: 'dashboard.actBirthday'  },
 };
 
 export default function DashboardScreen() {
   const { buildings, setBuildings } = useBuildings();
+  const { t } = useLanguage();
 
   const [period,          setPeriod]          = useState('month');
   const [chartType,       setChartType]       = useState('bar');
@@ -587,6 +478,33 @@ export default function DashboardScreen() {
   const [selectedMo,      setSelectedMo]      = useState(null);
   const [staffPeriod,     setStaffPeriod]     = useState('month');
   const [moDetailVisible, setMoDetailVisible] = useState(false);
+
+  // ── Live data from Supabase ────────────────────────────
+  const [payments,      setPayments]      = useState([]);
+  const [staffList,     setStaffList]     = useState([]);
+  const [tenantHistory, setTenantHistory] = useState([]);
+  const [allTenants,    setAllTenants]    = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      const [
+        { data: pays },
+        { data: staff },
+        { data: history },
+        { data: tents },
+      ] = await Promise.all([
+        supabase.from('payments').select('*'),
+        supabase.from('staff').select('id, name, phone, role, gender, dob, active').eq('active', true),
+        supabase.from('tenant_history').select('*'),
+        supabase.from('tenants').select('id, name, dob, gender, room_id, phone, since_date'),
+      ]);
+      setPayments(pays || []);
+      setStaffList(staff || []);
+      setTenantHistory(history || []);
+      setAllTenants(tents || []);
+    };
+    load();
+  }, []);
 
   // ── Derive room overview from live buildings data ──────
   const { adminBuildings, stats, pendingMessages } = useMemo(() => {
@@ -606,13 +524,13 @@ export default function DashboardScreen() {
 
     const allRooms = buildings.flatMap(b => b.floors.flatMap(f => f.rooms));
     const stats = [
-      { label: 'Tổng phòng', value: String(allRooms.length),
+      { tKey: 'dashboard.totalRooms', value: String(allRooms.length),
         numColor: '#fff',    borderColor: 'rgba(255,255,255,0.12)' },
-      { label: 'Đang thuê',  value: String(allRooms.filter(r => r.tenant).length),
+      { tKey: 'dashboard.occupied',   value: String(allRooms.filter(r => r.tenant).length),
         numColor: '#2ecc71', borderColor: 'rgba(46,204,113,0.35)'  },
-      { label: 'Trống',      value: String(allRooms.filter(r => r.status === 'empty').length),
+      { tKey: 'dashboard.vacant',     value: String(allRooms.filter(r => r.status === 'empty').length),
         numColor: '#8892b0', borderColor: 'rgba(136,146,176,0.3)'  },
-      { label: 'Sự cố',      value: String(allRooms.filter(r =>
+      { tKey: 'dashboard.incident',   value: String(allRooms.filter(r =>
           r.status === 'maintenance' || r.status === 'urgent' ||
           (r.status === 'occupied' && hasPending(r))
         ).length),
@@ -646,19 +564,164 @@ export default function DashboardScreen() {
     return { adminBuildings, stats, pendingMessages };
   }, [buildings]);
 
-  const rev        = REVENUE[period];
-  const bdayGroups = buildBirthdayGroups();
-  const bdayTotal  = bdayGroups.reduce((sum, g) => sum + g.people.length, 0);
+  // ── Revenue computation from live payments ─────────────
+  const { revenue, staffRevData, moveoutNotices, bdayGroups } = useMemo(() => {
+    function sumPayments(pays, field) {
+      return pays.reduce((s, p) => s + (p[field] || 0), 0);
+    }
+    function fmtMoney(n) {
+      return n.toLocaleString('vi-VN') + ' ₫';
+    }
+    function parseMonth(m) {
+      const [mm, yy] = m.split('/').map(Number);
+      return yy * 100 + mm;
+    }
+
+    const allMonths = [...new Set(payments.map(p => p.month))]
+      .sort((a, b) => parseMonth(a) - parseMonth(b));
+
+    const now = new Date();
+    const curMonth = `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+    const curYear  = String(now.getFullYear());
+
+    // Month chart: all months
+    const monthBars = allMonths.map(m => {
+      const mPays = payments.filter(p => p.month === m);
+      const [mm] = m.split('/').map(Number);
+      return {
+        label:     `T${mm}`,
+        collected: sumPayments(mPays.filter(p => p.paid),  'amount'),
+        overdue:   sumPayments(mPays.filter(p => !p.paid), 'amount'),
+      };
+    });
+    const monthCollected = sumPayments(payments.filter(p => p.paid),  'amount');
+    const monthOverdue   = sumPayments(payments.filter(p => !p.paid), 'amount');
+
+    // Year chart: group by year
+    const allYears = [...new Set(payments.map(p => p.month.split('/')[1]))].sort();
+    const yearBars = allYears.map(y => {
+      const yPays = payments.filter(p => p.month.split('/')[1] === y);
+      return {
+        label:     y,
+        collected: sumPayments(yPays.filter(p => p.paid),  'amount'),
+        overdue:   sumPayments(yPays.filter(p => !p.paid), 'amount'),
+      };
+    });
+    const yearPays      = payments.filter(p => p.month.split('/')[1] === curYear);
+    const yearCollected = sumPayments(yearPays.filter(p => p.paid),  'amount');
+    const yearOverdue   = sumPayments(yearPays.filter(p => !p.paid), 'amount');
+
+    // Week chart: current month only
+    const weekPays      = payments.filter(p => p.month === curMonth);
+    const weekCollected = sumPayments(weekPays.filter(p => p.paid),  'amount');
+    const weekOverdue   = sumPayments(weekPays.filter(p => !p.paid), 'amount');
+    const weekBars = weekPays.length > 0
+      ? [{ label: curMonth, collected: weekCollected, overdue: weekOverdue }]
+      : [];
+
+    const revenue = {
+      week:  { bars: weekBars,  collected: fmtMoney(weekCollected),  overdue: fmtMoney(weekOverdue),  footer: '' },
+      month: { bars: monthBars, collected: fmtMoney(monthCollected), overdue: fmtMoney(monthOverdue), footer: '' },
+      year:  { bars: yearBars,  collected: fmtMoney(yearCollected),  overdue: fmtMoney(yearOverdue),  footer: '' },
+    };
+
+    // ── Staff revenue by period ──
+    const getStaffRevForPeriod = (p) => {
+      let filterPays = payments;
+      if (p === 'week') filterPays = payments.filter(pay => pay.month === curMonth);
+      else if (p === 'month') {
+        const last6 = allMonths.slice(-6);
+        filterPays = payments.filter(pay => last6.includes(pay.month));
+      }
+      const map = {};
+      filterPays.forEach(pay => {
+        const sid = pay.collected_by;
+        if (!sid) return;
+        if (!map[sid]) map[sid] = { collected: 0, overdue: 0 };
+        if (pay.paid) map[sid].collected += pay.amount || 0;
+        else map[sid].overdue += pay.amount || 0;
+      });
+      return Object.entries(map).map(([sid, rev]) => {
+        const st = staffList.find(s => s.id === sid);
+        return { name: st?.name || sid, avatar: st?.gender === 'female' ? '👩' : '👨', ...rev };
+      }).filter(sr => sr.collected + sr.overdue > 0);
+    };
+    const staffRevData = {
+      week:  getStaffRevForPeriod('week'),
+      month: getStaffRevForPeriod('month'),
+      year:  getStaffRevForPeriod('year'),
+    };
+
+    // ── Move-out notices from tenant_history ──
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const moveoutNotices = tenantHistory
+      .filter(th => {
+        if (!th.move_out_date) return false;
+        const [dd, mm, yy] = th.move_out_date.split('/').map(Number);
+        if (!dd || !mm || !yy) return false;
+        const d = new Date(yy, mm - 1, dd);
+        const diff = Math.ceil((d - today) / 86400000);
+        return diff >= 0 && diff <= 30;
+      })
+      .map(th => {
+        const [dd, mm, yy] = th.move_out_date.split('/').map(Number);
+        const d = new Date(yy, mm - 1, dd);
+        const daysLeft = Math.ceil((d - today) / 86400000);
+        const bld = buildings.find(b => b.id === th.building_id);
+        return {
+          id:           th.id,
+          room:         th.room_id || '—',
+          building:     bld?.name || th.building_id || '—',
+          tenant:       th.tenant_name || '—',
+          phone:        th.tenant_phone || '',
+          intendedDate: th.move_out_date,
+          daysLeft,
+          reason:       th.move_out_reason || '',
+          reportedAt:   th.created_at ? new Date(th.created_at).toLocaleDateString('vi-VN') : '—',
+          staff:        bld?.staff || '—',
+        };
+      })
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+
+    // ── Birthday groups ──
+    function matchDob(dob, day, month) {
+      if (!dob) return false;
+      const parts = dob.split('/');
+      return parseInt(parts[0]) === day && parseInt(parts[1]) === month;
+    }
+
+    const bdayGroups = BDAY_GROUPS.map(g => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + g.dayOffset);
+      const day = d.getDate(), month = d.getMonth() + 1;
+
+      const tenantBdays = allTenants
+        .filter(t => matchDob(t.dob, day, month))
+        .map(t => ({ name: t.name, type: 'customer', sub: 'Khách thuê', dob: t.dob, gender: t.gender || 'male' }));
+      const staffBdays = staffList
+        .filter(s => matchDob(s.dob, day, month))
+        .map(s => ({ name: s.name, type: 'staff', sub: `${s.phone || ''} · ${s.role === 'manager' ? 'Quản lý' : 'Nhân viên'}`, dob: s.dob, gender: s.gender || 'male' }));
+
+      return { ...g, people: [...tenantBdays, ...staffBdays] };
+    }).filter(g => g.people.length > 0);
+
+    return { revenue, staffRevData, moveoutNotices, bdayGroups };
+  }, [payments, staffList, tenantHistory, allTenants, buildings]);
+
+  const rev      = revenue?.[period] ?? { bars: [], collected: '—', overdue: '—', footer: '' };
+  const bdayTotal = bdayGroups.reduce((sum, g) => sum + g.people.length, 0);
 
   const openDetail  = msg => { setSelectedMsg(msg); setDetailVisible(true); };
   const openResolve = ()  => { setDetailVisible(false); setResolveVisible(true); };
 
-  const handleResolved = resolvedBy => {
+  const handleResolved = async (resolvedBy) => {
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     const resolvedAt = `${pad(now.getHours())}:${pad(now.getMinutes())} ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
     const { buildingId, roomId, msgId } = selectedMsg;
 
+    // Optimistic local update
     setBuildings(prev => prev.map(b => {
       if (b.id !== buildingId) return b;
       return {
@@ -678,6 +741,16 @@ export default function DashboardScreen() {
         })),
       };
     }));
+
+    // Write to Supabase
+    const resolveType = resolvedBy.type === 'admin' ? 'self' : resolvedBy.type === 'staff' ? 'staff' : 'contractor';
+    await supabase.from('messages').update({
+      resolved:     true,
+      resolved_at:  resolvedAt,
+      resolved_by:  resolvedBy.staffId || null,
+      resolve_type: resolveType,
+      resolve_note: resolvedBy.name,
+    }).eq('id', msgId);
 
     setResolvedHistory(prev => [{ ...selectedMsg, resolvedBy, resolvedAt }, ...prev]);
     setResolveVisible(false);
@@ -702,6 +775,7 @@ export default function DashboardScreen() {
       <ResolveModal
         visible={resolveVisible}
         message={selectedMsg}
+        staffList={staffList}
         onConfirm={handleResolved}
         onClose={() => { setResolveVisible(false); setSelectedMsg(null); }}
       />
@@ -717,17 +791,20 @@ export default function DashboardScreen() {
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={s.header}>
           <View style={s.headerTop}>
             <View>
-              <Text style={s.greeting}>Xin chào 👋</Text>
+              <Text style={s.greeting}>{t('staffDash.greeting')}</Text>
               <Text style={s.ownerName}>Nguyễn Chủ Nhà</Text>
             </View>
-            <TouchableOpacity style={s.notifBtn} onPress={() => setBdayPanelOpen(true)}>
-              <Text style={s.notifIcon}>🎂</Text>
-              {bdayTotal > 0 && (
-                <View style={s.notifBadge}><Text style={s.notifBadgeText}>{bdayTotal}</Text></View>
-              )}
-            </TouchableOpacity>
+            <View style={s.headerRight}>
+              <LanguageSwitcher />
+              <TouchableOpacity style={s.notifBtn} onPress={() => setBdayPanelOpen(true)}>
+                <Text style={s.notifIcon}>🎂</Text>
+                {bdayTotal > 0 && (
+                  <View style={s.notifBadge}><Text style={s.notifBadgeText}>{bdayTotal}</Text></View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={s.dateText}>Thứ Năm, 24 tháng 4 năm 2026</Text>
+          <Text style={s.dateText}>{new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</Text>
         </LinearGradient>
 
         {/* ── Báo cáo doanh thu ── */}
@@ -741,22 +818,22 @@ export default function DashboardScreen() {
                   style={[s.periodBtn, period === p.key && s.periodBtnActive]}
                   onPress={() => setPeriod(p.key)}
                 >
-                  <Text style={[s.periodBtnText, period === p.key && s.periodBtnTextActive]}>{p.label}</Text>
+                  <Text style={[s.periodBtnText, period === p.key && s.periodBtnTextActive]}>{t(p.tKey)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={s.revenueLabel}>{rev.title}</Text>
+            <Text style={s.revenueLabel}>{t('dashboard.revTitle.' + period)}</Text>
 
             {/* Two metrics side by side */}
             <View style={s.revMetricRow}>
               <View style={s.revMetricBox}>
-                <Text style={s.revMetricLbl}>💰 Đã thu</Text>
+                <Text style={s.revMetricLbl}>💰 {t('dashboard.collected')}</Text>
                 <Text style={s.revMetricVal}>{rev.collected}</Text>
               </View>
               <View style={s.revMetricDivider} />
               <View style={s.revMetricBox}>
-                <Text style={s.revMetricLbl}>⏳ Chậm thu</Text>
+                <Text style={s.revMetricLbl}>⏳ {t('dashboard.overdue')}</Text>
                 <Text style={[s.revMetricVal, s.revMetricValOverdue]}>{rev.overdue}</Text>
               </View>
             </View>
@@ -769,7 +846,7 @@ export default function DashboardScreen() {
         <View style={s.section}>
           <View style={s.chartCard}>
             <View style={s.chartHeader}>
-              <Text style={s.chartTitle}>📈 Biến động doanh thu</Text>
+              <Text style={s.chartTitle}>📈 {t('dashboard.revenueChart')}</Text>
               <View style={s.chartTypeRow}>
                 {CHART_TYPES.map(ct => (
                   <TouchableOpacity
@@ -788,11 +865,11 @@ export default function DashboardScreen() {
             <View style={s.chartLegend}>
               <View style={s.legendItem}>
                 <View style={[s.legendDot, { backgroundColor: '#4facfe' }]} />
-                <Text style={s.legendText}>Đã thu</Text>
+                <Text style={s.legendText}>{t('dashboard.collected')}</Text>
               </View>
               <View style={s.legendItem}>
                 <View style={[s.legendDot, { backgroundColor: '#f39c12' }]} />
-                <Text style={s.legendText}>Chậm thu</Text>
+                <Text style={s.legendText}>{t('dashboard.overdue')}</Text>
               </View>
             </View>
             {chartType === 'bar'
@@ -805,7 +882,7 @@ export default function DashboardScreen() {
         {/* ── Doanh thu theo nhân viên ── */}
         <View style={s.section}>
           <View style={s.sectionTitleRow}>
-            <Text style={s.sectionTitle}>👥 Doanh thu theo nhân viên</Text>
+            <Text style={s.sectionTitle}>👥 {t('dashboard.staffRevenue')}</Text>
           </View>
           <View style={s.staffRevPanel}>
             {/* Period tabs */}
@@ -816,20 +893,27 @@ export default function DashboardScreen() {
                   style={[s.staffRevTab, staffPeriod === p.key && s.staffRevTabActive]}
                   onPress={() => setStaffPeriod(p.key)}
                 >
-                  <Text style={[s.staffRevTabText, staffPeriod === p.key && s.staffRevTabTextActive]}>{p.label}</Text>
+                  <Text style={[s.staffRevTabText, staffPeriod === p.key && s.staffRevTabTextActive]}>{t(p.tKey)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             {/* Bars */}
             {(() => {
-              const list     = STAFF_REVENUE[staffPeriod];
+              const list = staffRevData?.[staffPeriod] ?? [];
+              if (list.length === 0) {
+                return (
+                  <View style={s.emptyBox}>
+                    <Text style={s.emptyText}>📊 {t('dashboard.noStaffRev') || 'Chưa có dữ liệu'}</Text>
+                  </View>
+                );
+              }
               const maxTotal = Math.max(...list.map(sr => sr.collected + sr.overdue));
               return list.map((sr, i) => {
                 const total  = sr.collected + sr.overdue;
                 const pct    = total > 0 ? Math.round((sr.collected / total) * 100) : 0;
-                const cW     = sr.collected / maxTotal * 100;
-                const oW     = sr.overdue   / maxTotal * 100;
+                const cW     = maxTotal > 0 ? sr.collected / maxTotal * 100 : 0;
+                const oW     = maxTotal > 0 ? sr.overdue   / maxTotal * 100 : 0;
                 const isLast = i === list.length - 1;
                 return (
                   <View key={i} style={[s.staffRevRow, !isLast && s.staffRevRowBorder]}>
@@ -839,7 +923,6 @@ export default function DashboardScreen() {
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text style={s.staffRevName}>{sr.name}</Text>
-                        <Text style={s.staffRevBuilding}>{sr.rooms} phòng</Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 12, marginTop: 5, marginBottom: 7 }}>
                         <Text style={s.staffRevCollected}>💰 {fmt(sr.collected)}</Text>
@@ -849,7 +932,7 @@ export default function DashboardScreen() {
                         <View style={[s.staffRevBarFill,    { width: `${cW}%` }]} />
                         <View style={[s.staffRevBarOverdue, { width: `${oW}%` }]} />
                       </View>
-                      <Text style={s.staffRevPct}>{pct}% đã thu</Text>
+                      <Text style={s.staffRevPct}>{pct}{t('dashboard.pctCollected')}</Text>
                     </View>
                   </View>
                 );
@@ -860,10 +943,10 @@ export default function DashboardScreen() {
 
         {/* ── Tổng quan phòng ── */}
         <View style={s.section}>
-          <Text style={s.sectionTitle}>Tổng quan phòng</Text>
+          <Text style={s.sectionTitle}>{t('dashboard.roomOverview')}</Text>
           <View style={s.ovPanel}>
 
-            <Text style={s.ovSubTitle}>🏢 Nhà đang quản lý</Text>
+            <Text style={s.ovSubTitle}>🏢 {t('dashboard.managedBldg')}</Text>
             {adminBuildings.map((b, i) => {
               const pct = b.total > 0 ? Math.round(b.occupied / b.total * 100) : 0;
               const accent = '#4facfe';
@@ -884,7 +967,7 @@ export default function DashboardScreen() {
                       </View>
                       <View style={[s.ovRoomBadge, { borderColor: `${accent}40`, backgroundColor: `${accent}12` }]}>
                         <Text style={[s.ovRoomBadgeNum, { color: accent }]}>{b.total}</Text>
-                        <Text style={[s.ovRoomBadgeLbl, { color: accent }]}>phòng</Text>
+                        <Text style={[s.ovRoomBadgeLbl, { color: accent }]}>{t('dashboard.roomLabel')}</Text>
                       </View>
                     </View>
                     <View style={s.ovOccRow}>
@@ -900,12 +983,12 @@ export default function DashboardScreen() {
 
             <View style={s.ovDivider} />
 
-            <Text style={s.ovSubTitle}>📊 Tình trạng phòng</Text>
+            <Text style={s.ovSubTitle}>📊 {t('dashboard.roomStatus')}</Text>
             <View style={s.ovStatRow}>
               {stats.map((stat, i) => (
                 <View key={i} style={[s.ovStatCard, { borderColor: stat.borderColor }]}>
                   <Text style={[s.ovStatNum, { color: stat.numColor }]}>{stat.value}</Text>
-                  <Text style={s.ovStatLbl}>{stat.label}</Text>
+                  <Text style={s.ovStatLbl}>{t(stat.tKey)}</Text>
                 </View>
               ))}
             </View>
@@ -915,17 +998,17 @@ export default function DashboardScreen() {
         {/* ── Tin nhắn sự cố ── */}
         <View style={s.section}>
           <View style={s.sectionTitleRow}>
-            <Text style={s.sectionTitle}>💬 Tin nhắn sự cố</Text>
+            <Text style={s.sectionTitle}>💬 {t('dashboard.incidentMsg')}</Text>
             {pendingMessages.length > 0 && (
               <View style={s.badgeRed}>
-                <Text style={s.badgeRedText}>{pendingMessages.length} chờ xử lý</Text>
+                <Text style={s.badgeRedText}>{t('dashboard.pendingCount', { n: pendingMessages.length })}</Text>
               </View>
             )}
           </View>
           <View style={s.notifPanel}>
             {pendingMessages.length === 0 ? (
               <View style={s.emptyBox}>
-                <Text style={s.emptyText}>✅ Hiện không có tin nhắn chờ của khách</Text>
+                <Text style={s.emptyText}>✅ {t('dashboard.noMsg')}</Text>
               </View>
             ) : (
               <>
@@ -954,19 +1037,19 @@ export default function DashboardScreen() {
         {/* ── Thông báo sắp chuyển đi ── */}
         <View style={s.section}>
           <View style={s.sectionTitleRow}>
-            <Text style={s.sectionTitle}>🚚 Sắp chuyển đi</Text>
-            {MOVEOUT_NOTICES.length > 0 && (
+            <Text style={s.sectionTitle}>🚚 {t('dashboard.moveout')}</Text>
+            {moveoutNotices.length > 0 && (
               <View style={s.badgeYellow}>
-                <Text style={s.badgeYellowText}>{MOVEOUT_NOTICES.length} phòng</Text>
+                <Text style={s.badgeYellowText}>{t('dashboard.roomsBadge', { n: moveoutNotices.length })}</Text>
               </View>
             )}
           </View>
           <View style={s.notifPanel}>
-            {MOVEOUT_NOTICES.length === 0 ? (
+            {moveoutNotices.length === 0 ? (
               <View style={s.emptyBox}>
-                <Text style={s.emptyText}>✅ Không có khách nào thông báo chuyển đi</Text>
+                <Text style={s.emptyText}>✅ {t('dashboard.noMoveout')}</Text>
               </View>
-            ) : MOVEOUT_NOTICES.map(mo => {
+            ) : moveoutNotices.map(mo => {
               const urgent = mo.daysLeft <= 7;
               return (
                 <TouchableOpacity
@@ -983,12 +1066,12 @@ export default function DashboardScreen() {
                       <Text style={s.moTenant}>{mo.tenant}</Text>
                       <View style={[s.moDaysBadge, { backgroundColor: urgent ? 'rgba(233,69,96,0.12)' : 'rgba(241,196,15,0.1)', borderColor: urgent ? 'rgba(233,69,96,0.3)' : 'rgba(241,196,15,0.3)' }]}>
                         <Text style={[s.moDaysText, { color: urgent ? '#e94560' : '#f1c40f' }]}>
-                          {mo.daysLeft} ngày
+                          {t('dashboard.daysLeft', { n: mo.daysLeft })}
                         </Text>
                       </View>
                     </View>
-                    <Text style={s.moRoom}>Phòng {mo.room} · {mo.building}</Text>
-                    <Text style={s.moDate}>📅 Dự kiến: {mo.intendedDate}</Text>
+                    <Text style={s.moRoom}>{t('dashboard.roomLabel')} {mo.room} · {mo.building}</Text>
+                    <Text style={s.moDate}>📅 {t('dashboard.expectedDate')} {mo.intendedDate}</Text>
                     <Text style={s.moReason} numberOfLines={1}>📝 {mo.reason}</Text>
                   </View>
                   <Text style={s.ovMsgArrow}>›</Text>
@@ -1000,50 +1083,50 @@ export default function DashboardScreen() {
 
         {/* ── Hoạt động gần đây ── */}
         <View style={[s.section, { marginBottom: 32 }]}>
-          <Text style={s.sectionTitle}>Hoạt động gần đây</Text>
+          <Text style={s.sectionTitle}>{t('dashboard.recentActivity')}</Text>
 
           <View style={s.actTabRow}>
             <TouchableOpacity
               style={[s.actTabBtn, activityTab === 'staff' && s.actTabActive]}
               onPress={() => setActivityTab('staff')}
             >
-              <Text style={[s.actTabText, activityTab === 'staff' && s.actTabTextActive]}>💼 Nhân viên</Text>
+              <Text style={[s.actTabText, activityTab === 'staff' && s.actTabTextActive]}>💼 {t('nav.staff')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.actTabBtn, activityTab === 'customer' && s.actTabActive]}
               onPress={() => setActivityTab('customer')}
             >
-              <Text style={[s.actTabText, activityTab === 'customer' && s.actTabTextActive]}>👥 Khách hàng</Text>
+              <Text style={[s.actTabText, activityTab === 'customer' && s.actTabTextActive]}>👥 {t('nav.customers')}</Text>
             </TouchableOpacity>
           </View>
 
           {activityTab === 'staff' && (
-            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator style={s.actFixedArea}>
-              {STAFF_ACTIVITIES.map((act, i) => (
-                <View key={i} style={[s.activityCard, { borderLeftWidth: 3, borderLeftColor: STAFF_ACT_CFG[act.type]?.color ?? '#8892b0' }]}>
-                  <View style={s.activityAvatar}>
-                    <Text style={s.activityAvatarText}>{act.avatar}</Text>
-                  </View>
-                  <View style={s.activityInfo}>
-                    <View style={s.actRow1}>
-                      <Text style={s.activityName}>{act.name}</Text>
-                      <Text style={s.actTimeText}>{act.time}</Text>
-                    </View>
-                    <View style={[s.actBuildingTag, { alignSelf: 'flex-start', marginTop: 5 }]}>
-                      <Text style={s.actBuildingText}>🏢 {act.building}</Text>
-                    </View>
-                    <Text style={s.activityAction}>{act.action}</Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
+            <View style={s.actFixedArea}>
+              <View style={s.emptyBox}>
+                <Text style={s.emptyText}>📋 {t('dashboard.noStaffActivity') || 'Chưa có nhật ký hoạt động nhân viên'}</Text>
+              </View>
+            </View>
           )}
 
           {activityTab === 'customer' && (
             <ScrollView nestedScrollEnabled showsVerticalScrollIndicator style={s.actFixedArea}>
-              {CUSTOMER_ACTIVITIES.filter(a => a.type === 'checkin').map((act, i) => {
-                const cfg = ACT_TYPE[act.type];
-                return (
+              {(() => {
+                const cfg = ACT_TYPE['checkin'];
+                const recentCheckins = allTenants
+                  .filter(t => t.since_date && t.room_id)
+                  .map(t => {
+                    const bld = buildings.find(b => b.floors?.some(f => f.rooms?.some(r => r.dbId === t.room_id)));
+                    return { name: t.name, room: t.room_id, building: bld?.name || '—', time: t.since_date, type: 'checkin' };
+                  })
+                  .slice(0, 10);
+                if (recentCheckins.length === 0) {
+                  return (
+                    <View style={s.emptyBox}>
+                      <Text style={s.emptyText}>🏠 {t('dashboard.noCheckins') || 'Chưa có khách nhận phòng'}</Text>
+                    </View>
+                  );
+                }
+                return recentCheckins.map((act, i) => (
                   <View key={i} style={[s.activityCard, { borderLeftWidth: 3, borderLeftColor: cfg.color }]}>
                     <View style={[s.actCustTypeBox, { backgroundColor: cfg.bg }]}>
                       <Text style={{ fontSize: 20 }}>{cfg.icon}</Text>
@@ -1055,19 +1138,15 @@ export default function DashboardScreen() {
                       </View>
                       <View style={s.actRow2}>
                         <View style={[s.actTypeTag, { backgroundColor: cfg.bg }]}>
-                          <Text style={[s.actTypeText, { color: cfg.color }]}>{cfg.label}</Text>
+                          <Text style={[s.actTypeText, { color: cfg.color }]}>{t(cfg.tKey)}</Text>
                         </View>
                         <Text style={s.actRoomLine}>🏢 {act.building} · Phòng {act.room}</Text>
                       </View>
-                      {act.type === 'birthday'
-                        ? <Text style={[s.activityAction, { color: cfg.color }]}>🎉 {act.action}</Text>
-                        : <Text style={s.activityAction}>{act.action}</Text>
-                      }
-                      {act.reason && <Text style={s.actReason}>📝 Lý do: {act.reason}</Text>}
+                      <Text style={s.activityAction}>Nhận phòng mới</Text>
                     </View>
                   </View>
-                );
-              })}
+                ));
+              })()}
             </ScrollView>
           )}
         </View>
@@ -1196,7 +1275,8 @@ const s = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: '#1a1a2e' },
   container: { flex: 1, backgroundColor: '#0d0d1a' },
   header:    { padding: 20, paddingTop: 30 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  headerTop:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   greeting:  { color: '#8892b0', fontSize: 14 },
   ownerName: { color: '#fff', fontSize: 22, fontWeight: '800' },
   notifBtn:  { position: 'relative', padding: 8 },

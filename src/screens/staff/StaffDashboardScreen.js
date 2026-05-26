@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 
 // Dữ liệu nhà + phòng được phân công cho nhân viên này
 const assignedBuildings = [
@@ -67,10 +69,10 @@ const assignedBuildings = [
 ];
 
 const STATUS = {
-  occupied:    { label: 'Đang thuê',   color: '#2ecc71', bg: '#2ecc7122', icon: '●' },
-  empty:       { label: 'Trống',       color: '#8892b0', bg: '#8892b022', icon: '○' },
-  maintenance: { label: 'Bảo trì',     color: '#f1c40f', bg: '#f1c40f22', icon: '▲' },
-  urgent:      { label: 'Khẩn cấp',   color: '#e94560', bg: '#e9456022', icon: '✕' },
+  occupied:    { tKey: 'status.occupied',    color: '#2ecc71', bg: '#2ecc7122', icon: '●' },
+  empty:       { tKey: 'status.vacant',      color: '#8892b0', bg: '#8892b022', icon: '○' },
+  maintenance: { tKey: 'status.maintenance', color: '#f1c40f', bg: '#f1c40f22', icon: '▲' },
+  urgent:      { tKey: 'status.urgent',      color: '#e94560', bg: '#e9456022', icon: '✕' },
 };
 
 function countStatus(building) {
@@ -122,26 +124,27 @@ const cell = StyleSheet.create({
 });
 
 function RoomDetailModal({ room, onClose }) {
+  const { t } = useLanguage();
   if (!room) return null;
   const s = STATUS[room.status];
   return (
     <View style={modal.overlay}>
       <View style={modal.card}>
-        <Text style={modal.title}>Phòng {room.id}</Text>
+        <Text style={modal.title}>{t('staffDash.roomTitle')} {room.id}</Text>
         <View style={[modal.badge, { backgroundColor: s.bg }]}>
-          <Text style={[modal.badgeText, { color: s.color }]}>{s.label}</Text>
+          <Text style={[modal.badgeText, { color: s.color }]}>{t(s.tKey)}</Text>
         </View>
         {room.tenant
           ? <Text style={modal.tenant}>👤 {room.tenant}</Text>
-          : <Text style={modal.noTenant}>Không có khách</Text>
+          : <Text style={modal.noTenant}>{t('staffDash.noTenant')}</Text>
         }
         {room.status === 'maintenance' && (
           <View style={modal.alertBox}>
-            <Text style={modal.alertText}>⚠️ Phòng đang trong quá trình bảo trì</Text>
+            <Text style={modal.alertText}>{t('staffDash.maintenanceNote')}</Text>
           </View>
         )}
         <TouchableOpacity style={modal.closeBtn} onPress={onClose}>
-          <Text style={modal.closeText}>Đóng</Text>
+          <Text style={modal.closeText}>{t('common.close')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -163,6 +166,7 @@ const modal = StyleSheet.create({
 });
 
 export default function StaffDashboardScreen() {
+  const { t } = useLanguage();
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [expandedBuildings, setExpandedBuildings] = useState({ b1: true, b2: true });
 
@@ -188,23 +192,26 @@ export default function StaffDashboardScreen() {
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={styles.header}>
           <View style={styles.headerRow}>
             <View>
-              <Text style={styles.greeting}>Xin chào 👋</Text>
+              <Text style={styles.greeting}>{t('staffDash.greeting')}</Text>
               <Text style={styles.name}>Trần Thị Thu</Text>
               <View style={styles.roleBadge}>
-                <Text style={styles.roleText}>💼 Nhân viên quản lý</Text>
+                <Text style={styles.roleText}>{t('staffDash.roleBadge')}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.notifBtn}>
-              <Text style={{ fontSize: 24 }}>🔔</Text>
-              <View style={styles.notifDot} />
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <LanguageSwitcher />
+              <TouchableOpacity style={styles.notifBtn}>
+                <Text style={{ fontSize: 24 }}>🔔</Text>
+                <View style={styles.notifDot} />
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
         {/* Urgent alert banner */}
         {totalUrgent > 0 && (
           <View style={styles.urgentBanner}>
-            <Text style={styles.urgentBannerText}>🚨 {totalUrgent} phòng cần xử lý KHẨN CẤP</Text>
+            <Text style={styles.urgentBannerText}>{t('staffDash.urgentBanner', { n: totalUrgent })}</Text>
           </View>
         )}
 
@@ -212,19 +219,19 @@ export default function StaffDashboardScreen() {
         <View style={styles.summaryRow}>
           <View style={styles.sumCard}>
             <Text style={styles.sumValue}>{assignedBuildings.length}</Text>
-            <Text style={styles.sumLabel}>Nhà quản lý</Text>
+            <Text style={styles.sumLabel}>{t('staffDash.myBuildings')}</Text>
           </View>
           <View style={[styles.sumCard, { borderColor: '#2ecc7144' }]}>
             <Text style={[styles.sumValue, { color: '#2ecc71' }]}>{totalOccupied}</Text>
-            <Text style={styles.sumLabel}>Đang thuê</Text>
+            <Text style={styles.sumLabel}>{t('staffDash.occupied')}</Text>
           </View>
           <View style={[styles.sumCard, { borderColor: '#f1c40f44' }]}>
             <Text style={[styles.sumValue, { color: '#f1c40f' }]}>{totalIssues}</Text>
-            <Text style={styles.sumLabel}>Bảo trì</Text>
+            <Text style={styles.sumLabel}>{t('staffDash.maintenance')}</Text>
           </View>
           <View style={[styles.sumCard, { borderColor: '#e9456044' }]}>
             <Text style={[styles.sumValue, { color: '#e94560' }]}>{totalUrgent}</Text>
-            <Text style={styles.sumLabel}>Khẩn cấp</Text>
+            <Text style={styles.sumLabel}>{t('staffDash.urgent')}</Text>
           </View>
         </View>
 
@@ -233,10 +240,10 @@ export default function StaffDashboardScreen() {
           {Object.entries(STATUS).map(([key, s]) => (
             <View key={key} style={styles.legendItem}>
               <Text style={[styles.legendDot, { color: s.color }]}>{s.icon}</Text>
-              <Text style={styles.legendLabel}>{s.label}</Text>
+              <Text style={styles.legendLabel}>{t(s.tKey)}</Text>
             </View>
           ))}
-          <Text style={styles.legendHint}>Nhấn vào phòng để xem chi tiết</Text>
+          <Text style={styles.legendHint}>{t('staffDash.tapHint')}</Text>
         </View>
 
         {/* Buildings */}
@@ -264,31 +271,31 @@ export default function StaffDashboardScreen() {
               <View style={styles.buildingStats}>
                 <View style={styles.statPill}>
                   <Text style={styles.statPillValue}>{counts.total}</Text>
-                  <Text style={styles.statPillLabel}>Phòng</Text>
+                  <Text style={styles.statPillLabel}>{t('staffDash.rooms')}</Text>
                 </View>
                 <View style={[styles.statPill, { borderColor: '#2ecc7144' }]}>
                   <Text style={[styles.statPillValue, { color: '#2ecc71' }]}>{counts.occupied}</Text>
-                  <Text style={styles.statPillLabel}>Thuê</Text>
+                  <Text style={styles.statPillLabel}>{t('staffDash.rented')}</Text>
                 </View>
                 <View style={[styles.statPill, { borderColor: '#8892b044' }]}>
                   <Text style={[styles.statPillValue, { color: '#8892b0' }]}>{counts.empty}</Text>
-                  <Text style={styles.statPillLabel}>Trống</Text>
+                  <Text style={styles.statPillLabel}>{t('staffDash.vacant')}</Text>
                 </View>
                 {counts.maintenance > 0 && (
                   <View style={[styles.statPill, { borderColor: '#f1c40f44' }]}>
                     <Text style={[styles.statPillValue, { color: '#f1c40f' }]}>{counts.maintenance}</Text>
-                    <Text style={styles.statPillLabel}>Bảo trì</Text>
+                    <Text style={styles.statPillLabel}>{t('staffDash.maintenance')}</Text>
                   </View>
                 )}
                 {counts.urgent > 0 && (
                   <View style={[styles.statPill, { borderColor: '#e9456044', backgroundColor: 'rgba(233,69,96,0.08)' }]}>
                     <Text style={[styles.statPillValue, { color: '#e94560' }]}>{counts.urgent}</Text>
-                    <Text style={styles.statPillLabel}>Khẩn cấp</Text>
+                    <Text style={styles.statPillLabel}>{t('staffDash.urgent')}</Text>
                   </View>
                 )}
                 <View style={styles.occupancyWrap}>
                   <Text style={styles.occupancyPct}>{occupancyPct}%</Text>
-                  <Text style={styles.occupancyLabel}>lấp đầy</Text>
+                  <Text style={styles.occupancyLabel}>{t('staffDash.occupancy')}</Text>
                 </View>
               </View>
 
@@ -301,7 +308,7 @@ export default function StaffDashboardScreen() {
                   {building.floors.map(floor => (
                     <View key={floor.floor} style={styles.floorRow}>
                       <View style={styles.floorLabelWrap}>
-                        <Text style={styles.floorLabel}>Tầng</Text>
+                        <Text style={styles.floorLabel}>{t('staffDash.floor')}</Text>
                         <Text style={styles.floorNumber}>{floor.floor}</Text>
                       </View>
                       <View style={styles.roomsGrid}>
@@ -334,6 +341,7 @@ const styles = StyleSheet.create({
   name: { color: '#fff', fontSize: 22, fontWeight: '800', marginBottom: 6 },
   roleBadge: { backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
   roleText: { color: '#4facfe', fontSize: 12, fontWeight: '700' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notifBtn: { padding: 8, position: 'relative' },
   notifDot: { position: 'absolute', top: 8, right: 8, width: 10, height: 10, borderRadius: 5, backgroundColor: '#e94560', borderWidth: 2, borderColor: '#1a1a2e' },
 

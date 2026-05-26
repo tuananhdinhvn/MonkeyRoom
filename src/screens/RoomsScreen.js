@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useBuildings } from '../context/BuildingsContext';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { supabase } from '../lib/supabase';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, StatusBar, Modal, Animated, Linking, Alert, Image,
@@ -20,13 +23,13 @@ const STATUS_KEYS = ['occupied', 'empty', 'maintenance', 'urgent'];
 
 // ─── Helpers ──────────────────────────────────────────────
 const STATUS = {
-  occupied:    { label: 'Đang thuê', color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.35)',  icon: '✅' },
-  empty:       { label: 'Trống',     color: '#8892b0', bg: 'rgba(136,146,176,0.1)',  border: 'rgba(136,146,176,0.25)', icon: '🔓' },
-  maintenance: { label: 'Sự cố',     color: '#f1c40f', bg: 'rgba(241,196,15,0.12)',  border: 'rgba(241,196,15,0.35)',  icon: '🔧' },
-  urgent:      { label: 'Sự cố',     color: '#f1c40f', bg: 'rgba(241,196,15,0.12)',  border: 'rgba(241,196,15,0.35)',  icon: '🚨' },
+  occupied:    { tKey: 'status.occupied',    color: '#2ecc71', bg: 'rgba(46,204,113,0.12)',  border: 'rgba(46,204,113,0.35)',  icon: '✅' },
+  empty:       { tKey: 'status.vacant',      color: '#8892b0', bg: 'rgba(136,146,176,0.1)',  border: 'rgba(136,146,176,0.25)', icon: '🔓' },
+  maintenance: { tKey: 'status.issue',       color: '#f1c40f', bg: 'rgba(241,196,15,0.12)',  border: 'rgba(241,196,15,0.35)',  icon: '🔧' },
+  urgent:      { tKey: 'status.issue',       color: '#f1c40f', bg: 'rgba(241,196,15,0.12)',  border: 'rgba(241,196,15,0.35)',  icon: '🚨' },
 };
-const FILTERS    = ['Tất cả', 'Đang thuê', 'Trống', 'Sự cố'];
-const FILTER_MAP = { 'Đang thuê': 'occupied', 'Trống': 'empty' };
+const FILTERS    = ['all', 'occupied', 'empty', 'incident'];
+const FILTER_MAP = { occupied: 'occupied', empty: 'empty' };
 
 function countRooms(building) {
   const all = building.floors.flatMap(f => f.rooms);
@@ -52,12 +55,13 @@ function daysFromDate(ddmmyyyy) {
 
 // ─── Image Picker Section ─────────────────────────────────
 function ImagePickerSection({ images, onChange, coverIndex, onCoverChange, label = 'Hình ảnh' }) {
+  const { t } = useLanguage();
   const MAX = 5;
 
   const pickFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh trong Cài đặt.');
+      Alert.alert(t('common.permTitle'), t('common.permLibrary'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -77,7 +81,7 @@ function ImagePickerSection({ images, onChange, coverIndex, onCoverChange, label
   const pickFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập máy ảnh trong Cài đặt.');
+      Alert.alert(t('common.permTitle'), t('common.permCamera'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -152,6 +156,7 @@ function ImagePickerSection({ images, onChange, coverIndex, onCoverChange, label
 
 // ─── Building Form Modal ───────────────────────────────────
 function BuildingFormModal({ visible, initial, existingCodes, onSave, onClose }) {
+  const { t } = useLanguage();
   const [name,    setName]    = useState('');
   const [code,    setCode]    = useState('');
   const [address, setAddress] = useState('');
@@ -183,13 +188,13 @@ function BuildingFormModal({ visible, initial, existingCodes, onSave, onClose })
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }} keyboardShouldPersistTaps="handled">
           <View style={fm.sheet}>
             <View style={fm.handle} />
-            <Text style={fm.title}>{initial ? 'Cập nhật tòa nhà' : 'Thêm tòa nhà mới'}</Text>
+            <Text style={fm.title}>{initial ? t('rooms.editBuilding') : t('rooms.addBuilding')}</Text>
 
-            <Text style={fm.label}>Tên tòa nhà *</Text>
+            <Text style={fm.label}>{t('rooms.bldgName')}</Text>
             <TextInput style={fm.input} value={name} onChangeText={setName}
               placeholder="VD: Nhà D - Ocean View" placeholderTextColor="#8892b0" />
 
-            <Text style={fm.label}>Mã tòa nhà *</Text>
+            <Text style={fm.label}>{t('rooms.bldgCode')}</Text>
             <View>
               <TextInput
                 style={[fm.input, fm.codeInput,
@@ -203,21 +208,21 @@ function BuildingFormModal({ visible, initial, existingCodes, onSave, onClose })
                 autoCapitalize="characters"
               />
               {codeVal.length > 0 && codeVal.length < 3 && (
-                <Text style={fm.codeHint}>Cần đúng 3 ký tự ({3 - codeVal.length} ký tự còn lại)</Text>
+                <Text style={fm.codeHint}>{t('rooms.codeNeedChars').replace('{n}', 3 - codeVal.length)}</Text>
               )}
               {codeVal.length === 3 && codeTaken && (
-                <Text style={fm.codeError}>⚠️ Mã "{codeVal}" đã tồn tại — vui lòng chọn mã khác</Text>
+                <Text style={fm.codeError}>{t('rooms.codeTaken').replace('{code}', codeVal)}</Text>
               )}
               {codeVal.length === 3 && !codeTaken && (
-                <Text style={fm.codeOk}>✓ Mã hợp lệ</Text>
+                <Text style={fm.codeOk}>{t('rooms.codeValid')}</Text>
               )}
             </View>
 
-            <Text style={fm.label}>Địa chỉ *</Text>
+            <Text style={fm.label}>{t('rooms.bldgAddress')}</Text>
             <TextInput style={fm.input} value={address} onChangeText={setAddress}
               placeholder="VD: 10 Lý Tự Trọng, Q.1" placeholderTextColor="#8892b0" />
 
-            <Text style={fm.label}>Nhân viên quản lý *</Text>
+            <Text style={fm.label}>{t('rooms.bldgStaff')}</Text>
             <View style={fm.pickerCol}>
               {STAFF_LIST.map(sv => (
                 <TouchableOpacity
@@ -236,18 +241,18 @@ function BuildingFormModal({ visible, initial, existingCodes, onSave, onClose })
             <ImagePickerSection
               images={images} onChange={setImages}
               coverIndex={coverIndex} onCoverChange={setCoverIndex}
-              label="Hình ảnh tòa nhà"
+              label={t('rooms.bldgImages')}
             />
 
             <View style={fm.btnRow}>
               <TouchableOpacity style={fm.cancelBtn} onPress={onClose}>
-                <Text style={fm.cancelText}>Hủy</Text>
+                <Text style={fm.cancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[fm.saveBtn, !canSave && fm.saveBtnDim]}
                 onPress={() => { if (canSave) onSave({ name: name.trim(), code: codeVal, address: address.trim(), staff, images, coverIndex }); }}
               >
-                <Text style={fm.saveText}>Lưu</Text>
+                <Text style={fm.saveText}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -261,6 +266,7 @@ function BuildingFormModal({ visible, initial, existingCodes, onSave, onClose })
 const FLOOR_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
 
 function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
+  const { t } = useLanguage();
   const [roomId,       setRoomId]       = useState('');
   const [floor,        setFloor]        = useState(1);
   const [floorOpen,    setFloorOpen]    = useState(false);
@@ -297,10 +303,10 @@ function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }} keyboardShouldPersistTaps="handled">
           <View style={fm.sheet}>
             <View style={fm.handle} />
-            <Text style={fm.title}>{isEdit ? 'Cập nhật phòng' : 'Thêm phòng mới'}</Text>
+            <Text style={fm.title}>{isEdit ? t('rooms.editRoom') : t('rooms.addRoom')}</Text>
 
             {!isEdit && <>
-              <Text style={fm.label}>Mã phòng * <Text style={{ color: '#8892b0', textTransform: 'none', fontSize: 10 }}>(đúng 3 chữ số)</Text></Text>
+              <Text style={fm.label}>{t('rooms.roomCodeLabel')} <Text style={{ color: '#8892b0', textTransform: 'none', fontSize: 10 }}>{t('rooms.roomCodeDigits')}</Text></Text>
               <View>
                 <TextInput
                   style={[fm.input, fm.codeInput,
@@ -314,20 +320,20 @@ function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
                   maxLength={3}
                 />
                 {roomIdVal.length > 0 && roomIdVal.length < 3 && (
-                  <Text style={fm.codeHint}>Cần đúng 3 chữ số ({3 - roomIdVal.length} số còn lại)</Text>
+                  <Text style={fm.codeHint}>{t('rooms.codeNeedDigits').replace('{n}', 3 - roomIdVal.length)}</Text>
                 )}
                 {roomIdVal.length === 3 && (
-                  <Text style={fm.codeOk}>✓ Mã hợp lệ</Text>
+                  <Text style={fm.codeOk}>{t('rooms.codeValid')}</Text>
                 )}
               </View>
 
-              <Text style={fm.label}>Tầng *</Text>
+              <Text style={fm.label}>{t('rooms.floorRequired')}</Text>
               <TouchableOpacity
                 style={[fm.input, fm.dropdownTrigger]}
                 onPress={() => setFloorOpen(o => !o)}
                 activeOpacity={0.7}
               >
-                <Text style={fm.dropdownValue}>Tầng {floor}</Text>
+                <Text style={fm.dropdownValue}>{t('rooms.floor')} {floor}</Text>
                 <Text style={fm.dropdownArrow}>{floorOpen ? '▲' : '▼'}</Text>
               </TouchableOpacity>
               {floorOpen && (
@@ -339,7 +345,7 @@ function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
                       onPress={() => { setFloor(f); setFloorOpen(false); }}
                     >
                       <Text style={[fm.dropdownItemText, floor === f && fm.dropdownItemTextActive]}>
-                        Tầng {f}
+                        {t('rooms.floor')} {f}
                       </Text>
                       {floor === f && <Text style={{ color: '#4facfe' }}>✓</Text>}
                     </TouchableOpacity>
@@ -348,25 +354,25 @@ function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
               )}
             </>}
 
-            <Text style={fm.label}>Loại phòng *</Text>
+            <Text style={fm.label}>{t('rooms.roomTypeLabel')}</Text>
             <View style={fm.pickerRow}>
-              {ROOM_TYPES.map(t => (
-                <TouchableOpacity key={t} style={[fm.pickerOpt, type === t && fm.pickerOptActive]} onPress={() => setType(t)}>
-                  <Text style={[fm.pickerText, type === t && fm.pickerTextActive]}>{t}</Text>
+              {ROOM_TYPES.map(rt => (
+                <TouchableOpacity key={rt} style={[fm.pickerOpt, type === rt && fm.pickerOptActive]} onPress={() => setType(rt)}>
+                  <Text style={[fm.pickerText, type === rt && fm.pickerTextActive]}>{rt}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={fm.label}>Diện tích (m²) *</Text>
+            <Text style={fm.label}>{t('rooms.areaLabel')}</Text>
             <TextInput style={fm.input} value={area} onChangeText={setArea}
               placeholder="VD: 25" placeholderTextColor="#8892b0" keyboardType="decimal-pad" />
 
-            <Text style={fm.label}>Giá thuê (₫/tháng) *</Text>
+            <Text style={fm.label}>{t('rooms.priceLabel')}</Text>
             <TextInput style={fm.input} value={price} onChangeText={setPrice}
               placeholder="VD: 3500000" placeholderTextColor="#8892b0" keyboardType="number-pad" />
 
             {isEdit && <>
-              <Text style={fm.label}>Tình trạng</Text>
+              <Text style={fm.label}>{t('rooms.roomInfo')}</Text>
               <View style={fm.pickerRow}>
                 {STATUS_KEYS.map(k => {
                   const st = STATUS[k];
@@ -377,7 +383,7 @@ function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
                       onPress={() => setStatus(k)}
                     >
                       <Text style={[fm.pickerText, status === k && { color: st.color, fontWeight: '700' }]}>
-                        {st.icon} {st.label}
+                        {st.icon} {t(st.tKey)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -386,19 +392,19 @@ function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
             </>}
             {!isEdit && (
               <View style={fm.newRoomStatus}>
-                <Text style={fm.newRoomStatusText}>🔓 Phòng mới tạo mặc định là phòng trống</Text>
+                <Text style={fm.newRoomStatusText}>{t('rooms.newRoomDefault')}</Text>
               </View>
             )}
 
             <ImagePickerSection
               images={images} onChange={setImages}
               coverIndex={coverIndex} onCoverChange={setCoverIndex}
-              label="Hình ảnh phòng"
+              label={t('rooms.roomImages')}
             />
 
             <View style={fm.btnRow}>
               <TouchableOpacity style={fm.cancelBtn} onPress={onClose}>
-                <Text style={fm.cancelText}>Hủy</Text>
+                <Text style={fm.cancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[fm.saveBtn, !canSave && fm.saveBtnDim]}
@@ -417,7 +423,7 @@ function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
                   });
                 }}
               >
-                <Text style={fm.saveText}>Lưu</Text>
+                <Text style={fm.saveText}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -429,6 +435,7 @@ function RoomFormModal({ visible, isEdit, initial, onSave, onClose }) {
 
 // ─── Broadcast Modal ─────────────────────────────────────
 function BroadcastModal({ visible, recipientCount, onClose, buildingName }) {
+  const { t } = useLanguage();
   const isBuilding = !!buildingName;
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdropOp = useRef(new Animated.Value(0)).current;
@@ -501,8 +508,8 @@ function BroadcastModal({ visible, recipientCount, onClose, buildingName }) {
             <Text style={{ fontSize: 20 }}>{isBuilding ? '🏢' : '📢'}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={bc.headerTitle}>{isBuilding ? `Thông báo · ${buildingName}` : 'Thông báo toàn hệ thống'}</Text>
-            <Text style={bc.headerSub}>Gửi đến {recipientCount} khách hàng{isBuilding ? ' trong tòa nhà' : ''}</Text>
+            <Text style={bc.headerTitle}>{isBuilding ? t('broadcast.titleBuilding', { name: buildingName }) : t('broadcast.titleSystem')}</Text>
+            <Text style={bc.headerSub}>{isBuilding ? t('broadcast.sendToBuilding', { n: recipientCount }) : t('broadcast.sendTo', { n: recipientCount })}</Text>
           </View>
           <TouchableOpacity style={bc.closeBtn} onPress={onClose}>
             <Text style={{ color: '#8892b0', fontSize: 18 }}>✕</Text>
@@ -512,10 +519,10 @@ function BroadcastModal({ visible, recipientCount, onClose, buildingName }) {
         <ScrollView style={bc.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
           {/* Title */}
-          <Text style={bc.label}>Tiêu đề</Text>
+          <Text style={bc.label}>{t('broadcast.titleLabel')}</Text>
           <TextInput
             style={bc.titleInput}
-            placeholder="Nhập tiêu đề thông báo..."
+            placeholder={t('broadcast.titlePh')}
             placeholderTextColor="#8892b0"
             value={title}
             onChangeText={setTitle}
@@ -524,22 +531,22 @@ function BroadcastModal({ visible, recipientCount, onClose, buildingName }) {
 
           {/* Content label + char count */}
           <View style={bc.contentLabelRow}>
-            <Text style={bc.label}>Nội dung thông báo</Text>
-            <Text style={bc.charCount}>{content.length} ký tự</Text>
+            <Text style={bc.label}>{t('broadcast.contentLabel')}</Text>
+            <Text style={bc.charCount}>{t('broadcast.chars', { n: content.length })}</Text>
           </View>
 
           {/* Formatting toolbar */}
           <View style={bc.toolbar}>
-            <FmtBtn label="B"  hint="đậm"     onPress={() => applyFormat('**', '**')} />
-            <FmtBtn label="I"  hint="nghiêng" onPress={() => applyFormat('_', '_')} />
-            <FmtBtn label="U"  hint="gạch chân" onPress={() => applyFormat('__', '__')} />
+            <FmtBtn label="B"  hint={t('broadcast.bold')}      onPress={() => applyFormat('**', '**')} />
+            <FmtBtn label="I"  hint={t('broadcast.italic')}    onPress={() => applyFormat('_', '_')} />
+            <FmtBtn label="U"  hint={t('broadcast.underline')} onPress={() => applyFormat('__', '__')} />
           </View>
 
           {/* Content input */}
           <TextInput
             ref={inputRef}
             style={bc.contentInput}
-            placeholder="Nhập nội dung thông báo..."
+            placeholder={t('broadcast.contentPh')}
             placeholderTextColor="#8892b0"
             value={content}
             onChangeText={setContent}
@@ -550,13 +557,13 @@ function BroadcastModal({ visible, recipientCount, onClose, buildingName }) {
 
           {/* Preview hint */}
           <View style={bc.previewHint}>
-            <Text style={bc.previewHintText}>💡 Hỗ trợ định dạng: **đậm**, _nghiêng_, __gạch chân__, • danh sách</Text>
+            <Text style={bc.previewHintText}>{t('broadcast.fmtHint')}</Text>
           </View>
 
           {/* Send button */}
           {sent ? (
             <View style={bc.sentBanner}>
-              <Text style={bc.sentText}>✅ Đã gửi đến {recipientCount} khách hàng{isBuilding ? ` · ${buildingName}` : ''}!</Text>
+              <Text style={bc.sentText}>{isBuilding ? t('broadcast.sent', { n: recipientCount, name: buildingName }) : t('broadcast.sentSystem', { n: recipientCount })}</Text>
             </View>
           ) : (
             <TouchableOpacity
@@ -564,7 +571,7 @@ function BroadcastModal({ visible, recipientCount, onClose, buildingName }) {
               onPress={handleSend}
               activeOpacity={0.8}
             >
-              <Text style={[bc.sendBtnText, isBuilding && { color: '#fff' }]}>📤  Gửi thông báo</Text>
+              <Text style={[bc.sendBtnText, isBuilding && { color: '#fff' }]}>{t('broadcast.send')}</Text>
             </TouchableOpacity>
           )}
 
@@ -609,9 +616,6 @@ const bc = StyleSheet.create({
 });
 
 // ─── Date Picker Modal ────────────────────────────────────
-const VI_MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-const VI_DAYS   = ['CN','T2','T3','T4','T5','T6','T7'];
-
 function parseDDMMYYYY(str) {
   if (!str) return null;
   const [d, m, y] = str.split('/').map(Number);
@@ -626,6 +630,9 @@ function formatDDMMYYYY(date) {
 }
 
 function DatePickerModal({ visible, value, onSelect, onClose }) {
+  const { t } = useLanguage();
+  const MONTHS = t('date.months');
+  const DAYS   = t('date.days');
   const today   = new Date();
   const initDate = parseDDMMYYYY(value) || new Date(2000, 0, 1);
   const [viewYear,  setViewYear]  = useState(initDate.getFullYear());
@@ -666,14 +673,14 @@ function DatePickerModal({ visible, value, onSelect, onClose }) {
             <View style={dp.nav}>
               <TouchableOpacity style={dp.navBtn} onPress={prevMonth}><Text style={dp.navArrow}>‹</Text></TouchableOpacity>
               <TouchableOpacity style={dp.navCenter} onPress={() => setYearMode(true)}>
-                <Text style={dp.navTitle}>{VI_MONTHS[viewMonth]} {viewYear}</Text>
+                <Text style={dp.navTitle}>{MONTHS[viewMonth]} {viewYear}</Text>
                 <Text style={dp.navHint}>▼</Text>
               </TouchableOpacity>
               <TouchableOpacity style={dp.navBtn} onPress={nextMonth}><Text style={dp.navArrow}>›</Text></TouchableOpacity>
             </View>
           ) : (
             <View style={dp.nav}>
-              <Text style={dp.navTitle}>Chọn năm</Text>
+              <Text style={dp.navTitle}>{t('customers.datePicker')}</Text>
               <TouchableOpacity style={dp.navBtn} onPress={() => setYearMode(false)}><Text style={dp.navArrow}>✕</Text></TouchableOpacity>
             </View>
           )}
@@ -691,7 +698,7 @@ function DatePickerModal({ visible, value, onSelect, onClose }) {
             <>
               {/* Day headers */}
               <View style={dp.weekRow}>
-                {VI_DAYS.map(d => <Text key={d} style={dp.weekDay}>{d}</Text>)}
+                {DAYS.map((d, idx) => <Text key={idx} style={[dp.weekDay, idx === 0 && { color: '#e94560' }]}>{d}</Text>)}
               </View>
               {/* Day grid */}
               <View style={dp.grid}>
@@ -713,12 +720,12 @@ function DatePickerModal({ visible, value, onSelect, onClose }) {
 
           {/* Actions */}
           <View style={dp.actions}>
-            <TouchableOpacity style={dp.cancelBtn} onPress={onClose}><Text style={dp.cancelText}>Hủy</Text></TouchableOpacity>
+            <TouchableOpacity style={dp.cancelBtn} onPress={onClose}><Text style={dp.cancelText}>{t('common.cancel')}</Text></TouchableOpacity>
             <TouchableOpacity
               style={[dp.confirmBtn, !selected && dp.confirmBtnDisabled]}
               onPress={() => { if (selected) { onSelect(formatDDMMYYYY(selected)); onClose(); } }}
             >
-              <Text style={dp.confirmText}>{selected ? `Chọn ${formatDDMMYYYY(selected)}` : 'Chưa chọn ngày'}</Text>
+              <Text style={dp.confirmText}>{selected ? `${t('customers.dateSelected')} ${formatDDMMYYYY(selected)}` : t('customers.noDateSelected')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -762,6 +769,7 @@ const dp = StyleSheet.create({
 
 // ─── Check-In Modal ───────────────────────────────────────
 function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, onCheckIn }) {
+  const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdropOp = useRef(new Animated.Value(0)).current;
 
@@ -868,8 +876,8 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
         <View style={ci.header}>
           <View style={ci.headerIcon}><Text style={{ fontSize: 20 }}>🏠</Text></View>
           <View style={{ flex: 1 }}>
-            <Text style={ci.headerTitle}>Khách nhận phòng</Text>
-            <Text style={ci.headerSub}>Phòng {roomCode}</Text>
+            <Text style={ci.headerTitle}>{t('rooms.checkIn')}</Text>
+            <Text style={ci.headerSub}>{t('rooms.roomSubtitle').replace('{code}', roomCode)}</Text>
           </View>
           <TouchableOpacity style={ci.closeBtn} onPress={onClose}>
             <Text style={{ color: '#8892b0', fontSize: 18 }}>✕</Text>
@@ -888,7 +896,7 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
                 activeOpacity={0.7}
               >
                 <Text style={[ci.toggleText, mode === m && ci.toggleTextActive]}>
-                  {m === 'new' ? '👤 Khách mới' : '🔄 Khách cũ'}
+                  {m === 'new' ? `👤 ${t('rooms.tenantInfo')}` : `🔄 ${t('common.search')}`}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -897,7 +905,7 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
           {/* Returning customer search */}
           {mode === 'returning' && (
             <View style={ci.searchSection}>
-              <Text style={ci.sectionTitle}>Tìm kiếm khách hàng</Text>
+              <Text style={ci.sectionTitle}>{t('rooms.searchCustomer')}</Text>
               <View style={ci.searchBox}>
                 <Text style={{ fontSize: 15, marginRight: 8 }}>🔍</Text>
                 <TextInput
@@ -905,7 +913,7 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
                   value={searchQ}
                   onChangeText={v => { setSearchQ(v); setShowResults(true); }}
                   onFocus={() => setShowResults(true)}
-                  placeholder="Nhập tên hoặc số CCCD..."
+                  placeholder={t('rooms.searchCccdPh')}
                   placeholderTextColor="#8892b0"
                 />
                 {searchQ.length > 0 && (
@@ -916,42 +924,42 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
               </View>
               {showResults && searchResults.length > 0 && (
                 <View style={ci.resultList}>
-                  {searchResults.map(t => (
-                    <TouchableOpacity key={t.id} style={ci.resultItem} onPress={() => fillFromExisting(t)} activeOpacity={0.7}>
-                      <Text style={ci.resultName}>{t.name}</Text>
-                      <Text style={ci.resultMeta}>{t.cccd} · {t.phone}</Text>
+                  {searchResults.map(tr => (
+                    <TouchableOpacity key={tr.id} style={ci.resultItem} onPress={() => fillFromExisting(tr)} activeOpacity={0.7}>
+                      <Text style={ci.resultName}>{tr.name}</Text>
+                      <Text style={ci.resultMeta}>{tr.cccd} · {tr.phone}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
               {showResults && searchQ.length > 1 && searchResults.length === 0 && (
                 <View style={ci.resultEmpty}>
-                  <Text style={ci.resultEmptyText}>Không tìm thấy khách hàng</Text>
+                  <Text style={ci.resultEmptyText}>{t('rooms.noCustomerFound')}</Text>
                 </View>
               )}
             </View>
           )}
 
           {/* Tenant info form */}
-          <Text style={ci.sectionTitle}>Thông tin khách thuê</Text>
-          <CiField label="Họ và tên"              value={name}  onChange={setName}  placeholder="Nguyễn Văn A"     required />
+          <Text style={ci.sectionTitle}>{t('rooms.tenantInfoSection')}</Text>
+          <CiField label={t('customers.fullName')} value={name}  onChange={setName}  placeholder="Nguyễn Văn A"     required />
           <View style={ci.fieldWrap}>
-            <Text style={ci.fieldLabel}>Ngày sinh<Text style={{ color: '#e74c3c' }}> *</Text></Text>
+            <Text style={ci.fieldLabel}>{t('rooms.dob')}<Text style={{ color: '#e74c3c' }}> *</Text></Text>
             <TouchableOpacity style={[ci.fieldInput, ci.dobBtn]} onPress={() => setShowDobPicker(true)} activeOpacity={0.7}>
-              <Text style={dob ? ci.dobValue : ci.dobPlaceholder}>{dob || 'Chọn ngày sinh...'}</Text>
+              <Text style={dob ? ci.dobValue : ci.dobPlaceholder}>{dob || t('rooms.dobPh')}</Text>
               <Text style={ci.dobIcon}>📅</Text>
             </TouchableOpacity>
           </View>
           <DatePickerModal visible={showDobPicker} value={dob} onSelect={setDob} onClose={() => setShowDobPicker(false)} />
-          <CiField label="Số căn cước công dân"    value={cccd}  onChange={setCccd}  placeholder="0xx xxx xxx xxx" keyboardType="numeric" required />
-          <CiField label="Số điện thoại"           value={phone} onChange={setPhone} placeholder="09xx xxx xxx"   keyboardType="phone-pad" required />
-          <CiField label="Email"                   value={email} onChange={setEmail} placeholder="example@email.com" keyboardType="email-address" />
+          <CiField label={t('staff.idLabel').replace(' *', '')}  value={cccd}  onChange={setCccd}  placeholder="0xx xxx xxx xxx" keyboardType="numeric" required />
+          <CiField label={t('rooms.phone')}                      value={phone} onChange={setPhone} placeholder="09xx xxx xxx"   keyboardType="phone-pad" required />
+          <CiField label="Email"                                 value={email} onChange={setEmail} placeholder="example@email.com" keyboardType="email-address" />
 
           {/* CCCD photos */}
-          <Text style={[ci.sectionTitle, { marginTop: 20 }]}>Ảnh căn cước công dân</Text>
+          <Text style={[ci.sectionTitle, { marginTop: 20 }]}>{t('rooms.cccdSection')}</Text>
           <View style={ci.cccdRow}>
-            {[{ key: 'front', label: 'Mặt trước', val: cccdFront, set: setCccdFront },
-              { key: 'back',  label: 'Mặt sau',   val: cccdBack,  set: setCccdBack }].map(side => (
+            {[{ key: 'front', label: t('customers.idFront'), val: cccdFront, set: setCccdFront },
+              { key: 'back',  label: t('customers.idBack'),  val: cccdBack,  set: setCccdBack }].map(side => (
               <TouchableOpacity key={side.key} style={ci.cccdSlot} onPress={() => pickCccdPhoto(side.key)} activeOpacity={0.75}>
                 {side.val
                   ? <Image source={{ uri: side.val }} style={ci.cccdImg} />
@@ -972,20 +980,20 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
 
           {/* Roommates */}
           <View style={ci.roommateHeader}>
-            <Text style={ci.sectionTitle}>Người ở cùng</Text>
+            <Text style={ci.sectionTitle}>{t('rooms.roommatesSection')}</Text>
             <TouchableOpacity style={ci.addRmBtn} onPress={addRoommate} activeOpacity={0.7}>
-              <Text style={ci.addRmText}>＋ Thêm</Text>
+              <Text style={ci.addRmText}>{t('rooms.addRoommate')}</Text>
             </TouchableOpacity>
           </View>
           {roommates.length === 0 && (
-            <Text style={ci.rmEmpty}>Chưa có người ở cùng</Text>
+            <Text style={ci.rmEmpty}>{t('rooms.noRoommates')}</Text>
           )}
           {roommates.map((rm, i) => (
             <View key={rm.id} style={ci.rmCard}>
               <View style={ci.rmCardHeader}>
-                <Text style={ci.rmCardNum}>Người {i + 1}</Text>
+                <Text style={ci.rmCardNum}>{t('rooms.roommateN').replace('{n}', i + 1)}</Text>
                 <TouchableOpacity onPress={() => removeRoommate(rm.id)}>
-                  <Text style={ci.rmRemove}>✕ Xoá</Text>
+                  <Text style={ci.rmRemove}>{t('rooms.removeRoommate')}</Text>
                 </TouchableOpacity>
               </View>
               <TextInput
@@ -1010,8 +1018,8 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
           {!canSubmit && (
             <Text style={ci.required}>
               {!roommatesValid
-                ? '* Vui lòng điền đầy đủ họ tên và CCCD cho tất cả người ở cùng'
-                : '* Họ tên, ngày sinh, CCCD và số điện thoại là bắt buộc'}
+                ? t('rooms.reqRoommates')
+                : t('rooms.reqFields')}
             </Text>
           )}
           <TouchableOpacity
@@ -1019,7 +1027,7 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
             onPress={handleSubmit}
             activeOpacity={0.8}
           >
-            <Text style={ci.submitText}>✅  Xác nhận nhận phòng</Text>
+            <Text style={ci.submitText}>✅  {t('common.confirm')} {t('rooms.checkIn')}</Text>
           </TouchableOpacity>
 
           <View style={{ height: 40 }} />
@@ -1091,6 +1099,7 @@ const ci = StyleSheet.create({
 
 // ─── Room Detail Modal (Admin) ────────────────────────────
 function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose, onEditRoom, onResolveMessage, onSaveCccdImages, onCheckout, onStartCheckIn }) {
+  const { t } = useLanguage();
   const translateY    = useRef(new Animated.Value(SCREEN_H)).current;
   const backdrop      = useRef(new Animated.Value(0)).current;
   const openedRoomId  = useRef(null);
@@ -1130,7 +1139,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
   const pickCccdImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh trong Cài đặt.');
+      Alert.alert(t('staffCust.needPerm'), t('staffCust.permMsg'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -1185,11 +1194,11 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
               <Text style={{ fontSize: 22 }}>{st.icon}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={md.roomTitle}>{buildingCode ? `${buildingCode}-${room.id}` : `Phòng ${room.id}`}</Text>
+              <Text style={md.roomTitle}>{buildingCode ? `${buildingCode}-${room.id}` : t('rooms.roomTitle').replace('{id}', room.id)}</Text>
               <Text style={md.roomSub}>{room.type} · {room.area} · {room.price} ₫/tháng</Text>
             </View>
             <View style={[md.statusBadge, { backgroundColor: st.bg, borderColor: st.border }]}>
-              <Text style={[md.statusBadgeText, { color: st.color }]}>{st.label}</Text>
+              <Text style={[md.statusBadgeText, { color: st.color }]}>{t(st.tKey)}</Text>
             </View>
             <TouchableOpacity style={md.closeBtn} onPress={handleClose}>
               <Text style={md.closeBtnText}>✕</Text>
@@ -1201,43 +1210,43 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
             {/* Building + Staff strip */}
             <View style={md.infoStrip}>
               <View style={md.infoStripItem}>
-                <Text style={md.infoStripLabel}>🏢 Tòa nhà</Text>
+                <Text style={md.infoStripLabel}>{t('rooms.stripBuilding')}</Text>
                 <Text style={md.infoStripValue}>{buildingName}</Text>
                 {buildingCode && <Text style={md.infoStripCode}>#{buildingCode}</Text>}
               </View>
               <View style={md.infoStripDiv} />
               <View style={md.infoStripItem}>
-                <Text style={md.infoStripLabel}>👤 Nhân viên</Text>
+                <Text style={md.infoStripLabel}>{t('rooms.stripStaff')}</Text>
                 <Text style={md.infoStripValue}>{staffName}</Text>
               </View>
             </View>
 
             {/* Edit room button */}
             <TouchableOpacity style={md.editBtn} onPress={() => { onEditRoom(room); handleClose(); }}>
-              <Text style={md.editBtnText}>✏️  Cập nhật thông tin phòng</Text>
+              <Text style={md.editBtnText}>{t('rooms.editRoomBtn')}</Text>
             </TouchableOpacity>
 
             {/* Check-in button — only for empty rooms */}
             {room.status === 'empty' && (
               <TouchableOpacity style={md.checkInBtn} onPress={() => { handleClose(); setTimeout(() => onStartCheckIn(room), 350); }} activeOpacity={0.8}>
-                <Text style={md.checkInBtnText}>🏠  Khách nhận phòng</Text>
+                <Text style={md.checkInBtnText}>{t('rooms.checkInBtn')}</Text>
               </TouchableOpacity>
             )}
 
             {/* Checkout button */}
             {canCheckout && checkoutStep === null && (
               <TouchableOpacity style={md.checkoutBtn} onPress={() => setCheckoutStep('confirm')} activeOpacity={0.8}>
-                <Text style={md.checkoutBtnText}>🚪  Trả phòng</Text>
+                <Text style={md.checkoutBtnText}>{t('rooms.checkoutBtn')}</Text>
               </TouchableOpacity>
             )}
 
             {/* Checkout confirmation panel */}
             {canCheckout && checkoutStep === 'confirm' && (
               <View style={md.checkoutPanel}>
-                <Text style={md.checkoutPanelTitle}>Xác nhận trả phòng</Text>
-                <Text style={md.checkoutPanelSub}>Vui lòng xác nhận tình trạng phòng trước khi hoàn tất:</Text>
+                <Text style={md.checkoutPanelTitle}>{t('rooms.checkoutConfirmTitle')}</Text>
+                <Text style={md.checkoutPanelSub}>{t('rooms.checkoutConfirmSub')}</Text>
                 <View style={md.checkoutChecklist}>
-                  {['Phòng sạch sẽ, không hư hỏng', 'Không mất mát tài sản', 'Thiết bị hoạt động bình thường'].map((item, i) => (
+                  {[t('rooms.checkoutCheck1'), t('rooms.checkoutCheck2'), t('rooms.checkoutCheck3')].map((item, i) => (
                     <View key={i} style={md.checkoutCheckItem}>
                       <Text style={md.checkoutCheckIcon}>✅</Text>
                       <Text style={md.checkoutCheckText}>{item}</Text>
@@ -1246,14 +1255,14 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                 </View>
                 <View style={md.checkoutActions}>
                   <TouchableOpacity style={md.checkoutCancel} onPress={() => setCheckoutStep(null)} activeOpacity={0.7}>
-                    <Text style={md.checkoutCancelText}>Hủy</Text>
+                    <Text style={md.checkoutCancelText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={md.checkoutConfirm}
                     activeOpacity={0.8}
                     onPress={() => { onCheckout(room.id); handleClose(); }}
                   >
-                    <Text style={md.checkoutConfirmText}>Xác nhận trả phòng</Text>
+                    <Text style={md.checkoutConfirmText}>{t('rooms.checkoutConfirmTitle')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1261,7 +1270,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
 
             {/* Unified messages section — shown for all rooms with tenant */}
             {showTenant && (
-              <MdSection title="💬 Tin nhắn từ khách">
+              <MdSection title={t('rooms.msgFromTenant')}>
                 {pendingMsgs.length > 0 ? pendingMsgs.map(msg => (
                   <View key={msg.id}>
                     <View style={md.msgCard}>
@@ -1272,17 +1281,17 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                           style={md.resolveToggle}
                           onPress={() => { setResolvingId(msg.id); setResolveType('self'); setResolveStaff(STAFF_LIST[0]); }}
                         >
-                          <Text style={md.resolveToggleText}>Xác nhận giải quyết ▼</Text>
+                          <Text style={md.resolveToggleText}>{t('rooms.resolveToggle')}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
                     {resolvingId === msg.id && (
                       <View style={md.resolveBox}>
-                        <Text style={md.resolveLabel}>Hình thức xử lý:</Text>
+                        <Text style={md.resolveLabel}>{t('rooms.resolveMethod')}</Text>
                         {[
-                          { key: 'self',       icon: '🔧', label: 'Tự xử lý' },
-                          { key: 'contractor', icon: '👷', label: 'Thợ bên ngoài' },
-                          { key: 'staff',      icon: '👤', label: 'Nhân viên trong hệ thống' },
+                          { key: 'self',       icon: '🔧', label: t('rooms.resolveSelf') },
+                          { key: 'contractor', icon: '👷', label: t('rooms.resolveContractor') },
+                          { key: 'staff',      icon: '👤', label: t('rooms.resolveStaff') },
                         ].map(opt => (
                           <TouchableOpacity
                             key={opt.key}
@@ -1299,7 +1308,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                         ))}
                         {resolveType === 'staff' && (
                           <View style={md.staffPickerWrap}>
-                            <Text style={md.staffPickerLabel}>Chọn nhân viên:</Text>
+                            <Text style={md.staffPickerLabel}>{t('rooms.selectStaff')}</Text>
                             {STAFF_LIST.map(sv => (
                               <TouchableOpacity
                                 key={sv}
@@ -1315,10 +1324,10 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                         )}
                         <View style={md.resolveBtnRow}>
                           <TouchableOpacity style={md.resolveCancelBtn} onPress={() => setResolvingId(null)}>
-                            <Text style={md.resolveCancelText}>Hủy</Text>
+                            <Text style={md.resolveCancelText}>{t('common.cancel')}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity style={md.resolveConfirmBtn} onPress={handleConfirmResolve}>
-                            <Text style={md.resolveConfirmText}>✓  Xác nhận OK</Text>
+                            <Text style={md.resolveConfirmText}>{t('rooms.resolveConfirm')}</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1326,7 +1335,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                   </View>
                 )) : (
                   <View style={md.normalState}>
-                    <Text style={md.normalStateText}>🟢  Phòng hiện tại đang hoạt động bình thường</Text>
+                    <Text style={md.normalStateText}>{t('rooms.normalState')}</Text>
                   </View>
                 )}
               </MdSection>
@@ -1334,12 +1343,12 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
 
             {/* Tenant info */}
             {showTenant && (
-              <MdSection title="👤 Khách đang thuê">
+              <MdSection title={t('rooms.currentTenant')}>
                 <View style={[md.card, isIssueSt && md.cardIssue]}>
-                  <MdRow label="Tên khách"     value={room.tenant} />
+                  <MdRow label={t('rooms.tenantName')}  value={room.tenant} />
                   {room.tenantCccd && <MdRow label="CCCD" value={room.tenantCccd} />}
-                  <MdRow label="Thuê từ ngày"  value={room.sinceDate} accent />
-                  <MdRow label="Số điện thoại" value={room.phone} />
+                  <MdRow label={t('rooms.sinceDate')}   value={room.sinceDate} accent />
+                  <MdRow label={t('rooms.phone')}       value={room.phone} />
                 </View>
                 {room.phone && (
                   <TouchableOpacity
@@ -1347,7 +1356,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                     onPress={() => Linking.openURL(`tel:${room.phone}`)}
                   >
                     <Text style={[md.callBtnText, isIssueSt && { color: '#f1c40f' }]}>
-                      📞  Gọi điện cho {room.tenant}
+                      {t('rooms.callTenant').replace('{name}', room.tenant)}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -1356,7 +1365,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
 
             {/* CCCD images */}
             {showTenant && (
-              <MdSection title="🪪 Căn cước công dân">
+              <MdSection title={t('customers.idCard')}>
                 {cccdImgs.length > 0 ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={{ flexDirection: 'row', gap: 10, paddingBottom: 4 }}>
@@ -1371,7 +1380,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                       {cccdImgs.length < 4 && (
                         <TouchableOpacity style={md.cccdAddBtn} onPress={pickCccdImage}>
                           <Text style={{ fontSize: 20 }}>🪪</Text>
-                          <Text style={md.cccdAddText}>Thêm ảnh</Text>
+                          <Text style={md.cccdAddText}>{t('rooms.cccdAdd')}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -1379,9 +1388,9 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                 ) : (
                   <View style={md.cccdEmpty}>
                     <Text style={{ fontSize: 28 }}>🪪</Text>
-                    <Text style={md.cccdEmptyText}>Chưa có hình ảnh căn cước</Text>
+                    <Text style={md.cccdEmptyText}>{t('rooms.cccdEmpty')}</Text>
                     <TouchableOpacity style={md.cccdPickBtn} onPress={pickCccdImage}>
-                      <Text style={md.cccdPickText}>＋ Thêm ảnh CCCD</Text>
+                      <Text style={md.cccdPickText}>{t('rooms.cccdAddBtn')}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1390,11 +1399,11 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
 
             {/* Roommates — only shown when there are actual roommates */}
             {showTenant && roommates.length > 0 && (
-              <MdSection title={`👥 Người ở cùng  (${roommates.length} người)`}>
+              <MdSection title={t('rooms.roommatesTitle').replace('{n}', roommates.length)}>
                 <View style={md.rmTable}>
                   <View style={md.rmHeader}>
-                    <Text style={[md.rmHeaderCell, { flex: 3 }]}>Họ tên</Text>
-                    <Text style={[md.rmHeaderCell, { flex: 2 }]}>Số CCCD</Text>
+                    <Text style={[md.rmHeaderCell, { flex: 3 }]}>{t('rooms.rmFullName')}</Text>
+                    <Text style={[md.rmHeaderCell, { flex: 2 }]}>{t('rooms.rmCccdNum')}</Text>
                   </View>
                   {roommates.map((rm, i) => (
                     <View key={rm.id || i} style={[md.rmRow, i % 2 !== 0 && md.rmRowAlt]}>
@@ -1408,13 +1417,13 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
 
             {/* Payment history */}
             {(room.paymentHistory || []).length > 0 && (
-              <MdSection title="💰 Lịch sử thanh toán">
+              <MdSection title={t('rooms.payHistory')}>
                 {room.paymentHistory.map((p, i) => (
                   <View key={i} style={[md.payRow, !p.paid && md.payRowUnpaid]}>
-                    <Text style={md.payMonth}>Tháng {p.month}</Text>
+                    <Text style={md.payMonth}>{t('rooms.payMonth').replace('{n}', p.month)}</Text>
                     <View style={[md.payBadge, p.paid ? md.payBadgePaid : md.payBadgeUnpaid]}>
                       <Text style={{ color: p.paid ? '#2ecc71' : '#e94560', fontSize: 11, fontWeight: '700' }}>
-                        {p.paid ? '✅ Đã đóng' : '❌ Chưa đóng'}
+                        {p.paid ? t('status.paid') : t('status.unpaid')}
                       </Text>
                     </View>
                   </View>
@@ -1424,10 +1433,10 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
 
             {/* Issue history */}
             {room.currentIssue && (
-              <MdSection title="🔧 Lịch sử giải quyết sự cố">
+              <MdSection title={t('rooms.issueHistory')}>
                 <View style={md.issueCard}>
                   <Text style={md.issueTitle}>{room.currentIssue.title}</Text>
-                  <Text style={md.issueMeta}>📅 Ghi nhận: {room.currentIssue.reportedAt}</Text>
+                  <Text style={md.issueMeta}>{t('rooms.issueRecorded').replace('{date}', room.currentIssue.reportedAt)}</Text>
                 </View>
               </MdSection>
             )}
@@ -1514,7 +1523,8 @@ function Pill({ val, lbl, color, active, onPress }) {
 }
 
 // ─── Building Card ────────────────────────────────────────
-function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, onAddRoom, onBroadcast }) {
+function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, onAddRoom, onBroadcast, onDeleteBuilding, setBuildings, reload }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(true);
   const [pillFilter, setPillFilter] = useState(null);
   const cnt = countRooms(building);
@@ -1531,17 +1541,18 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
       || (building.code && building.code.toLowerCase().includes(q))
       || (room.tenant && room.tenant.toLowerCase().includes(q))
       || (room.phone  && room.phone.includes(q));
-    const matchFlt = filter === 'Tất cả'
-      || (filter === 'Sự cố' && (room.status === 'maintenance' || room.status === 'urgent'))
+    const matchFlt = filter === 'all'
+      || (filter === 'incident' && (room.status === 'maintenance' || room.status === 'urgent'))
       || (FILTER_MAP[filter] && room.status === FILTER_MAP[filter]);
-    const matchPill = !pillFilter || pillFilter === 'Tổng'
-      || (pillFilter === 'Thuê'  && room.status === 'occupied' && !hasPending(room))
-      || (pillFilter === 'Trống' && room.status === 'empty')
-      || (pillFilter === 'Sự cố' && (room.status === 'maintenance' || room.status === 'urgent' || (room.status === 'occupied' && hasPending(room))));
+    const matchPill = !pillFilter || pillFilter === 'total'
+      || (pillFilter === 'occupied' && room.status === 'occupied' && !hasPending(room))
+      || (pillFilter === 'empty'    && room.status === 'empty')
+      || (pillFilter === 'incident' && (room.status === 'maintenance' || room.status === 'urgent' || (room.status === 'occupied' && hasPending(room))));
     return matchSrc && matchFlt && matchPill;
   };
 
   const togglePill = key => setPillFilter(p => p === key ? null : key);
+
 
   if (building.floors.length > 0 && !building.floors.some(fl => fl.rooms.some(matchRoom))) return null;
 
@@ -1587,10 +1598,10 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
       {/* Status pills */}
       {cnt.total > 0 && (
         <View style={s.pillRow}>
-          <Pill val={cnt.total}         lbl="Tổng"   active={pillFilter === 'Tổng'}   onPress={() => togglePill('Tổng')} />
-          <Pill val={cnt.occupiedClean} lbl="Thuê"   color="#2ecc71" active={pillFilter === 'Thuê'}   onPress={() => togglePill('Thuê')} />
-          <Pill val={cnt.empty}         lbl="Trống"  color="#8892b0" active={pillFilter === 'Trống'}  onPress={() => togglePill('Trống')} />
-          <Pill val={cnt.issues}        lbl="Sự cố"  color="#f1c40f" active={pillFilter === 'Sự cố'}  onPress={() => togglePill('Sự cố')} />
+          <Pill val={cnt.total}         lbl={t('rooms.pillTotal')}    active={pillFilter === 'total'}    onPress={() => togglePill('total')} />
+          <Pill val={cnt.occupiedClean} lbl={t('rooms.pillOccupied')} color="#2ecc71" active={pillFilter === 'occupied'} onPress={() => togglePill('occupied')} />
+          <Pill val={cnt.empty}         lbl={t('rooms.pillEmpty')}    color="#8892b0" active={pillFilter === 'empty'}    onPress={() => togglePill('empty')} />
+          <Pill val={cnt.issues}        lbl={t('rooms.pillIncident')} color="#f1c40f" active={pillFilter === 'incident'} onPress={() => togglePill('incident')} />
         </View>
       )}
 
@@ -1601,11 +1612,11 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
             <Text style={s.bldBroadcastIcon}>🏢</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.bldBroadcastLabel}>THÔNG BÁO TRONG TÒA NHÀ</Text>
-            <Text style={s.bldBroadcastTitle}>Gửi đến {building.floors.flatMap(f => f.rooms).filter(r => r.tenant).length} khách hàng</Text>
+            <Text style={s.bldBroadcastLabel}>{t('rooms.bldBcastLabel')}</Text>
+            <Text style={s.bldBroadcastTitle}>{t('rooms.bldBcastTitle', { n: building.floors.flatMap(f => f.rooms).filter(r => r.tenant).length })}</Text>
           </View>
           <View style={s.bldBroadcastTag}>
-            <Text style={s.bldBroadcastTagText}>Gửi ›</Text>
+            <Text style={s.bldBroadcastTagText}>{t('rooms.bldBcastSend')}</Text>
           </View>
         </TouchableOpacity>
       )}
@@ -1613,19 +1624,26 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
       {/* Building action buttons */}
       <View style={s.buildingActionRow}>
         <TouchableOpacity style={s.buildingActionBtn} onPress={() => onEditBuilding(building)}>
-          <Text style={s.buildingActionText}>✏️  Cập nhật nhà</Text>
+          <Text style={s.buildingActionText}>{t('rooms.editBldg')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[s.buildingActionBtn, s.buildingActionAccent]} onPress={() => onAddRoom(building)}>
-          <Text style={[s.buildingActionText, { color: '#2ecc71' }]}>＋ Thêm phòng mới</Text>
+          <Text style={[s.buildingActionText, { color: '#2ecc71' }]}>{t('rooms.addRoomBtn')}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Delete building — only shown when building has no rooms */}
+      {cnt.total === 0 && (
+        <TouchableOpacity style={s.deleteBuildingBtn} onPress={() => onDeleteBuilding(building)} activeOpacity={0.8}>
+          <Text style={s.deleteBuildingText}>🗑 Xoá toà nhà</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Expanded content */}
       {open && <>
         {building.floors.length > 0 && <FloorDiagram floors={building.floors} buildingCode={building.code} onSelectRoom={onSelectRoom} />}
         {cnt.total === 0 && (
           <View style={s.emptyBuilding}>
-            <Text style={s.emptyBuildingText}>Chưa có phòng nào. Nhấn "Thêm phòng mới" để bắt đầu.</Text>
+            <Text style={s.emptyBuildingText}>{t('rooms.emptyBldg')}</Text>
           </View>
         )}
 
@@ -1635,8 +1653,8 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
           return (
             <View key={floor.floor} style={s.floorSection}>
               <View style={s.floorLabel}>
-                <Text style={s.floorText}>Tầng {floor.floor}</Text>
-                <Text style={s.floorCount}>{visible.length} phòng</Text>
+                <Text style={s.floorText}>{t('rooms.floorLabel', { n: floor.floor })}</Text>
+                <Text style={s.floorCount}>{t('rooms.floorRooms', { n: visible.length })}</Text>
               </View>
               {visible.map(room => {
                 const pending  = (room.messages || []).filter(m => !m.resolved).length;
@@ -1644,42 +1662,75 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
                 const baseSt   = STATUS[room.status];
                 const st       = (pending > 0 && room.status === 'occupied') ? STATUS.maintenance : baseSt;
                 return (
-                  <TouchableOpacity
-                    key={room.id}
-                    style={[s.roomRow, { borderLeftColor: st.color }]}
-                    onPress={() => onSelectRoom(room)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={s.roomLeft}>
-                      <Text style={s.roomId}>{building.code ? `${building.code}-${room.id}` : room.id}</Text>
-                      <Text style={s.roomType}>{room.type}</Text>
-                      <Text style={s.roomArea}>{room.area}</Text>
-                    </View>
-                    <View style={s.roomMid}>
-                      {room.tenant
-                        ? <Text style={s.tenantName} numberOfLines={1}>{room.tenant}</Text>
-                        : <Text style={[s.noTenant, (room.status === 'urgent' || room.status === 'maintenance') && { color: '#f1c40f', fontWeight: '700' }]}>
-                            {room.status === 'urgent'       ? '🚨 Cần xử lý khẩn'
-                              : room.status === 'maintenance' ? '🔧 Đang sự cố'
-                              : '🔓 Trống'}
-                          </Text>
-                      }
-                      {room.tenant && (
-                        <View style={s.roomMidRow2}>
-                          <Text style={s.residentCount}>{room.residents ?? 1} 👤</Text>
-                          <View style={[s.msgBadge, pending > 0 && s.msgBadgeActive]}>
-                            <Text style={[s.msgBadgeText, pending > 0 && s.msgBadgeTextActive]}>{pending} 💬</Text>
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                    <View style={s.roomRight}>
-                      <View style={[s.statusPill, { backgroundColor: st.bg, borderColor: st.border }]}>
-                        <Text style={[s.statusText, { color: st.color }]}>{st.icon} {st.label}</Text>
+                  <View key={room.id} style={[s.roomRow, { borderLeftColor: st.color }]}>
+                    <TouchableOpacity style={s.roomMain} onPress={() => onSelectRoom(room)} activeOpacity={0.75}>
+                      <View style={s.roomLeft}>
+                        <Text style={s.roomId}>{building.code ? `${building.code}-${room.id}` : room.id}</Text>
+                        <Text style={s.roomType}>{room.type}</Text>
+                        <Text style={s.roomArea}>{room.area}</Text>
                       </View>
-                      <Text style={s.roomPrice}>{room.price} ₫</Text>
-                    </View>
-                  </TouchableOpacity>
+                      <View style={s.roomMid}>
+                        {room.tenant
+                          ? <Text style={s.tenantName} numberOfLines={1}>{room.tenant}</Text>
+                          : <Text style={[s.noTenant, (room.status === 'urgent' || room.status === 'maintenance') && { color: '#f1c40f', fontWeight: '700' }]}>
+                              {room.status === 'urgent'       ? t('rooms.statusUrgent')
+                                : room.status === 'maintenance' ? t('rooms.statusMaint')
+                                : t('rooms.statusEmptyRoom')}
+                            </Text>
+                        }
+                        {room.tenant && (
+                          <View style={s.roomMidRow2}>
+                            <Text style={s.residentCount}>{room.residents ?? 1} 👤</Text>
+                            <View style={[s.msgBadge, pending > 0 && s.msgBadgeActive]}>
+                              <Text style={[s.msgBadgeText, pending > 0 && s.msgBadgeTextActive]}>{pending} 💬</Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                      <View style={s.roomRight}>
+                        <View style={[s.statusPill, { backgroundColor: st.bg, borderColor: st.border }]}>
+                          <Text style={[s.statusText, { color: st.color }]}>{st.icon} {t(st.tKey)}</Text>
+                        </View>
+                        <Text style={s.roomPrice}>{room.price} ₫</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={s.roomDeleteBtn}
+                      onPress={() => {
+                        const bid = building.id;
+                        const rid = room.id;
+                        const dbRid = room.dbId || null;
+                        Alert.alert(
+                          'Xoá phòng',
+                          `Xác nhận xoá phòng ${building.code}-${room.id}?\n\nHành động này không thể hoàn tác.`,
+                          [
+                            { text: 'Huỷ', style: 'cancel' },
+                            {
+                              text: 'Xoá', style: 'destructive',
+                              onPress: async () => {
+                                setBuildings(prev => prev.map(b =>
+                                  b.id !== bid ? b : {
+                                    ...b,
+                                    floors: b.floors
+                                      .map(f => ({ ...f, rooms: f.rooms.filter(r => r.id !== rid) }))
+                                      .filter(f => f.rooms.length > 0),
+                                  }
+                                ));
+                                if (!dbRid) { await reload(); return; }
+                                await supabase.from('tenant_history').update({ room_id: null }).eq('room_id', dbRid);
+                                const { error } = await supabase.from('rooms').delete().eq('id', dbRid);
+                                if (error) { Alert.alert('Lỗi', 'Không xoá được phòng: ' + error.message); await reload(); }
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                      activeOpacity={0.6}
+                    >
+                      <Text style={s.roomDeleteIcon}>🗑</Text>
+                    </TouchableOpacity>
+                  </View>
                 );
               })}
             </View>
@@ -1690,18 +1741,42 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────
+const parsePrice = str => parseInt((str || '0').replace(/,/g, ''), 10) || 0;
+const parseArea  = str => parseInt(str) || 0;
+
 // ─── Main Screen ──────────────────────────────────────────
 export default function RoomsScreen() {
-  const { buildings, setBuildings } = useBuildings();
+  const { t } = useLanguage();
+  const { buildings, setBuildings, reload, loading } = useBuildings();
   const [search,       setSearch]       = useState('');
-  const [filter,       setFilter]       = useState('Tất cả');
+  const [filter,       setFilter]       = useState('all');
   const [selected,     setSelected]     = useState(null);
   const [selBuilding,  setSelBuilding]  = useState(null);
-  const [buildingForm, setBuildingForm] = useState(null); // null | { mode, building? }
-  const [roomForm,     setRoomForm]     = useState(null); // null | { mode, building, room? }
+  const [buildingForm, setBuildingForm] = useState(null);
+  const [roomForm,     setRoomForm]     = useState(null);
   const [broadcastOpen,     setBroadcastOpen]     = useState(false);
   const [broadcastBuilding, setBroadcastBuilding] = useState(null);
   const [checkInRoom,       setCheckInRoom]       = useState(null);
+  const [staffNameMap,      setStaffNameMap]      = useState({});
+
+  // Lấy staff name→id map một lần để gán staff cho building
+  useEffect(() => {
+    supabase.from('staff').select('id, name').then(({ data }) => {
+      if (data) setStaffNameMap(Object.fromEntries(data.map(s => [s.name, s.id])));
+    });
+  }, []);
+
+  // Tìm DB room id (vd: 'b1-1-101') từ room number trong app (vd: '101')
+  const findDbRoomId = roomId => {
+    for (const b of buildings) {
+      for (const fl of b.floors) {
+        const r = fl.rooms.find(r => r.id === roomId);
+        if (r) return r.dbId ?? null;
+      }
+    }
+    return null;
+  };
 
   const allRooms      = buildings.flatMap(b => b.floors.flatMap(f => f.rooms));
   const totalOcc      = allRooms.filter(r => r.status === 'occupied').length;
@@ -1710,7 +1785,7 @@ export default function RoomsScreen() {
   const recipientCount  = allRooms.filter(r => r.tenant).length;
   const existingTenants = allRooms
     .filter(r => r.tenant)
-    .map(r => ({ id: r.id, name: r.tenant, cccd: r.tenantCccd || '', phone: r.phone || '', dob: '', email: '' }));
+    .map(r => ({ id: r.id, name: r.tenant, cccd: r.tenantCccd || '', phone: r.phone || '', dob: r.tenantDob || '', email: '' }));
 
   const handleSelectRoom = room => {
     const b = buildings.find(b => b.floors.some(fl => fl.rooms.some(r => r.id === room.id)));
@@ -1718,41 +1793,63 @@ export default function RoomsScreen() {
     setSelected(room);
   };
 
-  const handleSaveBuilding = ({ name, code, address, staff, images, coverIndex }) => {
+  // ── Thêm / Sửa tòa nhà ──
+  const handleSaveBuilding = async ({ name, code, address, staff, images, coverIndex }) => {
+    const staffId = staffNameMap[staff] ?? null;
     if (buildingForm.mode === 'add') {
-      setBuildings(prev => [...prev, { id: 'b' + Date.now(), name, code, address, staff, images: images || [], coverIndex: coverIndex ?? 0, floors: [] }]);
+      const newId = `b${Date.now()}`;
+      setBuildings(prev => [...prev, { id: newId, name, code, address, staff, images: images || [], floors: [] }]);
+      setBuildingForm(null);
+      const { error } = await supabase.from('buildings').insert([{
+        id: newId, owner_id: 'owner-001', staff_id: staffId, name, code, address,
+      }]);
+      if (error) { Alert.alert('Lỗi', 'Không lưu được tòa nhà'); await reload(); }
     } else {
-      setBuildings(prev => prev.map(b =>
-        b.id === buildingForm.building.id ? { ...b, name, code, address, staff, images: images || [], coverIndex: coverIndex ?? 0 } : b
-      ));
+      const bId = buildingForm.building.id;
+      setBuildings(prev => prev.map(b => b.id === bId ? { ...b, name, code, address, staff } : b));
+      setBuildingForm(null);
+      const { error } = await supabase.from('buildings').update({ name, code, address, staff_id: staffId }).eq('id', bId);
+      if (error) { Alert.alert('Lỗi', 'Không cập nhật được tòa nhà'); await reload(); }
     }
-    setBuildingForm(null);
   };
 
-  const handleSaveRoom = ({ id, floor, type, area, price, status, images, coverIndex }) => {
+  // ── Thêm / Sửa phòng ──
+  const handleSaveRoom = async ({ id, floor, type, area, price, status, images, coverIndex }) => {
     if (roomForm.mode === 'add') {
+      const bId      = roomForm.building.id;
+      const dbRoomId = `${bId}-${floor}-${id}`;
+      const newRoom  = { id, dbId: dbRoomId, type, area, price, status, images: images || [], tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null };
       setBuildings(prev => prev.map(b => {
-        if (b.id !== roomForm.building.id) return b;
-        const newRoom = { id, type, area, price, status, images: images || [], coverIndex: coverIndex ?? 0, tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null };
+        if (b.id !== bId) return b;
         const existFloor = b.floors.find(f => f.floor === floor);
-        if (existFloor) {
-          return { ...b, floors: b.floors.map(f => f.floor === floor ? { ...f, rooms: [...f.rooms, newRoom] } : f) };
-        }
+        if (existFloor) return { ...b, floors: b.floors.map(f => f.floor === floor ? { ...f, rooms: [...f.rooms, newRoom] } : f) };
         return { ...b, floors: [...b.floors, { floor, rooms: [newRoom] }].sort((a, c) => a.floor - c.floor) };
       }));
+      setRoomForm(null);
+      const { error } = await supabase.from('rooms').insert([{
+        id: dbRoomId, building_id: bId, floor, room_number: id,
+        type, area_m2: parseArea(area), price: parsePrice(price), status,
+      }]);
+      if (error) { Alert.alert('Lỗi', 'Không thêm được phòng'); await reload(); }
     } else {
+      const dbRoomId = roomForm.room.dbId;
       setBuildings(prev => prev.map(b => ({
         ...b,
         floors: b.floors.map(f => ({
           ...f,
-          rooms: f.rooms.map(r => r.id === id ? { ...r, type, area, price, status, images: images || [], coverIndex: coverIndex ?? 0 } : r),
+          rooms: f.rooms.map(r => r.id === id ? { ...r, type, area, price, status } : r),
         })),
       })));
+      setRoomForm(null);
+      const { error } = await supabase.from('rooms').update({
+        type, area_m2: parseArea(area), price: parsePrice(price), status,
+      }).eq('id', dbRoomId);
+      if (error) { Alert.alert('Lỗi', 'Không cập nhật được phòng'); await reload(); }
     }
-    setRoomForm(null);
   };
 
-  const handleSaveCccdImages = (roomId, images) => {
+  // ── Lưu ảnh CCCD ──
+  const handleSaveCccdImages = async (roomId, images) => {
     setBuildings(prev => prev.map(b => ({
       ...b,
       floors: b.floors.map(f => ({
@@ -1760,63 +1857,127 @@ export default function RoomsScreen() {
         rooms: f.rooms.map(r => r.id === roomId ? { ...r, cccdImages: images } : r),
       })),
     })));
+    const dbRoomId = findDbRoomId(roomId);
+    if (dbRoomId) {
+      await supabase.from('tenants').update({ cccd_images: images }).eq('room_id', dbRoomId);
+    }
   };
 
-  const handleCheckIn = (roomId, tenantData) => {
+  // ── Check-in khách mới ──
+  const handleCheckIn = async (roomId, tenantData) => {
+    const dbRoomId = findDbRoomId(roomId);
+    const today    = new Date().toLocaleDateString('vi-VN');
+    const cccdImgs = [tenantData.cccdFront, tenantData.cccdBack].filter(Boolean);
+
+    // Optimistic UI
     setBuildings(prev => prev.map(b => ({
       ...b,
       floors: b.floors.map(f => ({
         ...f,
         rooms: f.rooms.map(r => r.id === roomId ? {
-          ...r,
-          status: 'occupied',
-          tenant: tenantData.name,
-          tenantCccd: tenantData.cccd,
-          phone: tenantData.phone,
-          sinceDate: new Date().toLocaleDateString('vi-VN'),
+          ...r, status: 'occupied',
+          tenant: tenantData.name, tenantCccd: tenantData.cccd,
+          phone: tenantData.phone, sinceDate: today,
           residents: 1 + tenantData.roommates.length,
-          roommates: tenantData.roommates,
-          cccdImages: [tenantData.cccdFront, tenantData.cccdBack].filter(Boolean),
-          emptySince: null,
-          messages: [],
-          paymentHistory: [],
-          currentIssue: null,
+          roommates: tenantData.roommates, cccdImages: cccdImgs,
+          emptySince: null, messages: [], paymentHistory: [], currentIssue: null,
         } : r),
       })),
     })));
     setCheckInRoom(null);
+
+    if (!dbRoomId) return;
+
+    // Cập nhật trạng thái phòng
+    await supabase.from('rooms').update({ status: 'occupied', empty_since: null }).eq('id', dbRoomId);
+
+    // Thêm khách thuê
+    const { data: tData, error: tErr } = await supabase.from('tenants').insert([{
+      room_id: dbRoomId, name: tenantData.name, phone: tenantData.phone,
+      cccd: tenantData.cccd, dob: tenantData.dob, email: tenantData.email,
+      since_date: today, cccd_images: cccdImgs,
+    }]).select('id').single();
+
+    if (tErr || !tData) { await reload(); return; }
+
+    // Thêm người ở cùng
+    if (tenantData.roommates?.length > 0) {
+      await supabase.from('roommates').insert(
+        tenantData.roommates.map(rm => ({ tenant_id: tData.id, name: rm.name, cccd: rm.cccd }))
+      );
+    }
   };
 
-  const handleCheckout = roomId => {
+  // ── Trả phòng ──
+  const handleCheckout = async roomId => {
+    const dbRoomId = findDbRoomId(roomId);
+    const today    = new Date().toLocaleDateString('vi-VN');
+
     setBuildings(prev => prev.map(b => ({
       ...b,
       floors: b.floors.map(f => ({
         ...f,
         rooms: f.rooms.map(r => r.id === roomId
-          ? { ...r, status: 'empty', tenant: null, tenantCccd: null, phone: null, sinceDate: null, residents: null, roommates: [], cccdImages: [], paymentHistory: [], currentIssue: null, emptySince: new Date().toLocaleDateString('vi-VN') }
+          ? { ...r, status: 'empty', tenant: null, tenantCccd: null, phone: null, sinceDate: null, residents: null, roommates: [], cccdImages: [], paymentHistory: [], currentIssue: null, emptySince: today }
           : r),
       })),
     })));
+
+    if (!dbRoomId) return;
+    await supabase.from('rooms').update({ status: 'empty', empty_since: today }).eq('id', dbRoomId);
+    await supabase.from('tenants').update({ room_id: null }).eq('room_id', dbRoomId);
   };
 
-  const handleResolveMessage = (roomId, msgId, resolveData) => {
+  // ── Xử lý sự cố ──
+  const handleResolveMessage = async (roomId, msgId, resolveData) => {
     const updater = rooms => rooms.map(r => {
       if (r.id !== roomId) return r;
       const updatedMessages = r.messages.map(m =>
         m.id === msgId ? { ...m, resolved: true, resolvedBy: resolveData } : m
       );
       const stillPending = updatedMessages.some(m => !m.resolved);
-      const newStatus = !stillPending && r.tenant &&
-        (r.status === 'maintenance' || r.status === 'urgent')
-          ? 'occupied'
-          : r.status;
+      const newStatus = !stillPending && r.tenant && (r.status === 'maintenance' || r.status === 'urgent') ? 'occupied' : r.status;
       return { ...r, messages: updatedMessages, status: newStatus, currentIssue: stillPending ? r.currentIssue : null };
     });
-    setBuildings(prev => prev.map(b => ({
-      ...b, floors: b.floors.map(f => ({ ...f, rooms: updater(f.rooms) })),
-    })));
+    setBuildings(prev => prev.map(b => ({ ...b, floors: b.floors.map(f => ({ ...f, rooms: updater(f.rooms) })) })));
     setSelected(prev => prev?.id === roomId ? updater([prev])[0] : prev);
+
+    await supabase.from('messages').update({
+      resolved: true,
+      resolved_at: new Date().toLocaleString('vi-VN'),
+      resolve_note: typeof resolveData === 'string' ? resolveData : JSON.stringify(resolveData),
+    }).eq('id', msgId);
   };
+
+  const handleDeleteBuilding = building => {
+    Alert.alert(
+      'Xoá toà nhà',
+      `Bạn có chắc chắn muốn xoá toà nhà "${building.name}"?\n\nHành động này sẽ xoá toàn bộ thông tin toà nhà và không thể hoàn tác.`,
+      [
+        { text: 'Huỷ', style: 'cancel' },
+        {
+          text: 'Xoá toà nhà', style: 'destructive',
+          onPress: async () => {
+            setBuildings(prev => prev.filter(b => b.id !== building.id));
+            await supabase.from('tenant_history').update({ building_id: null }).eq('building_id', building.id);
+            const { error } = await supabase.from('buildings').delete().eq('id', building.id);
+            if (error) { Alert.alert('Lỗi', 'Không xoá được toà nhà: ' + error.message); await reload(); }
+          },
+        },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <LinearGradient colors={['#1a1a2e', '#16213e']} style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+          <Text style={{ fontSize: 32 }}>🏢</Text>
+          <Text style={{ color: '#8892b0', fontSize: 15 }}>Đang tải dữ liệu...</Text>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={s.safe}>
@@ -1879,12 +2040,15 @@ export default function RoomsScreen() {
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={s.header}>
           <View style={s.headerRow}>
             <View>
-              <Text style={s.title}>Quản lý phòng</Text>
-              <Text style={s.subtitle}>23/04/2026 · {buildings.length} tòa nhà · {allRooms.length} phòng</Text>
+              <Text style={s.title}>{t('rooms.title')}</Text>
+              <Text style={s.subtitle}>{t('rooms.headerSub', { n: buildings.length, m: allRooms.length })}</Text>
             </View>
-            <TouchableOpacity style={s.addBuildingBtn} onPress={() => setBuildingForm({ mode: 'add' })}>
-              <Text style={s.addBuildingText}>＋ Thêm nhà</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <LanguageSwitcher />
+              <TouchableOpacity style={s.addBuildingBtn} onPress={() => setBuildingForm({ mode: 'add' })}>
+                <Text style={s.addBuildingText}>{t('rooms.addBuilding')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
@@ -1892,22 +2056,22 @@ export default function RoomsScreen() {
         <View style={s.summaryStrip}>
           <View style={s.sumItem}>
             <Text style={s.sumNum}>{allRooms.length}</Text>
-            <Text style={s.sumLbl}>Tổng phòng</Text>
+            <Text style={s.sumLbl}>{t('rooms.totalRooms')}</Text>
           </View>
           <View style={s.sumDiv} />
-          <TouchableOpacity style={s.sumItem} onPress={() => setFilter('Đang thuê')}>
+          <TouchableOpacity style={s.sumItem} onPress={() => setFilter('occupied')}>
             <Text style={[s.sumNum, { color: '#2ecc71' }]}>{totalOcc}</Text>
-            <Text style={s.sumLbl}>Đang thuê</Text>
+            <Text style={s.sumLbl}>{t('rooms.filterOccupied')}</Text>
           </TouchableOpacity>
           <View style={s.sumDiv} />
-          <TouchableOpacity style={s.sumItem} onPress={() => setFilter('Trống')}>
+          <TouchableOpacity style={s.sumItem} onPress={() => setFilter('empty')}>
             <Text style={[s.sumNum, { color: '#8892b0' }]}>{totalEmp}</Text>
-            <Text style={s.sumLbl}>Trống</Text>
+            <Text style={s.sumLbl}>{t('rooms.filterEmpty')}</Text>
           </TouchableOpacity>
           <View style={s.sumDiv} />
-          <TouchableOpacity style={s.sumItem} onPress={() => setFilter('Sự cố')}>
+          <TouchableOpacity style={s.sumItem} onPress={() => setFilter('incident')}>
             <Text style={[s.sumNum, { color: '#f1c40f' }]}>{totalIss}</Text>
-            <Text style={s.sumLbl}>Sự cố</Text>
+            <Text style={s.sumLbl}>{t('rooms.filterIncident')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -1919,11 +2083,11 @@ export default function RoomsScreen() {
             <View style={s.broadcastDot} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.broadcastLabel}>THÔNG BÁO HỆ THỐNG</Text>
-            <Text style={s.broadcastTitle}>Gửi thông báo đến toàn bộ khách hàng</Text>
+            <Text style={s.broadcastLabel}>{t('rooms.bcastLabel')}</Text>
+            <Text style={s.broadcastTitle}>{t('rooms.bcastTitle')}</Text>
           </View>
           <View style={s.broadcastTag}>
-            <Text style={s.broadcastTagText}>{recipientCount} người</Text>
+            <Text style={s.broadcastTagText}>{t('rooms.bcastCount', { n: recipientCount })}</Text>
           </View>
         </TouchableOpacity>
 
@@ -1932,7 +2096,7 @@ export default function RoomsScreen() {
           <Text style={s.searchIcon}>🔍</Text>
           <TextInput
             style={s.searchInput}
-            placeholder="Tìm mã phòng, tên khách, SĐT..."
+            placeholder={t('rooms.searchPh')}
             placeholderTextColor="#8892b0"
             value={search}
             onChangeText={setSearch}
@@ -1955,6 +2119,9 @@ export default function RoomsScreen() {
             onEditBuilding={building => setBuildingForm({ mode: 'edit', building })}
             onAddRoom={building => setRoomForm({ mode: 'add', building })}
             onBroadcast={building => setBroadcastBuilding(building)}
+            onDeleteBuilding={handleDeleteBuilding}
+            setBuildings={setBuildings}
+            reload={reload}
           />
         ))}
 
@@ -2221,7 +2388,8 @@ const s = StyleSheet.create({
   floorText:    { color: '#4facfe', fontSize: 13, fontWeight: '700' },
   floorCount:   { color: '#8892b0', fontSize: 12 },
 
-  roomRow:    { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, marginBottom: 8, borderLeftWidth: 4 },
+  roomRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, marginBottom: 8, borderLeftWidth: 4, overflow: 'hidden' },
+  roomMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingLeft: 12, paddingRight: 4 },
   roomLeft:   { width: 72 },
   roomId:     { color: '#fff', fontSize: 14, fontWeight: '800' },
   roomType:   { color: '#8892b0', fontSize: 11, marginTop: 1 },
@@ -2239,4 +2407,10 @@ const s = StyleSheet.create({
   statusPill: { flexDirection: 'row', borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '700' },
   roomPrice:  { color: '#4facfe', fontSize: 12, fontWeight: '700' },
+
+  roomDeleteBtn:  { width: 48, paddingVertical: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,118,117,0.1)', borderLeftWidth: 1, borderLeftColor: 'rgba(255,118,117,0.25)' },
+  roomDeleteIcon: { fontSize: 17 },
+
+  deleteBuildingBtn:  { marginTop: 8, borderRadius: 10, paddingVertical: 11, alignItems: 'center', backgroundColor: 'rgba(255,118,117,0.1)', borderWidth: 1, borderColor: 'rgba(255,118,117,0.35)' },
+  deleteBuildingText: { color: '#ff7675', fontSize: 13, fontWeight: '700' },
 });

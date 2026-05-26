@@ -5,10 +5,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNotifications } from '../../context/NotificationsContext';
+import NotificationPanel from '../../components/NotificationPanel';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 
 const STATUS_CFG = {
-  processing: { label: 'Đang xử lý', color: '#fee140', bg: 'rgba(254,225,64,0.15)', border: 'rgba(254,225,64,0.3)' },
-  done:       { label: 'Đã xong',    color: '#43e97b', bg: 'rgba(67,233,123,0.15)',  border: 'rgba(67,233,123,0.3)' },
+  processing: { tKey: 'status.processing', color: '#fee140', bg: 'rgba(254,225,64,0.15)', border: 'rgba(254,225,64,0.3)' },
+  done:       { tKey: 'status.done',       color: '#43e97b', bg: 'rgba(67,233,123,0.15)',  border: 'rgba(67,233,123,0.3)' },
 };
 
 const URGENCY_CFG = {
@@ -44,6 +48,7 @@ const REPORTS = [
 
 // ─── Report Detail Modal ──────────────────────────────────
 function ReportDetailModal({ report, onClose }) {
+  const { t } = useLanguage();
   if (!report) return null;
   const s = STATUS_CFG[report.status];
   return (
@@ -51,30 +56,20 @@ function ReportDetailModal({ report, onClose }) {
       <View style={rd.overlay}>
         <View style={rd.sheet}>
           <View style={rd.handle} />
-          <Text style={rd.title}>Chi tiết sự cố</Text>
+          <Text style={rd.title}>{t('report.detailTitle')}</Text>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Status + urgency badges */}
-            {(() => {
-              const u = URGENCY_CFG[report.urgency];
-              return (
-                <View style={rd.badgeRow}>
-                  <View style={[rd.statusBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
-                    <Text style={[rd.statusText, { color: s.color }]}>{s.label}</Text>
-                  </View>
-                  <View style={[rd.statusBadge, { backgroundColor: u.bg, borderColor: u.border }]}>
-                    <Text style={[rd.statusText, { color: u.color }]}>{u.icon} {u.label}</Text>
-                  </View>
-                </View>
-              );
-            })()}
+            <View style={rd.badgeRow}>
+              <View style={[rd.statusBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
+                <Text style={[rd.statusText, { color: s.color }]}>{t(s.tKey)}</Text>
+              </View>
+            </View>
 
-            {/* Main info */}
             <View style={rd.infoCard}>
               <View style={rd.infoRow}>
                 <Text style={rd.infoIcon}>{report.icon}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={rd.infoLabel}>Tên sự cố</Text>
+                  <Text style={rd.infoLabel}>{t('report.issueName')}</Text>
                   <Text style={rd.infoValue}>{report.title}</Text>
                 </View>
               </View>
@@ -82,7 +77,7 @@ function ReportDetailModal({ report, onClose }) {
               <View style={rd.infoRow}>
                 <Text style={rd.infoIcon}>📅</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={rd.infoLabel}>Thời gian báo cáo</Text>
+                  <Text style={rd.infoLabel}>{t('report.reportedAt')}</Text>
                   <Text style={rd.infoValue}>{report.time} · {report.date}</Text>
                 </View>
               </View>
@@ -90,16 +85,15 @@ function ReportDetailModal({ report, onClose }) {
               <View style={rd.infoRow}>
                 <Text style={rd.infoIcon}>📝</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={rd.infoLabel}>Mô tả</Text>
+                  <Text style={rd.infoLabel}>{t('report.description')}</Text>
                   <Text style={rd.infoValue}>{report.desc}</Text>
                 </View>
               </View>
             </View>
 
-            {/* Resolver info (if done) */}
             {report.status === 'done' && report.resolver && (
               <>
-                <Text style={rd.sectionLabel}>👷 Thông tin người giải quyết</Text>
+                <Text style={rd.sectionLabel}>{t('report.resolverInfo')}</Text>
                 <View style={rd.resolverCard}>
                   <View style={rd.resolverAvatarRow}>
                     <View style={rd.resolverAvatar}>
@@ -110,14 +104,14 @@ function ReportDetailModal({ report, onClose }) {
                       <Text style={rd.resolverRole}>{report.resolver.role}</Text>
                     </View>
                     <View style={rd.doneBadge}>
-                      <Text style={rd.doneBadgeText}>✅ Hoàn thành</Text>
+                      <Text style={rd.doneBadgeText}>{t('report.completed')}</Text>
                     </View>
                   </View>
                   <View style={rd.divider} />
                   <View style={rd.infoRow}>
                     <Text style={rd.infoIcon}>📅</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={rd.infoLabel}>Thời gian hoàn thành</Text>
+                      <Text style={rd.infoLabel}>{t('report.completedAt')}</Text>
                       <Text style={rd.infoValue}>{report.resolvedTime} · {report.resolvedDate}</Text>
                     </View>
                   </View>
@@ -125,7 +119,7 @@ function ReportDetailModal({ report, onClose }) {
                   <View style={rd.infoRow}>
                     <Text style={rd.infoIcon}>🔧</Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={rd.infoLabel}>Ghi chú xử lý</Text>
+                      <Text style={rd.infoLabel}>{t('report.resolveNote')}</Text>
                       <Text style={rd.infoValue}>{report.resolver.note}</Text>
                     </View>
                   </View>
@@ -137,7 +131,7 @@ function ReportDetailModal({ report, onClose }) {
           </ScrollView>
 
           <TouchableOpacity style={rd.closeBtn} onPress={onClose}>
-            <Text style={rd.closeBtnText}>Đóng</Text>
+            <Text style={rd.closeBtnText}>{t('common.close')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -147,87 +141,78 @@ function ReportDetailModal({ report, onClose }) {
 
 // ─── Main Screen ──────────────────────────────────────────
 export default function TenantReportScreen() {
+  const { unreadCount } = useNotifications();
+  const { t } = useLanguage();
+
   const [title,          setTitle]          = useState('');
   const [desc,           setDesc]           = useState('');
-  const [urgency,        setUrgency]        = useState('normal');
   const [selectedReport, setSelectedReport] = useState(null);
+  const [notifVisible,   setNotifVisible]   = useState(false);
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" />
 
       <ReportDetailModal report={selectedReport} onClose={() => setSelectedReport(null)} />
+      <NotificationPanel visible={notifVisible} onClose={() => setNotifVisible(false)} />
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <LinearGradient colors={['#1a1a2e', '#0f3460']} style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.greeting}>Xin chào 👋</Text>
+              <Text style={styles.greeting}>{t('tenant.greeting')}</Text>
               <Text style={styles.tenantName}>Nguyễn Văn An</Text>
             </View>
-            <TouchableOpacity style={styles.notifBtn}>
-              <Text style={styles.notifIcon}>🔔</Text>
-              <View style={styles.notifBadge}><Text style={styles.notifBadgeText}>1</Text></View>
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <LanguageSwitcher />
+              <TouchableOpacity style={styles.notifBtn} onPress={() => setNotifVisible(true)}>
+                <Text style={styles.notifIcon}>🔔</Text>
+                {unreadCount > 0 && (
+                  <View style={styles.notifBadge}><Text style={styles.notifBadgeText}>{unreadCount}</Text></View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.roomInfoCard}>
             <View>
-              <Text style={styles.roomLabel}>Phòng của tôi</Text>
+              <Text style={styles.roomLabel}>{t('tenant.myRoom')}</Text>
               <Text style={styles.roomNumber}>Phòng 101</Text>
               <Text style={styles.roomAddress}>Tòa nhà Green Home, Tầng 1</Text>
             </View>
             <View style={styles.roomInfoRight}>
               <View style={styles.roomStatusBadge}>
-                <Text style={styles.roomStatusText}>✅ Đang thuê</Text>
+                <Text style={styles.roomStatusText}>{t('tenant.renting')}</Text>
               </View>
-              <Text style={styles.roomArea}>📐 20m²</Text>
             </View>
           </View>
         </LinearGradient>
 
         {/* Send message */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Gửi tin nhắn cho quản lý toà nhà</Text>
+          <Text style={styles.sectionTitle}>{t('report.sendTitle')}</Text>
           <View style={styles.formCard}>
-            <Text style={styles.formLabel}>Tiêu đề sự cố</Text>
+            <Text style={styles.formLabel}>{t('report.issueTitle')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="VD: Điều hòa bị hỏng..."
+              placeholder={t('report.issueTitlePh')}
               placeholderTextColor="#8892b0"
               value={title}
               onChangeText={setTitle}
             />
-            <Text style={styles.formLabel}>Mô tả chi tiết</Text>
+            <Text style={styles.formLabel}>{t('report.desc')}</Text>
             <TextInput
               style={[styles.input, styles.inputMulti]}
-              placeholder="Mô tả vấn đề bạn gặp phải..."
+              placeholder={t('report.descPh')}
               placeholderTextColor="#8892b0"
               value={desc}
               onChangeText={setDesc}
               multiline
               numberOfLines={4}
             />
-            <Text style={styles.formLabel}>Phân loại sự cố</Text>
-            <View style={styles.urgencyRow}>
-              {Object.entries(URGENCY_CFG).map(([key, u]) => {
-                const active = urgency === key;
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    style={[styles.urgencyBtn, active && { backgroundColor: u.bg, borderColor: u.color }]}
-                    onPress={() => setUrgency(key)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.urgencyBtnIcon}>{u.icon}</Text>
-                    <Text style={[styles.urgencyBtnText, active && { color: u.color }]}>{u.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
             <TouchableOpacity style={styles.submitBtn}>
               <LinearGradient colors={['#e94560', '#c62a47']} style={styles.submitGradient}>
-                <Text style={styles.submitText}>📤 Gửi tin</Text>
+                <Text style={styles.submitText}>{t('report.sendBtn')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -235,14 +220,13 @@ export default function TenantReportScreen() {
 
         {/* History */}
         <View style={[styles.section, { marginBottom: 32 }]}>
-          <Text style={styles.sectionTitle}>Lịch sử giải quyết sự cố</Text>
+          <Text style={styles.sectionTitle}>{t('report.history')}</Text>
           {REPORTS.map(r => {
             const s = STATUS_CFG[r.status];
-            const u = URGENCY_CFG[r.urgency];
             return (
               <TouchableOpacity
                 key={r.id}
-                style={[styles.reportCard, { borderLeftWidth: 3, borderLeftColor: u.color }]}
+                style={[styles.reportCard, { borderLeftWidth: 3, borderLeftColor: s.color }]}
                 onPress={() => setSelectedReport(r)}
                 activeOpacity={0.75}
               >
@@ -250,12 +234,9 @@ export default function TenantReportScreen() {
                 <View style={styles.reportInfo}>
                   <Text style={styles.reportTitle}>{r.title}</Text>
                   <Text style={styles.reportDate}>📅 {r.time} · {r.date}</Text>
-                  <View style={[styles.urgencyInlineBadge, { backgroundColor: u.bg, borderColor: u.border }]}>
-                    <Text style={[styles.urgencyInlineText, { color: u.color }]}>{u.icon} {u.label}</Text>
-                  </View>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: s.bg }]}>
-                  <Text style={[styles.statusText, { color: s.color }]}>{s.label}</Text>
+                  <Text style={[styles.statusText, { color: s.color }]}>{t(s.tKey)}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -304,6 +285,7 @@ const styles = StyleSheet.create({
   statusBadge:  { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   statusText:   { fontSize: 11, fontWeight: '700' },
 
+  headerRight:        { flexDirection: 'row', alignItems: 'center', gap: 8 },
   urgencyRow:         { flexDirection: 'row', gap: 10, marginBottom: 16 },
   urgencyBtn:         { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   urgencyBtnIcon:     { fontSize: 16 },

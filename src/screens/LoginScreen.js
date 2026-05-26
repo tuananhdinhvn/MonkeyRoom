@@ -6,8 +6,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 export default function LoginScreen({ navigation }) {
+  const { t } = useLanguage();
   const [account,  setAccount]  = useState('');
   const [password, setPassword] = useState('');
   const [bioAvail, setBioAvail] = useState(false);
@@ -20,16 +23,34 @@ export default function LoginScreen({ navigation }) {
     })();
   }, []);
 
+  const ADMIN_CREDENTIALS = {
+    identifiers: ['monkeyroom@gmail.com', '0354990253'],
+    password: 'Monkey2026',
+    route: 'AdminMain',
+  };
+
+  const handleLogin = () => {
+    const id = account.trim().toLowerCase();
+    if (
+      ADMIN_CREDENTIALS.identifiers.some(v => v.toLowerCase() === id) &&
+      password === ADMIN_CREDENTIALS.password
+    ) {
+      navigation.replace('AdminMain');
+    } else {
+      Alert.alert(t('login.loginFailed'), t('login.loginFailedMsg'));
+    }
+  };
+
   const handleBiometric = async () => {
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Đăng nhập MonkeyRoom',
-      cancelLabel: 'Hủy',
+      promptMessage: t('login.biometricPrompt'),
+      cancelLabel: t('login.bioCancelLabel'),
       disableDeviceFallback: false,
     });
     if (result.success) {
       navigation.replace('StaffMain');
     } else if (result.error !== 'user_cancel' && result.error !== 'system_cancel') {
-      Alert.alert('Xác thực thất bại', 'Không nhận diện được vân tay. Vui lòng thử lại hoặc dùng mật khẩu.');
+      Alert.alert(t('login.bioFailed'), t('login.bioFailedMsg'));
     }
   };
 
@@ -38,6 +59,11 @@ export default function LoginScreen({ navigation }) {
       <StatusBar barStyle="light-content" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kav}>
         <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+          {/* Language switcher */}
+          <View style={styles.langRow}>
+            <LanguageSwitcher />
+          </View>
 
           {/* Logo */}
           <View style={styles.logoContainer}>
@@ -49,20 +75,20 @@ export default function LoginScreen({ navigation }) {
               />
             </View>
             <Text style={styles.appName}>MonkeyRoom</Text>
-            <Text style={styles.tagline}>Quản lý phòng cho thuê thông minh</Text>
+            <Text style={styles.tagline}>{t('login.tagline')}</Text>
           </View>
 
           {/* Card */}
           <View style={styles.card}>
-            <Text style={styles.title}>Đăng nhập</Text>
+            <Text style={styles.title}>{t('login.title')}</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email hoặc Số điện thoại</Text>
+              <Text style={styles.label}>{t('login.email')}</Text>
               <View style={styles.inputWrap}>
                 <Text style={styles.inputIcon}>👤</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Email hoặc số điện thoại"
+                  placeholder={t('login.emailPlaceholder')}
                   placeholderTextColor="#aaa"
                   value={account}
                   onChangeText={setAccount}
@@ -73,12 +99,12 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Mật khẩu</Text>
+              <Text style={styles.label}>{t('login.password')}</Text>
               <View style={styles.inputWrap}>
                 <Text style={styles.inputIcon}>🔒</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Nhập mật khẩu"
+                  placeholder={t('login.passwordPh')}
                   placeholderTextColor="#aaa"
                   value={password}
                   onChangeText={setPassword}
@@ -88,54 +114,25 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             <TouchableOpacity style={styles.forgotBtn}>
-              <Text style={styles.forgotText}>Quên mật khẩu?</Text>
+              <Text style={styles.forgotText}>{t('login.forgot')}</Text>
             </TouchableOpacity>
 
-            {/* Login button */}
             <TouchableOpacity
               style={styles.loginBtn}
-              onPress={() => navigation.replace('AdminMain')}
+              onPress={() => handleLogin()}
             >
               <LinearGradient colors={['#e94560', '#c62a47']} style={styles.loginGradient}>
-                <Text style={styles.loginText}>ĐĂNG NHẬP</Text>
+                <Text style={styles.loginText}>{t('login.btn')}</Text>
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Biometric button */}
             {bioAvail && (
               <TouchableOpacity style={styles.bioBtn} onPress={handleBiometric}>
                 <Text style={styles.bioIcon}>👆</Text>
-                <Text style={styles.bioText}>Đăng nhập bằng vân tay</Text>
+                <Text style={styles.bioText}>{t('login.biometric')}</Text>
               </TouchableOpacity>
             )}
 
-            {/* Demo section */}
-            <View style={styles.demoSection}>
-              <Text style={styles.demoTitle}>— Xem demo theo vai trò —</Text>
-              <View style={styles.demoRow}>
-                <TouchableOpacity
-                  style={[styles.demoBtn, { borderColor: '#e94560' }]}
-                  onPress={() => navigation.replace('AdminMain')}
-                >
-                  <Text style={styles.demoBtnIcon}>👑</Text>
-                  <Text style={[styles.demoBtnText, { color: '#e94560' }]}>Admin</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.demoBtn, { borderColor: '#4facfe' }]}
-                  onPress={() => navigation.replace('StaffMain')}
-                >
-                  <Text style={styles.demoBtnIcon}>💼</Text>
-                  <Text style={[styles.demoBtnText, { color: '#4facfe' }]}>Nhân viên</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.demoBtn, { borderColor: '#43e97b' }]}
-                  onPress={() => navigation.replace('TenantMain')}
-                >
-                  <Text style={styles.demoBtnIcon}>🏠</Text>
-                  <Text style={[styles.demoBtnText, { color: '#43e97b' }]}>Khách thuê</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
           </View>
 
           <View style={{ height: 32 }} />
@@ -150,7 +147,8 @@ const styles = StyleSheet.create({
   kav: { flex: 1 },
   inner: { flexGrow: 1, justifyContent: 'center', padding: 24 },
 
-  // Logo
+  langRow: { alignItems: 'flex-end', marginBottom: 8 },
+
   logoContainer: { alignItems: 'center', marginBottom: 28 },
   logoBox: {
     width: 100, height: 100, borderRadius: 28,
@@ -163,7 +161,6 @@ const styles = StyleSheet.create({
   appName: { fontSize: 30, fontWeight: '900', color: '#fff', letterSpacing: 1.5 },
   tagline: { fontSize: 13, color: '#8892b0', marginTop: 5 },
 
-  // Card
   card: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 24, padding: 28,
@@ -171,7 +168,6 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 24 },
 
-  // Inputs
   inputGroup: { marginBottom: 16 },
   label: { color: '#8892b0', fontSize: 13, marginBottom: 8, fontWeight: '600' },
   inputWrap: {
@@ -183,16 +179,13 @@ const styles = StyleSheet.create({
   inputIcon: { fontSize: 16, marginRight: 8 },
   input: { flex: 1, color: '#fff', paddingVertical: 14, fontSize: 15 },
 
-  // Forgot
   forgotBtn: { alignSelf: 'flex-end', marginBottom: 24 },
   forgotText: { color: '#e94560', fontSize: 13 },
 
-  // Login button
   loginBtn: { borderRadius: 12, overflow: 'hidden', marginBottom: 14 },
   loginGradient: { paddingVertical: 16, alignItems: 'center' },
   loginText: { color: '#fff', fontWeight: '800', fontSize: 15, letterSpacing: 1 },
 
-  // Biometric button
   bioBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(79,172,254,0.45)',
@@ -202,7 +195,6 @@ const styles = StyleSheet.create({
   bioIcon: { fontSize: 22 },
   bioText: { color: '#4facfe', fontSize: 14, fontWeight: '700' },
 
-  // Demo
   demoSection: { alignItems: 'center' },
   demoTitle: { color: '#8892b0', fontSize: 12, marginBottom: 12 },
   demoRow: { flexDirection: 'row', gap: 10, width: '100%' },

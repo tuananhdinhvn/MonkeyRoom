@@ -5,10 +5,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNotifications } from '../../context/NotificationsContext';
+import NotificationPanel from '../../components/NotificationPanel';
+import { useLanguage } from '../../context/LanguageContext';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 
-const MONTHS_VI  = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
-                    'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-const DAYS_VI    = ['CN','T2','T3','T4','T5','T6','T7'];
 const MINUTE_OPTS = ['00','15','30','45'];
 
 // ─── History data ──────────────────────────────────────────
@@ -69,24 +70,25 @@ function fmt(n) {
 
 // ─── History Detail Modal ─────────────────────────────────
 function HistoryDetailModal({ item, onClose }) {
+  const { t } = useLanguage();
   if (!item) return null;
   const d     = item.details;
   const total = billTotal(d);
 
   const rows = [
-    { label: 'Tiền phòng', detail: null, amount: d.room.amount },
+    { label: t('payment.roomFee'), detail: null, amount: d.room.amount },
     {
-      label: 'Tiền điện',
-      detail: `Chỉ số ${d.electricity.from} → ${d.electricity.to}  (${d.electricity.usage} số × ${(d.electricity.rate).toLocaleString('vi-VN')} ₫)`,
+      label: t('payment.elec'),
+      detail: `${d.electricity.from} → ${d.electricity.to}  (${d.electricity.usage} × ${(d.electricity.rate).toLocaleString('vi-VN')} ₫)`,
       amount: d.electricity.amount,
     },
     {
-      label: 'Tiền nước',
-      detail: `Chỉ số ${d.water.from} → ${d.water.to}  (${d.water.usage} khối × ${(d.water.rate).toLocaleString('vi-VN')} ₫)`,
+      label: t('payment.water'),
+      detail: `${d.water.from} → ${d.water.to}  (${d.water.usage} × ${(d.water.rate).toLocaleString('vi-VN')} ₫)`,
       amount: d.water.amount,
     },
-    { label: 'Internet', detail: null, amount: d.internet.amount },
-    { label: 'Dịch vụ',  detail: null, amount: d.service.amount  },
+    { label: t('payment.internet'), detail: null, amount: d.internet.amount },
+    { label: t('payment.service'),  detail: null, amount: d.service.amount  },
   ];
 
   return (
@@ -94,10 +96,9 @@ function HistoryDetailModal({ item, onClose }) {
       <View style={hd.overlay}>
         <View style={hd.sheet}>
           <View style={hd.handle} />
-          <Text style={hd.title}>Chi tiết hóa đơn {item.month}</Text>
+          <Text style={hd.title}>{t('payment.detailTitle')} {item.month}</Text>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Bill table */}
             <View style={hd.table}>
               {rows.map((r, i) => (
                 <View key={i} style={[hd.tableRow, i < rows.length - 1 && hd.tableRowBorder]}>
@@ -110,18 +111,16 @@ function HistoryDetailModal({ item, onClose }) {
               ))}
             </View>
 
-            {/* Total */}
             <View style={hd.totalRow}>
-              <Text style={hd.totalLabel}>Tổng cộng</Text>
+              <Text style={hd.totalLabel}>{t('payment.total')}</Text>
               <Text style={hd.totalAmount}>{fmt(total)}</Text>
             </View>
 
-            {/* Payment info */}
             <View style={hd.infoCard}>
               <View style={hd.infoRow}>
                 <Text style={hd.infoIcon}>📅</Text>
                 <View>
-                  <Text style={hd.infoLabel}>Ngày thanh toán</Text>
+                  <Text style={hd.infoLabel}>{t('payment.payDateFull')}</Text>
                   <Text style={hd.infoValue}>{item.date}</Text>
                 </View>
               </View>
@@ -131,10 +130,10 @@ function HistoryDetailModal({ item, onClose }) {
                   {item.method === 'Tiền mặt' ? '💵' : '🏦'}
                 </Text>
                 <View>
-                  <Text style={hd.infoLabel}>Phương thức</Text>
+                  <Text style={hd.infoLabel}>{t('payment.methodLbl')}</Text>
                   <Text style={hd.infoValue}>{item.method}</Text>
                   {item.method === 'Tiền mặt' && item.collector && (
-                    <Text style={hd.infoSub}>👤 Người thu: {item.collector}</Text>
+                    <Text style={hd.infoSub}>{t('payment.collector')} {item.collector}</Text>
                   )}
                 </View>
               </View>
@@ -144,7 +143,7 @@ function HistoryDetailModal({ item, onClose }) {
           </ScrollView>
 
           <TouchableOpacity style={hd.closeBtn} onPress={onClose}>
-            <Text style={hd.closeBtnText}>Đóng</Text>
+            <Text style={hd.closeBtnText}>{t('common.close')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -154,6 +153,9 @@ function HistoryDetailModal({ item, onClose }) {
 
 // ─── Cash Appointment Modal ───────────────────────────────
 function CashModal({ visible, onConfirm, onClose }) {
+  const { t } = useLanguage();
+  const MONTHS = t('date.months');
+  const DAYS   = t('date.days');
   const today   = new Date();
   const [navM,   setNavM]   = useState(today.getMonth());
   const [navY,   setNavY]   = useState(today.getFullYear());
@@ -204,23 +206,23 @@ function CashModal({ visible, onConfirm, onClose }) {
       <View style={cm.overlay}>
         <View style={cm.sheet}>
           <View style={cm.handle} />
-          <Text style={cm.title}>💵 Đặt lịch thu tiền mặt</Text>
+          <Text style={cm.title}>{t('payment.cashModal')}</Text>
 
-          <Text style={cm.label}>Chọn ngày</Text>
+          <Text style={cm.label}>{t('payment.selectDate')}</Text>
           <View style={cm.calCard}>
             <View style={cm.navRow}>
               <TouchableOpacity style={cm.navBtn} onPress={prevMonth}>
                 <Text style={cm.navArrow}>‹</Text>
               </TouchableOpacity>
-              <Text style={cm.navLabel}>{MONTHS_VI[navM]} {navY}</Text>
+              <Text style={cm.navLabel}>{MONTHS[navM]} {navY}</Text>
               <TouchableOpacity style={cm.navBtn} onPress={nextMonth}>
                 <Text style={cm.navArrow}>›</Text>
               </TouchableOpacity>
             </View>
             <View style={cm.dowRow}>
-              {DAYS_VI.map(d => (
-                <View key={d} style={cm.dowCell}>
-                  <Text style={[cm.dowText, d === 'CN' && { color: '#e94560' }]}>{d}</Text>
+              {DAYS.map((d, idx) => (
+                <View key={idx} style={cm.dowCell}>
+                  <Text style={[cm.dowText, idx === 0 && { color: '#e94560' }]}>{d}</Text>
                 </View>
               ))}
             </View>
@@ -251,7 +253,7 @@ function CashModal({ visible, onConfirm, onClose }) {
             </View>
           </View>
 
-          <Text style={cm.label}>Chọn giờ</Text>
+          <Text style={cm.label}>{t('payment.selectTime')}</Text>
           <View style={cm.timeCard}>
             <View style={cm.timePart}>
               <TouchableOpacity style={cm.timeBtn} onPress={() => setHour(h => h < 20 ? h + 1 : h)}>
@@ -259,7 +261,7 @@ function CashModal({ visible, onConfirm, onClose }) {
               </TouchableOpacity>
               <View style={cm.timeDisplay}>
                 <Text style={cm.timeValue}>{String(hour).padStart(2, '0')}</Text>
-                <Text style={cm.timeUnit}>Giờ</Text>
+                <Text style={cm.timeUnit}>{t('payment.hour')}</Text>
               </View>
               <TouchableOpacity style={cm.timeBtn} onPress={() => setHour(h => h > 7 ? h - 1 : h)}>
                 <Text style={cm.timeBtnText}>▼</Text>
@@ -267,7 +269,7 @@ function CashModal({ visible, onConfirm, onClose }) {
             </View>
             <Text style={cm.timeSep}>:</Text>
             <View style={cm.timePart}>
-              <Text style={cm.timeUnit2}>Phút</Text>
+              <Text style={cm.timeUnit2}>{t('payment.minute')}</Text>
               <View style={cm.minuteOpts}>
                 {MINUTE_OPTS.map(m => (
                   <TouchableOpacity
@@ -293,7 +295,7 @@ function CashModal({ visible, onConfirm, onClose }) {
 
           <View style={cm.btnRow}>
             <TouchableOpacity style={cm.cancelBtn} onPress={onClose}>
-              <Text style={cm.cancelText}>Hủy</Text>
+              <Text style={cm.cancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[cm.confirmBtn, selD == null && { opacity: 0.4 }]}
@@ -301,7 +303,7 @@ function CashModal({ visible, onConfirm, onClose }) {
               disabled={selD == null}
             >
               <LinearGradient colors={['#2ecc71', '#27ae60']} style={cm.confirmGrad}>
-                <Text style={cm.confirmText}>Xác nhận</Text>
+                <Text style={cm.confirmText}>{t('common.confirm')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -313,28 +315,32 @@ function CashModal({ visible, onConfirm, onClose }) {
 
 // ─── Main Screen ──────────────────────────────────────────
 export default function TenantPaymentScreen() {
-  const [cashVisible,    setCashVisible]    = useState(false);
-  const [cashAppt,       setCashAppt]       = useState(null); // { date, time }
-  const [selectedHistory, setSelectedHistory] = useState(null);
+  const { unreadCount } = useNotifications();
+  const { t } = useLanguage();
+
+  const [cashVisible,      setCashVisible]      = useState(false);
+  const [cashAppt,         setCashAppt]         = useState(null);
+  const [selectedHistory,  setSelectedHistory]  = useState(null);
+  const [notifVisible,     setNotifVisible]     = useState(false);
 
   const handleCashConfirm = (date, time) => {
     setCashAppt({ date, time });
     setCashVisible(false);
     Alert.alert(
-      'Đã gửi yêu cầu',
-      `Chủ nhà sẽ đến thu tiền vào lúc ${time} ngày ${date}.\nVui lòng chuẩn bị đúng giờ.`,
-      [{ text: 'OK' }]
+      t('payment.alertTitle'),
+      t('payment.alertMsg', { time, date }),
+      [{ text: t('payment.alertOk') }]
     );
   };
 
   const METHODS = [
-    { icon: '🏦', label: 'Chuyển khoản ngân hàng', sub: 'VCB - 1234 5678 9012',   onPress: null,                       active: false },
-    { icon: '📱', label: 'Ví MoMo',                 sub: '0912 345 678',            onPress: null,                       active: false },
+    { icon: '🏦', label: t('payment.bank'), sub: 'VCB - 1234 5678 9012', onPress: null, active: false },
+    { icon: '📱', label: t('payment.momo'), sub: '0912 345 678',          onPress: null, active: false },
     {
-      icon: '💵', label: 'Tiền mặt',
+      icon: '💵', label: t('payment.cash'),
       sub: cashAppt
-        ? `Đã đặt lịch thu tiền lúc ${cashAppt.time} ngày ${cashAppt.date}`
-        : 'Gặp trực tiếp chủ nhà',
+        ? `${t('payment.scheduled')} ${cashAppt.time} · ${cashAppt.date}`
+        : t('payment.meetOwner'),
       onPress: () => setCashVisible(true),
       active: !!cashAppt,
     },
@@ -353,31 +359,36 @@ export default function TenantPaymentScreen() {
         item={selectedHistory}
         onClose={() => setSelectedHistory(null)}
       />
+      <NotificationPanel visible={notifVisible} onClose={() => setNotifVisible(false)} />
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <LinearGradient colors={['#1a1a2e', '#0f3460']} style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.greeting}>Xin chào 👋</Text>
+              <Text style={styles.greeting}>{t('tenant.greeting')}</Text>
               <Text style={styles.tenantName}>Nguyễn Văn An</Text>
             </View>
-            <TouchableOpacity style={styles.notifBtn}>
-              <Text style={styles.notifIcon}>🔔</Text>
-              <View style={styles.notifBadge}><Text style={styles.notifBadgeText}>1</Text></View>
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <LanguageSwitcher />
+              <TouchableOpacity style={styles.notifBtn} onPress={() => setNotifVisible(true)}>
+                <Text style={styles.notifIcon}>🔔</Text>
+                {unreadCount > 0 && (
+                  <View style={styles.notifBadge}><Text style={styles.notifBadgeText}>{unreadCount}</Text></View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={styles.roomInfoCard}>
             <View>
-              <Text style={styles.roomLabel}>Phòng của tôi</Text>
+              <Text style={styles.roomLabel}>{t('tenant.myRoom')}</Text>
               <Text style={styles.roomNumber}>Phòng 101</Text>
               <Text style={styles.roomAddress}>Tòa nhà Green Home, Tầng 1</Text>
             </View>
             <View style={styles.roomInfoRight}>
               <View style={styles.roomStatusBadge}>
-                <Text style={styles.roomStatusText}>✅ Đang thuê</Text>
+                <Text style={styles.roomStatusText}>{t('tenant.renting')}</Text>
               </View>
-              <Text style={styles.roomArea}>📐 20m²</Text>
             </View>
           </View>
         </LinearGradient>
@@ -385,12 +396,12 @@ export default function TenantPaymentScreen() {
         {/* Current Bill */}
         <View style={styles.section}>
           <View style={styles.currentBill}>
-            <Text style={styles.currentBillLabel}>Cần thanh toán tháng 4/2026</Text>
+            <Text style={styles.currentBillLabel}>{t('payment.needPay')} 4/2026</Text>
             <Text style={styles.currentBillAmount}>4,155,000 ₫</Text>
-            <Text style={styles.currentBillDue}>⏳ Hạn: 05/05/2026</Text>
+            <Text style={styles.currentBillDue}>{t('payment.due')} 05/05/2026</Text>
             <TouchableOpacity style={styles.payNowBtn}>
               <LinearGradient colors={['#e94560', '#c62a47']} style={styles.payNowGrad}>
-                <Text style={styles.payNowText}>💳 Thanh toán ngay</Text>
+                <Text style={styles.payNowText}>{t('payment.payNow')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -398,7 +409,7 @@ export default function TenantPaymentScreen() {
 
         {/* Payment Methods */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
+          <Text style={styles.sectionTitle}>{t('payment.methods')}</Text>
           {METHODS.map((m, i) => (
             <TouchableOpacity
               key={i}
@@ -418,7 +429,7 @@ export default function TenantPaymentScreen() {
 
         {/* History */}
         <View style={[styles.section, { marginBottom: 32 }]}>
-          <Text style={styles.sectionTitle}>Lịch sử thanh toán</Text>
+          <Text style={styles.sectionTitle}>{t('payment.history')}</Text>
           {HISTORY.map(h => {
             const total = billTotal(h.details);
             return (
@@ -430,12 +441,12 @@ export default function TenantPaymentScreen() {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.historyMonth}>{h.month}</Text>
-                  <Text style={styles.historyDate}>Ngày TT: {h.date} · {h.method}</Text>
+                  <Text style={styles.historyDate}>{t('payment.payDateLbl')} {h.date} · {h.method}</Text>
                 </View>
                 <View style={styles.historyRight}>
                   <Text style={styles.historyAmount}>{fmt(total)}</Text>
                   <View style={styles.paidBadge}>
-                    <Text style={styles.paidText}>✅ Đã đóng</Text>
+                    <Text style={styles.paidText}>{t('payment.paid')}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -454,6 +465,7 @@ const styles = StyleSheet.create({
   headerTop:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   greeting:        { color: '#8892b0', fontSize: 14 },
   tenantName:      { color: '#fff', fontSize: 22, fontWeight: '800' },
+  headerRight:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
   notifBtn:        { position: 'relative', padding: 8 },
   notifIcon:       { fontSize: 24 },
   notifBadge:      { position: 'absolute', top: 4, right: 4, backgroundColor: '#e94560', borderRadius: 10, width: 18, height: 18, justifyContent: 'center', alignItems: 'center' },

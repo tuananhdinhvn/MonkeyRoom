@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useBuildings } from '../context/BuildingsContext';
+import { supabase } from '../lib/supabase';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   TextInput, Modal, Animated, ScrollView, Alert, Image,
@@ -7,16 +8,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const SCREEN_H = Dimensions.get('window').height;
 
 
-const MONTHS_VI = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
-                   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-const DAYS_VI   = ['CN','T2','T3','T4','T5','T6','T7'];
-
 // ─── Date Picker Modal ────────────────────────────────────
 function DatePickerModal({ visible, value, onConfirm, onClose }) {
+  const { t } = useLanguage();
+  const MONTHS = t('date.months');
+  const DAYS   = t('date.days');
   const parseInitial = () => {
     if (value) {
       const p = value.split('/');
@@ -67,14 +69,14 @@ function DatePickerModal({ visible, value, onConfirm, onClose }) {
       <View style={dp.overlay}>
         <View style={dp.sheet}>
           <View style={dp.handle} />
-          <Text style={dp.title}>Chọn ngày sinh</Text>
+          <Text style={dp.title}>{t('customers.datePicker')}</Text>
 
           {/* Month navigation */}
           <View style={dp.navRow}>
             <TouchableOpacity style={dp.navBtn} onPress={prevMonth}>
               <Text style={dp.navArrow}>‹</Text>
             </TouchableOpacity>
-            <Text style={dp.navLabel}>{MONTHS_VI[navM]}</Text>
+            <Text style={dp.navLabel}>{MONTHS[navM]}</Text>
             <TouchableOpacity style={dp.navBtn} onPress={nextMonth}>
               <Text style={dp.navArrow}>›</Text>
             </TouchableOpacity>
@@ -93,9 +95,9 @@ function DatePickerModal({ visible, value, onConfirm, onClose }) {
 
           {/* Day-of-week headers */}
           <View style={dp.dowRow}>
-            {DAYS_VI.map(d => (
+            {DAYS.map((d, idx) => (
               <View key={d} style={dp.dowCell}>
-                <Text style={[dp.dowText, d === 'CN' && { color: '#e94560' }]}>{d}</Text>
+                <Text style={[dp.dowText, idx === 0 && { color: '#e94560' }]}>{d}</Text>
               </View>
             ))}
           </View>
@@ -129,24 +131,24 @@ function DatePickerModal({ visible, value, onConfirm, onClose }) {
           <View style={dp.selectedBox}>
             {selD != null ? (
               <Text style={dp.selectedText}>
-                Ngày đã chọn: {String(selD).padStart(2,'0')}/{String((selM ?? 0) + 1).padStart(2,'0')}/{selY}
+                {t('customers.dateSelected')} {String(selD).padStart(2,'0')}/{String((selM ?? 0) + 1).padStart(2,'0')}/{selY}
               </Text>
             ) : (
-              <Text style={dp.selectedPlaceholder}>Chưa chọn ngày</Text>
+              <Text style={dp.selectedPlaceholder}>{t('customers.noDateSelected')}</Text>
             )}
           </View>
 
           {/* Confirm / Cancel */}
           <View style={dp.btnRow}>
             <TouchableOpacity style={dp.cancelBtn} onPress={onClose}>
-              <Text style={dp.cancelText}>Hủy</Text>
+              <Text style={dp.cancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[dp.confirmBtn, selD == null && { opacity: 0.4 }]}
               onPress={handleConfirm}
               disabled={selD == null}
             >
-              <Text style={dp.confirmText}>Xác nhận</Text>
+              <Text style={dp.confirmText}>{t('common.confirm')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -155,135 +157,6 @@ function DatePickerModal({ visible, value, onConfirm, onClose }) {
   );
 }
 
-const FORMER_CUSTOMERS = [
-  // ── Khách cũ────
-  {
-    id: 'f1', name: 'Nguyễn Thị Hương', phone: '0912 111 333', email: 'huong.nguyen@gmail.com',
-    dob: '15/03/1990', building: 'Nhà A - Green Home', room: '102', since: '01/06/2024',
-    paid: true, amount: '3,500,000', avatar: { type: 'female' }, idFront: null, idBack: null,
-    isFormer: true, moveOutDate: '31/03/2026', moveOutReason: 'Hết hợp đồng',
-    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
-    paymentHistory: [
-      { month: '03/2026', amount: '3,500,000', date: '03/03/2026', method: 'Chuyển khoản' },
-      { month: '02/2026', amount: '3,500,000', date: '05/02/2026', method: 'Chuyển khoản' },
-      { month: '01/2026', amount: '3,500,000', date: '04/01/2026', method: 'Chuyển khoản' },
-      { month: '12/2025', amount: '3,500,000', date: '02/12/2025', method: 'Tiền mặt'     },
-      { month: '11/2025', amount: '3,500,000', date: '03/11/2025', method: 'Chuyển khoản' },
-    ],
-    incidentHistory: [
-      { issue: 'Vòi sen bị hỏng', resolvedBy: 'Thợ Minh Tú', resolvedAt: '10:00 20/01/2026' },
-    ],
-    rentalHistory: [
-      { room: '204', building: 'Nhà A - Green Home', from: '01/01/2024', to: '31/05/2024' },
-    ],
-  },
-  {
-    id: 'f2', name: 'Đặng Minh Khoa', phone: '0966 444 555', email: 'khoa.dang@gmail.com',
-    dob: '22/08/1993', building: 'Nhà B - Blue Sky', room: 'B102', since: '01/09/2025',
-    paid: true, amount: '4,200,000', avatar: { type: 'male' }, idFront: null, idBack: null,
-    isFormer: true, moveOutDate: '28/02/2026', moveOutReason: 'Chuyển công tác',
-    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
-    paymentHistory: [
-      { month: '02/2026', amount: '4,200,000', date: '05/02/2026', method: 'Chuyển khoản' },
-      { month: '01/2026', amount: '4,200,000', date: '06/01/2026', method: 'Chuyển khoản' },
-      { month: '12/2025', amount: '4,200,000', date: '04/12/2025', method: 'Tiền mặt'     },
-    ],
-    incidentHistory: [],
-    rentalHistory: [],
-  },
-  {
-    id: 'f3', name: 'Lưu Thị Ngân', phone: '0933 777 888', email: 'ngan.luu@gmail.com',
-    dob: '08/11/1995', building: 'Nhà C - Sunrise', room: 'C103', since: '01/04/2025',
-    paid: true, amount: '5,000,000', avatar: { type: 'female' }, idFront: null, idBack: null,
-    isFormer: true, moveOutDate: '31/01/2026', moveOutReason: 'Mua nhà riêng',
-    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
-    paymentHistory: [
-      { month: '01/2026', amount: '5,000,000', date: '03/01/2026', method: 'Chuyển khoản' },
-      { month: '12/2025', amount: '5,000,000', date: '02/12/2025', method: 'Chuyển khoản' },
-      { month: '11/2025', amount: '5,000,000', date: '04/11/2025', method: 'Chuyển khoản' },
-      { month: '10/2025', amount: '5,000,000', date: '03/10/2025', method: 'Tiền mặt'     },
-    ],
-    incidentHistory: [
-      { issue: 'Điều hòa bị rỉ nước',      resolvedBy: 'Thợ Tấn Phát',   resolvedAt: '09:00 15/12/2025' },
-      { issue: 'Ổ cắm điện không có điện', resolvedBy: 'Thợ điện Hải Đăng', resolvedAt: '14:00 01/11/2025' },
-    ],
-    rentalHistory: [
-      { room: '303', building: 'Nhà A - Green Home', from: '01/10/2024', to: '31/03/2025' },
-      { room: '202', building: 'Nhà A - Green Home', from: '01/05/2024', to: '30/09/2024' },
-    ],
-  },
-  {
-    id: 'f4', name: 'Vương Tuấn Kiệt', phone: '0901 222 333', email: 'kiet.vuong@gmail.com',
-    dob: '05/07/1988', building: 'Nhà A - Green Home', room: '203', since: '01/07/2025',
-    paid: true, amount: '6,000,000', avatar: { type: 'male' }, idFront: null, idBack: null,
-    isFormer: true, moveOutDate: '15/03/2026', moveOutReason: 'Hết hợp đồng',
-    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
-    paymentHistory: [
-      { month: '03/2026', amount: '6,000,000', date: '05/03/2026', method: 'Chuyển khoản' },
-      { month: '02/2026', amount: '6,000,000', date: '06/02/2026', method: 'Chuyển khoản' },
-      { month: '01/2026', amount: '6,000,000', date: '07/01/2026', method: 'Chuyển khoản' },
-    ],
-    incidentHistory: [
-      { issue: 'Cánh cửa bị bật bản lề', resolvedBy: 'Nguyễn Văn Bình', resolvedAt: '11:00 20/02/2026' },
-    ],
-    rentalHistory: [],
-  },
-  {
-    id: 'f5', name: 'Hoàng Thị Yến', phone: '0972 111 222', email: 'yen.hoang@gmail.com',
-    dob: '25/04/1992', building: 'Nhà C - Sunrise', room: 'C202', since: '01/05/2025',
-    paid: true, amount: '5,000,000', avatar: { type: 'female' }, idFront: null, idBack: null,
-    isFormer: true, moveOutDate: '30/04/2026', moveOutReason: 'Chuyển về quê',
-    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
-    paymentHistory: [
-      { month: '04/2026', amount: '5,000,000', date: '02/04/2026', method: 'Chuyển khoản' },
-      { month: '03/2026', amount: '5,000,000', date: '03/03/2026', method: 'Chuyển khoản' },
-      { month: '02/2026', amount: '5,000,000', date: '04/02/2026', method: 'Chuyển khoản' },
-      { month: '01/2026', amount: '5,000,000', date: '05/01/2026', method: 'Tiền mặt'     },
-      { month: '12/2025', amount: '5,000,000', date: '04/12/2025', method: 'Chuyển khoản' },
-    ],
-    incidentHistory: [
-      { issue: 'Cửa phòng bị hỏng khoá',  resolvedBy: 'Nguyễn Văn Bình', resolvedAt: '09:00 15/01/2026' },
-      { issue: 'Bồn rửa tay bị nghẹt',    resolvedBy: 'Thợ Minh Tú',     resolvedAt: '14:00 10/12/2025' },
-    ],
-    rentalHistory: [
-      { room: 'B103', building: 'Nhà B - Blue Sky',  from: '01/10/2024', to: '30/04/2025' },
-      { room: '104',  building: 'Nhà A - Green Home', from: '01/03/2024', to: '30/09/2024' },
-    ],
-  },
-  {
-    id: 'f6', name: 'Nguyễn Quốc Hùng', phone: '0903 333 444', email: 'hung.nguyen@gmail.com',
-    dob: '16/07/1989', building: 'Nhà A - Green Home', room: '303', since: '01/02/2025',
-    paid: true, amount: '3,500,000', avatar: { type: 'male' }, idFront: null, idBack: null,
-    isFormer: true, moveOutDate: '31/01/2026', moveOutReason: 'Hết hợp đồng',
-    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
-    paymentHistory: [
-      { month: '01/2026', amount: '3,500,000', date: '04/01/2026', method: 'Chuyển khoản' },
-      { month: '12/2025', amount: '3,500,000', date: '03/12/2025', method: 'Chuyển khoản' },
-      { month: '11/2025', amount: '3,500,000', date: '04/11/2025', method: 'Tiền mặt'     },
-    ],
-    incidentHistory: [],
-    rentalHistory: [],
-  },
-  {
-    id: 'f7', name: 'Mai Anh Tuấn', phone: '0948 555 666', email: 'tuan.mai@gmail.com',
-    dob: '03/12/1991', building: 'Nhà B - Blue Sky', room: 'B202', since: '01/06/2025',
-    paid: true, amount: '4,200,000', avatar: { type: 'male' }, idFront: null, idBack: null,
-    isFormer: true, moveOutDate: '28/03/2026', moveOutReason: 'Chuyển công ty',
-    daysUntilDue: 0, hasRequest: false, hasMoveout: false, hasUrgent: false,
-    paymentHistory: [
-      { month: '03/2026', amount: '4,200,000', date: '06/03/2026', method: 'Chuyển khoản' },
-      { month: '02/2026', amount: '4,200,000', date: '07/02/2026', method: 'Chuyển khoản' },
-      { month: '01/2026', amount: '4,200,000', date: '08/01/2026', method: 'Chuyển khoản' },
-      { month: '12/2025', amount: '4,200,000', date: '05/12/2025', method: 'Tiền mặt'     },
-    ],
-    incidentHistory: [
-      { issue: 'Điều hòa bị hỏng compressor', resolvedBy: 'Thợ điện Hải Đăng', resolvedAt: '10:00 20/01/2026' },
-    ],
-    rentalHistory: [
-      { room: '204', building: 'Nhà A - Green Home', from: '01/01/2025', to: '31/05/2025' },
-    ],
-  },
-];
 
 // ─── Building & Status helpers ────────────────────────────
 const BUILDING_CODES = {
@@ -300,8 +173,8 @@ function getRoomCode(building, room) {
 }
 
 const STATUS_CFG = {
-  ok:      { icon: '✅', color: '#2ecc71', label: 'Bình thường' },
-  warning: { icon: '⚠️', color: '#f1c40f', label: 'Sự cố'       },
+  ok:      { icon: '✅', color: '#2ecc71', tKey: 'status.normal' },
+  warning: { icon: '⚠️', color: '#f1c40f', tKey: 'status.issue'  },
 };
 
 function getCustomerStatus(c) {
@@ -334,6 +207,7 @@ function AvatarDisplay({ avatar, size = 48 }) {
 
 // ─── Customer Detail Modal ────────────────────────────────
 function CustomerDetailModal({ customer, onClose, onEdit }) {
+  const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdrop   = useRef(new Animated.Value(0)).current;
   const openedId   = useRef(null);
@@ -389,12 +263,12 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
                       )}
                       {isFormer ? (
                         <View style={dt.formerBadge}>
-                          <Text style={dt.formerBadgeText}>🚪 Đã rời · {c.moveOutDate}</Text>
+                          <Text style={dt.formerBadgeText}>🚪 {t('customers.leftBadge')} · {c.moveOutDate}</Text>
                         </View>
                       ) : (
                         <View style={[dt.statusBadge, { backgroundColor: `${stCfg.color}22`, borderColor: `${stCfg.color}55` }]}>
                           <Text style={[dt.statusText, { color: stCfg.color }]}>
-                            {stCfg.icon} {stCfg.label}
+                            {stCfg.icon} {t(stCfg.tKey)}
                           </Text>
                         </View>
                       )}
@@ -413,7 +287,7 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
                 style={[dt.callBtn, { flex: 1 }]}
                 onPress={() => c.phone && Linking.openURL(`tel:${c.phone.replace(/\D/g, '')}`)}
               >
-                <Text style={dt.callBtnText}>📞  Gọi điện</Text>
+                <Text style={dt.callBtnText}>{t('customers.call')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -421,56 +295,56 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
 
               {/* Personal info */}
               <View style={dt.section}>
-                <Text style={dt.sectionTitle}>📋 Thông tin cá nhân</Text>
+                <Text style={dt.sectionTitle}>{t('customers.personalInfo')}</Text>
                 <View style={dt.card}>
-                  <DtRow label="Mã khách hàng"  value={getCustomerId(c.phone)} accent />
-                  <DtRow label="Họ và tên"       value={c.name} />
-                  <DtRow label="Số điện thoại"   value={c.phone} />
-                  <DtRow label="Email"            value={c.email} />
-                  <DtRow label="Ngày sinh"        value={c.dob} />
+                  <DtRow label={t('customers.customerId')}  value={getCustomerId(c.phone)} accent />
+                  <DtRow label={t('customers.fullName')}    value={c.name} />
+                  <DtRow label={t('customers.phone')}       value={c.phone} />
+                  <DtRow label={t('customers.email')}       value={c.email} />
+                  <DtRow label={t('customers.birthday')}    value={c.dob} />
                 </View>
               </View>
 
               {/* CCCD — moved below personal info */}
               <View style={dt.section}>
-                <Text style={dt.sectionTitle}>🪪 Căn cước công dân</Text>
+                <Text style={dt.sectionTitle}>{t('customers.idCard')}</Text>
                 <View style={dt.idCardRow}>
                   <View style={dt.idCardBox}>
                     {c.idFront
                       ? <Image source={{ uri: c.idFront }} style={dt.idCardImg} />
                       : <View style={dt.idCardEmpty}>
                           <Text style={dt.idCardEmptyIcon}>🪪</Text>
-                          <Text style={dt.idCardEmptyText}>Chưa có ảnh mặt trước</Text>
+                          <Text style={dt.idCardEmptyText}>{t('customers.noIdFront')}</Text>
                         </View>
                     }
-                    <View style={dt.idCardLabel}><Text style={dt.idCardLabelText}>Mặt trước</Text></View>
+                    <View style={dt.idCardLabel}><Text style={dt.idCardLabelText}>{t('customers.idFront')}</Text></View>
                   </View>
                   <View style={dt.idCardBox}>
                     {c.idBack
                       ? <Image source={{ uri: c.idBack }} style={dt.idCardImg} />
                       : <View style={dt.idCardEmpty}>
                           <Text style={dt.idCardEmptyIcon}>🪪</Text>
-                          <Text style={dt.idCardEmptyText}>Chưa có ảnh mặt sau</Text>
+                          <Text style={dt.idCardEmptyText}>{t('customers.noIdBack')}</Text>
                         </View>
                     }
-                    <View style={dt.idCardLabel}><Text style={dt.idCardLabelText}>Mặt sau</Text></View>
+                    <View style={dt.idCardLabel}><Text style={dt.idCardLabelText}>{t('customers.idBack')}</Text></View>
                   </View>
                 </View>
               </View>
 
               {/* Rental info */}
               <View style={dt.section}>
-                <Text style={dt.sectionTitle}>🏠 Thông tin thuê phòng</Text>
+                <Text style={dt.sectionTitle}>{t('customers.rentalInfo')}</Text>
                 <View style={dt.card}>
-                  <DtRow label="Mã phòng"        value={(c.building && c.room) ? getRoomCode(c.building, c.room) : '—'} accent />
-                  <DtRow label="Tòa nhà"         value={c.building || '—'} />
-                  <DtRow label="Thuê từ ngày"    value={c.since    || '—'} />
-                  <DtRow label="Tiền thuê/tháng" value={c.amount   ? `${c.amount} ₫` : '—'} />
+                  <DtRow label={t('customers.roomCode')}     value={(c.building && c.room) ? getRoomCode(c.building, c.room) : '—'} accent />
+                  <DtRow label={t('customers.buildingLabel')} value={c.building || '—'} />
+                  <DtRow label={t('customers.sinceDate')}    value={c.since    || '—'} />
+                  <DtRow label={t('customers.rentPerMonth')} value={c.amount   ? `${c.amount} ₫` : '—'} />
                   {c.hasMoveout && (
                     <View style={dt.row}>
-                      <Text style={dt.rowLabel}>Yêu cầu</Text>
+                      <Text style={dt.rowLabel}>{t('customers.requests')}</Text>
                       <Text style={[dt.rowValue, { color: '#f1c40f', fontWeight: '700' }]}>
-                        🚚 Đăng ký chuyển đi
+                        {t('customers.moveOut')}
                       </Text>
                     </View>
                   )}
@@ -479,18 +353,18 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
 
               {/* Payment history */}
               <View style={dt.section}>
-                <Text style={dt.sectionTitle}>💳 Lịch sử thanh toán</Text>
+                <Text style={dt.sectionTitle}>{t('customers.payHistory')}</Text>
                 {(!c.paymentHistory || c.paymentHistory.length === 0) ? (
                   <View style={dt.emptyBox}>
-                    <Text style={dt.emptyText}>Chưa có lịch sử thanh toán</Text>
+                    <Text style={dt.emptyText}>{t('customers.noPayHistory')}</Text>
                   </View>
                 ) : (
                   <View style={dt.historyTable}>
                     <View style={dt.historyHeader}>
-                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.2 }]}>Tháng</Text>
-                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.6 }]}>Số tiền</Text>
-                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.4 }]}>Ngày đóng</Text>
-                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.4 }]}>Hình thức</Text>
+                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.2 }]}>{t('customers.month')}</Text>
+                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.6 }]}>{t('customers.amount')}</Text>
+                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.4 }]}>{t('customers.payDate')}</Text>
+                      <Text style={[dt.historyCell, dt.historyCellHead, { flex: 1.4 }]}>{t('customers.method')}</Text>
                     </View>
                     {c.paymentHistory.map((p, i) => (
                       <View key={i} style={[dt.historyRow, i % 2 === 0 && dt.historyRowAlt]}>
@@ -506,17 +380,17 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
 
               {/* Incident history */}
               <View style={dt.section}>
-                <Text style={dt.sectionTitle}>🔧 Lịch sử giải quyết sự cố</Text>
+                <Text style={dt.sectionTitle}>{t('customers.incidentHistory')}</Text>
                 {(!c.incidentHistory || c.incidentHistory.length === 0) ? (
                   <View style={dt.emptyBox}>
-                    <Text style={dt.emptyText}>Chưa có sự cố nào được ghi nhận</Text>
+                    <Text style={dt.emptyText}>{t('customers.noIncident')}</Text>
                   </View>
                 ) : (
                   c.incidentHistory.map((inc, i) => (
                     <View key={i} style={dt.incidentRow}>
                       <View style={dt.incidentLeft}>
                         <Text style={dt.incidentIssue}>{inc.issue}</Text>
-                        <Text style={dt.incidentBy}>👤 Xử lý: {inc.resolvedBy}</Text>
+                        <Text style={dt.incidentBy}>{t('customers.resolvedBy')} {inc.resolvedBy}</Text>
                       </View>
                       <Text style={dt.incidentTime}>{inc.resolvedAt}</Text>
                     </View>
@@ -526,7 +400,7 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
 
               {/* Rental history */}
               <View style={dt.section}>
-                <Text style={dt.sectionTitle}>🏘️ Lịch sử thuê phòng</Text>
+                <Text style={dt.sectionTitle}>{t('customers.rentalHistory')}</Text>
                 {/* Current / last room */}
                 {c.building && c.room && (
                   <View style={dt.rentalItem}>
@@ -534,14 +408,14 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
                       <Text style={dt.rentalRoomCode}>{getRoomCode(c.building, c.room)}</Text>
                       <Text style={dt.rentalBuilding}>{c.building}</Text>
                       <Text style={dt.rentalDate}>
-                        {c.isFormer ? `${c.since} → ${c.moveOutDate}` : `Từ ${c.since}`}
+                        {c.isFormer ? `${c.since} → ${c.moveOutDate}` : `${t('customers.from')} ${c.since}`}
                       </Text>
                       {c.isFormer && c.moveOutReason && (
-                        <Text style={dt.rentalNote}>Lý do: {c.moveOutReason}</Text>
+                        <Text style={dt.rentalNote}>{t('customers.moveoutNote')} {c.moveOutReason}</Text>
                       )}
                     </View>
                     <View style={[dt.rentalBadge, c.isFormer ? dt.rentalBadgeLast : dt.rentalBadgeCurrent]}>
-                      <Text style={dt.rentalBadgeText}>{c.isFormer ? 'Phòng cuối' : 'Đang ở'}</Text>
+                      <Text style={dt.rentalBadgeText}>{c.isFormer ? t('customers.lastRoom') : t('customers.currentlyStay')}</Text>
                     </View>
                   </View>
                 )}
@@ -555,13 +429,13 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
                           <Text style={dt.rentalDate}>{r.from} → {r.to}</Text>
                         </View>
                         <View style={[dt.rentalBadge, dt.rentalBadgePast]}>
-                          <Text style={dt.rentalBadgeText}>Đã ở</Text>
+                          <Text style={dt.rentalBadgeText}>{t('customers.stayedHere')}</Text>
                         </View>
                       </View>
                     ))
                   : (!c.building && !c.room) && (
                       <View style={dt.emptyBox}>
-                        <Text style={dt.emptyText}>Chưa có lịch sử thuê phòng</Text>
+                        <Text style={dt.emptyText}>{t('customers.noRentalHist')}</Text>
                       </View>
                     )
                 }
@@ -588,9 +462,42 @@ function DtRow({ label, value, accent }) {
 // ─── Main Screen ──────────────────────────────────────────
 export default function CustomersScreen() {
   const { buildings } = useBuildings();
-  const [search,         setSearch]         = useState('');
-  const [activeFilter,   setActiveFilter]   = useState('Tất cả');
-  const [detailCustomer, setDetailCustomer] = useState(null);
+  const { t } = useLanguage();
+  const [search,           setSearch]           = useState('');
+  const [activeFilter,     setActiveFilter]     = useState('Tất cả');
+  const [detailCustomer,   setDetailCustomer]   = useState(null);
+  const [formerCustomers,  setFormerCustomers]  = useState([]);
+
+  useEffect(() => {
+    supabase.from('tenant_history').select('*, buildings(name, code)').then(({ data }) => {
+      if (!data) return;
+      setFormerCustomers(data.map(th => ({
+        id:             th.id,
+        name:           th.tenant_name || '—',
+        phone:          th.tenant_phone || '',
+        email:          '',
+        dob:            '',
+        building:       th.buildings?.name || th.building_id || '—',
+        room:           th.room_id || '—',
+        since:          th.since_date || '',
+        paid:           true,
+        amount:         '',
+        avatar:         { type: 'male' },
+        idFront:        null,
+        idBack:         null,
+        isFormer:       true,
+        moveOutDate:    th.move_out_date || '',
+        moveOutReason:  th.move_out_reason || '',
+        daysUntilDue:   0,
+        hasRequest:     false,
+        hasMoveout:     false,
+        hasUrgent:      false,
+        paymentHistory: [],
+        incidentHistory:[],
+        rentalHistory:  [],
+      })));
+    });
+  }, []);
 
   // Derive current tenants from live buildings data
   const activeTenants = useMemo(() => {
@@ -630,8 +537,6 @@ export default function CustomersScreen() {
     });
     return tenants;
   }, [buildings]);
-
-  const formerCustomers = FORMER_CUSTOMERS;
 
   const byName = (a, b) => a.name.localeCompare(b.name, 'vi');
   const matchSearch = c => {
@@ -682,9 +587,12 @@ export default function CustomersScreen() {
       <View style={s.container}>
         {/* Header */}
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={s.header}>
-          <View>
-            <Text style={s.title}>Khách hàng</Text>
-            <Text style={s.subtitle}>{activeTenants.length} đang thuê · {formerCustomers.length} khách cũ</Text>
+          <View style={s.headerInner}>
+            <View>
+              <Text style={s.title}>{t('customers.title')}</Text>
+              <Text style={s.subtitle}>{t('customers.headerSub', { n: activeTenants.length, m: formerCustomers.length })}</Text>
+            </View>
+            <LanguageSwitcher />
           </View>
         </LinearGradient>
 
@@ -692,22 +600,22 @@ export default function CustomersScreen() {
         <View style={s.summaryStrip}>
           <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Tất cả')}>
             <Text style={s.sumNum}>{activeTenants.length}</Text>
-            <Text style={s.sumLbl}>Khách</Text>
+            <Text style={s.sumLbl}>{t('customers.summary.total')}</Text>
           </TouchableOpacity>
           <View style={s.sumDiv} />
           <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Tốt')}>
             <Text style={[s.sumNum, { color: '#2ecc71' }]}>{totalOk}</Text>
-            <Text style={s.sumLbl}>Tốt</Text>
+            <Text style={s.sumLbl}>{t('customers.summary.good')}</Text>
           </TouchableOpacity>
           <View style={s.sumDiv} />
           <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Sự cố')}>
             <Text style={[s.sumNum, { color: '#f1c40f' }]}>{totalWarning}</Text>
-            <Text style={s.sumLbl}>Sự cố</Text>
+            <Text style={s.sumLbl}>{t('customers.summary.issue')}</Text>
           </TouchableOpacity>
           <View style={s.sumDiv} />
           <TouchableOpacity style={s.sumItem} onPress={() => setActiveFilter('Khách cũ')}>
             <Text style={[s.sumNum, { color: '#8892b0' }]}>{formerCustomers.length}</Text>
-            <Text style={s.sumLbl}>Khách cũ</Text>
+            <Text style={s.sumLbl}>{t('customers.summary.old')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -716,7 +624,7 @@ export default function CustomersScreen() {
           <Text style={s.searchIcon}>🔍</Text>
           <TextInput
             style={s.searchInput}
-            placeholder="Tìm tên, SĐT, email, phòng..."
+            placeholder={t('customers.searchPh')}
             placeholderTextColor="#8892b0"
             value={search}
             onChangeText={setSearch}
@@ -736,7 +644,7 @@ export default function CustomersScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={s.emptyWrap}>
-              <Text style={s.emptyText}>Không tìm thấy khách hàng nào</Text>
+              <Text style={s.emptyText}>{t('customers.noFound')}</Text>
             </View>
           }
           renderItem={({ item: c }) => {
@@ -744,7 +652,7 @@ export default function CustomersScreen() {
               return (
                 <View style={s.listDivider}>
                   <View style={s.listDividerLine} />
-                  <Text style={s.listDividerText}>── Khách cũ ──</Text>
+                  <Text style={s.listDividerText}>{t('customers.oldTenants')}</Text>
                   <View style={s.listDividerLine} />
                 </View>
               );
@@ -770,8 +678,8 @@ export default function CustomersScreen() {
                       </View>
                     )}
                     {isFormer
-                      ? <Text style={s.moveOutDate}>Rời: {c.moveOutDate}</Text>
-                      : c.since ? <Text style={s.since}>Từ {c.since}</Text> : null
+                      ? <Text style={s.moveOutDate}>{t('customers.leftOn')} {c.moveOutDate}</Text>
+                      : c.since ? <Text style={s.since}>{t('customers.from')} {c.since}</Text> : null
                     }
                   </View>
                 </View>
@@ -876,7 +784,8 @@ const s = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: '#1a1a2e' },
   container: { flex: 1, backgroundColor: '#0d0d1a' },
 
-  header:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30, paddingBottom: 20 },
+  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30, paddingBottom: 20 },
+  headerInner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flex: 1 },
   title:    { color: '#fff', fontSize: 22, fontWeight: '800' },
   subtitle: { color: '#8892b0', fontSize: 13, marginTop: 4 },
   addBtn:   { backgroundColor: 'rgba(233,69,96,0.85)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(233,69,96,0.5)' },
