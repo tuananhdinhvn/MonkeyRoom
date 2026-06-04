@@ -1,237 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
-// ── Offline / pre-Supabase fallback ──────────────────────────
-const INIT_BUILDINGS = [
-  {
-    id: 'b1', name: 'Nhà A - Green Home', code: 'GHA', address: '12 Nguyễn Trãi, Q.1',
-    staff: 'Trần Thị Thu',
-    floors: [
-      { floor: 1, rooms: [
-        { id: '101', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          residents: 1, tenant: 'Nguyễn Văn An', tenantCccd: '052198001234', phone: '0912345678', sinceDate: '05/01/2025',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Vòi nước bị nhỏ giọt', time: '20/04/2026 09:12', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: false }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '102', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'urgent',
-          residents: 1, tenant: 'Trương Văn Hải', tenantCccd: '077196034567', phone: '0977112233', sinceDate: '20/11/2025',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Trần nhà đang chảy nước, mưa vào phòng rất nhiều', time: '19/04/2026 07:30', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: { title: 'Trần nhà bị thấm nước nghiêm trọng', reportedAt: '19/04/2026 07:45' } },
-        { id: '103', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          residents: 1, tenant: 'Trần Thị Bích', tenantCccd: '079199054321', phone: '0987654321', sinceDate: '15/03/2025',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }],
-          currentIssue: null },
-        { id: '104', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'occupied',
-          residents: 2, tenant: 'Vũ Thị Lan', tenantCccd: '066198055678', phone: '0966333444', sinceDate: '01/02/2026',
-          roommates: [{ id: 'rm1', name: 'Nguyễn Văn Tâm', cccd: '079201012345' }], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Bồn cầu bị tắc', time: '21/04/2026 22:05', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: false }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-      ]},
-      { floor: 2, rooms: [
-        { id: '201', type: 'Studio', area: '35m²', price: '6,000,000', status: 'occupied',
-          residents: 1, tenant: 'Lê Minh Tuấn', tenantCccd: '075196078901', phone: '0909111222', sinceDate: '20/06/2024',
-          roommates: [], cccdImages: [],
-          messages: [],
-          paymentHistory: [{ month: '04/2026', paid: false }, { month: '03/2026', paid: false }],
-          currentIssue: null },
-        { id: '202', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'maintenance',
-          residents: 1, tenant: 'Phan Thị Thu', tenantCccd: '034199012345', phone: '0966444555', sinceDate: '05/06/2025',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Điện trong phòng bị chập, đèn đột ngột tắt hết', time: '15/03/2026 07:45', resolved: false }],
-          paymentHistory: [{ month: '03/2026', paid: true }, { month: '02/2026', paid: true }],
-          currentIssue: { title: 'Hệ thống điện bị chập — đang thay lại toàn bộ dây', reportedAt: '15/03/2026 08:00' } },
-        { id: '203', type: 'Studio', area: '35m²', price: '6,000,000', status: 'empty',
-          emptySince: '01/02/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-        { id: '204', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          residents: 1, tenant: 'Đỗ Hữu Nghĩa', tenantCccd: '033200034567', phone: '0944222111', sinceDate: '10/08/2025',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }],
-          currentIssue: null },
-      ]},
-      { floor: 3, rooms: [
-        { id: '301', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          residents: 1, tenant: 'Phạm Thu Hà', tenantCccd: '001199067890', phone: '0978888999', sinceDate: '05/09/2024',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }],
-          currentIssue: null },
-        { id: '302', type: 'Phòng VIP', area: '45m²', price: '8,500,000', status: 'occupied',
-          residents: 2, tenant: 'Hoàng Đức Minh', tenantCccd: '001197043210', phone: '0933222111', sinceDate: '01/11/2024',
-          roommates: [{ id: 'rm1', name: 'Lê Thị Ngọc', cccd: '001201056789' }], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Thang máy tầng 3 kêu tiếng lạ', time: '22/04/2026 10:00', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: true }],
-          currentIssue: null },
-        { id: '303', type: 'Studio', area: '35m²', price: '6,000,000', status: 'empty',
-          emptySince: '15/01/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-      ]},
-    ],
-  },
-
-  {
-    id: 'b2', name: 'Nhà B - Blue Sky', code: 'BLS', address: '45 Lê Lợi, Q.3',
-    staff: 'Nguyễn Văn Bảo',
-    floors: [
-      { floor: 1, rooms: [
-        { id: '101', type: 'Phòng đơn', area: '22m²', price: '3,800,000', status: 'occupied',
-          residents: 1, tenant: 'Ngô Thanh Bình', tenantCccd: '079199001122', phone: '0901234567', sinceDate: '10/03/2025',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '102', type: 'Phòng đôi', area: '30m²', price: '5,200,000', status: 'occupied',
-          residents: 2, tenant: 'Đinh Thị Lan', tenantCccd: '034200023456', phone: '0912111222', sinceDate: '01/07/2025',
-          roommates: [{ id: 'rm1', name: 'Trần Quốc Huy', cccd: '079202034567' }], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Điều hoà phòng bị hỏng, không mát được', time: '21/04/2026 14:30', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: false }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '103', type: 'Phòng đơn', area: '22m²', price: '3,800,000', status: 'empty',
-          emptySince: '05/04/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-        { id: '104', type: 'Studio', area: '38m²', price: '6,200,000', status: 'occupied',
-          residents: 1, tenant: 'Lương Minh Phát', tenantCccd: '052198045678', phone: '0933456789', sinceDate: '15/01/2025',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }, { month: '02/2026', paid: true }],
-          currentIssue: null },
-      ]},
-      { floor: 2, rooms: [
-        { id: '201', type: 'Phòng đôi', area: '30m²', price: '5,200,000', status: 'occupied',
-          residents: 1, tenant: 'Bùi Thị Hồng', tenantCccd: '060199056789', phone: '0944567890', sinceDate: '20/09/2025',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: false }],
-          currentIssue: null },
-        { id: '202', type: 'Phòng đơn', area: '22m²', price: '3,800,000', status: 'maintenance',
-          residents: 1, tenant: 'Cao Văn Dũng', tenantCccd: '048200067890', phone: '0955678901', sinceDate: '10/11/2025',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Ống nước trong phòng tắm bị vỡ, nước chảy ra sàn', time: '22/04/2026 06:15', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: { title: 'Vỡ ống nước phòng tắm — đang thay ống mới', reportedAt: '22/04/2026 07:00' } },
-        { id: '203', type: 'Studio', area: '38m²', price: '6,200,000', status: 'empty',
-          emptySince: '01/03/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-      ]},
-      { floor: 3, rooms: [
-        { id: '301', type: 'Phòng VIP', area: '48m²', price: '8,800,000', status: 'occupied',
-          residents: 2, tenant: 'Phan Hoàng Long', tenantCccd: '001198078901', phone: '0966789012', sinceDate: '05/05/2024',
-          roommates: [{ id: 'rm1', name: 'Vũ Thị Thu', cccd: '001201089012' }], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '302', type: 'Phòng đơn', area: '22m²', price: '3,800,000', status: 'urgent',
-          residents: 1, tenant: 'Trịnh Công Sơn', tenantCccd: '079197090123', phone: '0977890123', sinceDate: '01/08/2025',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Cửa phòng bị hỏng khóa, không khoá được từ bên trong', time: '23/04/2026 22:00', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: { title: 'Khóa cửa phòng hỏng — cần thay khóa khẩn cấp', reportedAt: '23/04/2026 22:10' } },
-        { id: '303', type: 'Studio', area: '38m²', price: '6,200,000', status: 'empty',
-          emptySince: '20/02/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-      ]},
-    ],
-  },
-
-  {
-    id: 'b3', name: 'Nhà C - Sunrise', code: 'SRH', address: '78 Trần Hưng Đạo, Q.5',
-    staff: 'Lê Thị Hương',
-    floors: [
-      { floor: 1, rooms: [
-        { id: '101', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'occupied',
-          residents: 1, tenant: 'Nguyễn Thị Mai', tenantCccd: '075200101234', phone: '0988012345', sinceDate: '01/04/2025',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '102', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'occupied',
-          residents: 2, tenant: 'Hoàng Văn Khải', tenantCccd: '036199112345', phone: '0912345678', sinceDate: '15/06/2025',
-          roommates: [{ id: 'rm1', name: 'Lê Thị Phương', cccd: '036201123456' }], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: false }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '103', type: 'Phòng đơn', area: '20m²', price: '3,500,000', status: 'empty',
-          emptySince: '10/04/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-        { id: '104', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'occupied',
-          residents: 1, tenant: 'Đặng Thị Tuyết', tenantCccd: '001200134567', phone: '0933234567', sinceDate: '20/02/2026',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Wifi phòng bị ngắt liên tục, không thể làm việc online', time: '20/04/2026 19:45', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-      ]},
-      { floor: 2, rooms: [
-        { id: '201', type: 'Studio', area: '35m²', price: '6,000,000', status: 'occupied',
-          residents: 1, tenant: 'Lý Hồng Phúc', tenantCccd: '079200145678', phone: '0944345678', sinceDate: '01/10/2024',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }, { month: '02/2026', paid: true }],
-          currentIssue: null },
-        { id: '202', type: 'Phòng đôi', area: '28m²', price: '4,800,000', status: 'maintenance',
-          residents: 1, tenant: 'Vương Thị Linh', tenantCccd: '048199156789', phone: '0955456789', sinceDate: '05/03/2026',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Bóng đèn phòng ngủ bị cháy hết, phòng tối hoàn toàn', time: '22/04/2026 20:30', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: true }],
-          currentIssue: { title: 'Hệ thống đèn hỏng — đang thay bóng và kiểm tra điện', reportedAt: '22/04/2026 21:00' } },
-        { id: '203', type: 'Studio', area: '35m²', price: '6,000,000', status: 'occupied',
-          residents: 1, tenant: 'Tô Minh Tuấn', tenantCccd: '052198167890', phone: '0966567890', sinceDate: '10/12/2024',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: false }, { month: '03/2026', paid: false }],
-          currentIssue: null },
-        { id: '204', type: 'Phòng VIP', area: '50m²', price: '9,500,000', status: 'empty',
-          emptySince: '15/03/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-      ]},
-    ],
-  },
-
-  {
-    id: 'b4', name: 'Nhà D - Ocean View', code: 'OVD', address: '22 Võ Văn Tần, Q.3',
-    staff: 'Trần Thị Thu',
-    floors: [
-      { floor: 1, rooms: [
-        { id: '101', type: 'Phòng đơn', area: '18m²', price: '3,200,000', status: 'occupied',
-          residents: 1, tenant: 'Phạm Văn Toàn', tenantCccd: '060199178901', phone: '0977678901', sinceDate: '01/02/2025',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '102', type: 'Phòng đôi', area: '26m²', price: '4,500,000', status: 'occupied',
-          residents: 2, tenant: 'Nguyễn Quang Vinh', tenantCccd: '034201189012', phone: '0988789012', sinceDate: '10/05/2025',
-          roommates: [{ id: 'rm1', name: 'Trần Thị Nga', cccd: '034201190123' }], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '103', type: 'Phòng đơn', area: '18m²', price: '3,200,000', status: 'empty',
-          emptySince: '01/04/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-      ]},
-      { floor: 2, rooms: [
-        { id: '201', type: 'Phòng đôi', area: '26m²', price: '4,500,000', status: 'urgent',
-          residents: 1, tenant: 'Dương Thị Hoa', tenantCccd: '075199201234', phone: '0901890123', sinceDate: '15/08/2025',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Trần phòng bị nứt lớn, lo ngại sập xuống bất cứ lúc nào', time: '23/04/2026 08:00', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: { title: 'Trần phòng bị nứt — đang kiểm tra kết cấu khẩn', reportedAt: '23/04/2026 08:30' } },
-        { id: '202', type: 'Studio', area: '36m²', price: '6,500,000', status: 'occupied',
-          residents: 1, tenant: 'Lê Bá Tùng', tenantCccd: '001197212345', phone: '0912901234', sinceDate: '01/09/2024',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }, { month: '02/2026', paid: true }],
-          currentIssue: null },
-        { id: '203', type: 'Phòng đôi', area: '26m²', price: '4,500,000', status: 'occupied',
-          residents: 1, tenant: 'Chu Thị Bảo', tenantCccd: '079200223456', phone: '0933012345', sinceDate: '20/11/2025',
-          roommates: [], cccdImages: [],
-          messages: [{ id: 'm1', text: 'Vòi nước nóng lạnh bị hỏng, chỉ có nước lạnh', time: '21/04/2026 07:00', resolved: false }],
-          paymentHistory: [{ month: '04/2026', paid: false }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '204', type: 'Phòng đơn', area: '18m²', price: '3,200,000', status: 'empty',
-          emptySince: '25/03/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-      ]},
-      { floor: 3, rooms: [
-        { id: '301', type: 'Phòng VIP', area: '55m²', price: '10,000,000', status: 'occupied',
-          residents: 2, tenant: 'Võ Thanh Hải', tenantCccd: '048198234567', phone: '0944123456', sinceDate: '01/01/2025',
-          roommates: [{ id: 'rm1', name: 'Ngô Thị Xuân', cccd: '048201245678' }], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }, { month: '03/2026', paid: true }],
-          currentIssue: null },
-        { id: '302', type: 'Studio', area: '36m²', price: '6,500,000', status: 'occupied',
-          residents: 1, tenant: 'Trần Ngọc Ánh', tenantCccd: '052200256789', phone: '0955234567', sinceDate: '10/04/2025',
-          roommates: [], cccdImages: [],
-          messages: [], paymentHistory: [{ month: '04/2026', paid: true }],
-          currentIssue: null },
-        { id: '303', type: 'Phòng đôi', area: '26m²', price: '4,500,000', status: 'empty',
-          emptySince: '08/04/2026', tenant: null, phone: null, sinceDate: null, messages: [], paymentHistory: [], currentIssue: null },
-      ]},
-    ],
-  },
-];
-
 // ── DB → App transform ────────────────────────────────────────
 function formatPrice(n) {
   return Number(n).toLocaleString('en-US');
@@ -260,21 +29,21 @@ async function fetchFromSupabase() {
 
   const firstErr = bErr || rErr || tErr || rmErr || mErr || pErr || iErr || sErr;
   if (firstErr) {
-    console.error('[Supabase] fetch error:', firstErr.message, { bErr, rErr, tErr, rmErr, mErr, pErr, iErr, sErr });
+    console.error('[Supabase] fetch error:', firstErr.message);
     throw new Error(firstErr.message);
   }
 
   const staffMap = Object.fromEntries(staff.map(s => [s.id, s.name]));
 
   return buildings.map(b => {
-    const bRooms = rooms.filter(r => r.building_id === b.id);
+    const bRooms  = rooms.filter(r => r.building_id === b.id);
     const floorMap = {};
 
     bRooms.forEach(r => {
       const fl = r.floor;
       if (!floorMap[fl]) floorMap[fl] = [];
 
-      const tenant    = tenants.find(t => t.room_id === r.id);
+      const tenant     = tenants.find(t => t.room_id === r.id);
       const rRoommates = tenant ? roommates.filter(rm => rm.tenant_id === tenant.id) : [];
       const rMessages  = messages.filter(m => m.room_id === r.id);
       const rPayments  = payments.filter(p => p.room_id === r.id);
@@ -282,7 +51,7 @@ async function fetchFromSupabase() {
 
       floorMap[fl].push({
         id:          r.room_number,
-        dbId:        r.id,            // full DB id: 'b1-1-101'
+        dbId:        r.id,
         type:        r.type,
         area:        r.area_m2 ? `${r.area_m2}m²` : null,
         price:       formatPrice(r.price),
@@ -297,7 +66,11 @@ async function fetchFromSupabase() {
         roommates:   rRoommates.map(rm => ({ id: rm.id, name: rm.name, cccd: rm.cccd })),
         cccdImages:  tenant?.cccd_images ?? [],
         messages:    rMessages.map(m => ({ id: m.id, text: m.text, time: m.sent_at, resolved: m.resolved })),
-        paymentHistory: rPayments.map(p => ({ month: p.month, paid: p.paid, amount: p.amount ? formatPrice(p.amount) : null, paidAt: p.paid_at ?? null, method: p.method ?? null })),
+        paymentHistory: rPayments.map(p => ({
+          month: p.month, paid: p.paid,
+          amount: p.amount ? formatPrice(p.amount) : null,
+          paidAt: p.paid_at ?? null, method: p.method ?? null,
+        })),
         currentIssue: rIssue ? { title: rIssue.title, reportedAt: rIssue.reported_at } : null,
       });
     });
@@ -320,15 +93,24 @@ const BuildingsContext = createContext(null);
 
 export function BuildingsProvider({ children }) {
   const [buildings, setBuildings] = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const channelRef = useRef(null);
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState(null);
+  const channelRef    = useRef(null);
+  const reloadVersion = useRef(0); // prevents stale reload from overwriting fresh data
 
   const reload = async () => {
+    const myVersion = ++reloadVersion.current;
     try {
       const data = await fetchFromSupabase();
-      setBuildings(data);
+      if (myVersion === reloadVersion.current) {
+        setBuildings(data);
+        setError(null);
+      }
     } catch (e) {
-      console.warn('[BuildingsContext] fetchFromSupabase error:', e?.message);
+      if (myVersion === reloadVersion.current) {
+        console.warn('[BuildingsContext] fetchFromSupabase error:', e?.message);
+        setError(e?.message ?? 'Không thể kết nối Supabase');
+      }
     }
   };
 
@@ -351,7 +133,7 @@ export function BuildingsProvider({ children }) {
   }, []);
 
   return (
-    <BuildingsContext.Provider value={{ buildings, setBuildings, loading, reload }}>
+    <BuildingsContext.Provider value={{ buildings, setBuildings, loading, error, reload }}>
       {children}
     </BuildingsContext.Provider>
   );

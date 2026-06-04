@@ -469,7 +469,8 @@ export default function CustomersScreen() {
   const [formerCustomers,  setFormerCustomers]  = useState([]);
 
   useEffect(() => {
-    supabase.from('tenant_history').select('*, buildings(name, code)').then(({ data }) => {
+    supabase.from('tenant_history').select('*, buildings(name, code)').then(({ data, error }) => {
+      if (error) { console.warn('[CustomersScreen] tenant_history error:', error.message); return; }
       if (!data) return;
       setFormerCustomers(data.map(th => ({
         id:             th.id,

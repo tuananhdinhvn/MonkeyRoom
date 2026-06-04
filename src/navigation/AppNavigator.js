@@ -15,6 +15,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import RoomsScreen from '../screens/RoomsScreen';
 import CustomersScreen from '../screens/CustomersScreen';
 import StaffScreen from '../screens/StaffScreen';
+import LandlordScreen from '../screens/LandlordScreen';
 
 // Staff screens
 import StaffDashboardScreen from '../screens/staff/StaffDashboardScreen';
@@ -69,6 +70,8 @@ function AdminTabs() {
           options={{ tabBarLabel: t('nav.customers'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👥</Text> }} />
         <Tab.Screen name="Staff" component={StaffScreen}
           options={{ tabBarLabel: t('nav.staff'), tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>👨‍💼</Text> }} />
+        <Tab.Screen name="Landlord" component={LandlordScreen}
+          options={{ tabBarLabel: 'Chủ nhà', tabBarIcon: ({ focused }) => <Text style={{ fontSize: focused ? 22 : 19 }}>🏡</Text> }} />
       </Tab.Navigator>
   );
 }

@@ -4,7 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { supabase } from '../lib/supabase';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  View, Text, ScrollView, TouchableOpacity, Pressable, StyleSheet,
   TextInput, StatusBar, Modal, Animated, Linking, Alert, Image,
   Dimensions, LayoutAnimation, Platform, UIManager,
 } from 'react-native';
@@ -835,17 +835,19 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
   const updateRoommate = (id, field, val) => setRoommates(p => p.map(r => r.id === id ? { ...r, [field]: val } : r));
 
   const roommatesValid = roommates.every(r => r.name.trim() && r.cccd.trim());
-  const canSubmit = name.trim() && dob.trim() && cccd.trim() && phone.trim() && roommatesValid;
+  // dob is optional — only name, cccd, phone are required
+  const canSubmit = name.trim() && cccd.trim() && phone.trim() && roommatesValid;
 
   const handleSubmit = () => {
+    console.log('[CheckIn] handleSubmit — canSubmit:', canSubmit, '| name:', name, '| cccd:', cccd, '| phone:', phone, '| dob:', dob);
     if (!canSubmit) return;
+    console.log('[CheckIn] calling onCheckIn');
     onCheckIn({
       name: name.trim(), dob: dob.trim(), cccd: cccd.trim(),
       phone: phone.trim(), email: email.trim(),
       cccdFront, cccdBack,
       roommates: roommates.filter(r => r.name.trim()),
     });
-    onClose();
   };
 
   const roomCode = room ? (buildingCode ? `${buildingCode}-${room.id}` : room.id) : '';
@@ -1019,16 +1021,15 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
             <Text style={ci.required}>
               {!roommatesValid
                 ? t('rooms.reqRoommates')
-                : t('rooms.reqFields')}
+                : `Vui lòng nhập: ${!name.trim() ? 'Họ tên · ' : ''}${!cccd.trim() ? 'CCCD · ' : ''}${!phone.trim() ? 'Số điện thoại' : ''}`.replace(/ · $/, '')}
             </Text>
           )}
-          <TouchableOpacity
-            style={[ci.submitBtn, !canSubmit && ci.submitBtnDisabled]}
+          <Pressable
+            style={({ pressed }) => [ci.submitBtn, !canSubmit && ci.submitBtnDisabled, pressed && canSubmit && { opacity: 0.8 }]}
             onPress={handleSubmit}
-            activeOpacity={0.8}
           >
             <Text style={ci.submitText}>✅  {t('common.confirm')} {t('rooms.checkIn')}</Text>
-          </TouchableOpacity>
+          </Pressable>
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -1098,7 +1099,7 @@ const ci = StyleSheet.create({
 });
 
 // ─── Room Detail Modal (Admin) ────────────────────────────
-function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose, onEditRoom, onResolveMessage, onSaveCccdImages, onCheckout, onStartCheckIn }) {
+function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose, onEditRoom, onDeleteRoom, onResolveMessage, onSaveCccdImages, onCheckout, onStartCheckIn }) {
   const { t } = useLanguage();
   const translateY    = useRef(new Animated.Value(SCREEN_H)).current;
   const backdrop      = useRef(new Animated.Value(0)).current;
@@ -1109,6 +1110,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
   const [resolveStaff,  setResolveStaff] = useState(STAFF_LIST[0]);
   const [cccdImgs,      setCccdImgs]     = useState([]);
   const [checkoutStep,  setCheckoutStep] = useState(null); // null | 'confirm'
+  const [deleteStep,    setDeleteStep]   = useState(false);
 
   useEffect(() => {
     if (room) {
@@ -1119,6 +1121,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
         setResolveStaff(STAFF_LIST[0]);
         setCccdImgs(room.cccdImages || []);
         setCheckoutStep(null);
+        setDeleteStep(false);
         setVisible(true);
         Animated.parallel([
           Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 130 }),
@@ -1225,6 +1228,34 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
             <TouchableOpacity style={md.editBtn} onPress={() => { onEditRoom(room); handleClose(); }}>
               <Text style={md.editBtnText}>{t('rooms.editRoomBtn')}</Text>
             </TouchableOpacity>
+
+            {/* Delete room button — only for empty rooms */}
+            {room.status === 'empty' && (
+              !deleteStep ? (
+                <Pressable
+                  style={({ pressed }) => [md.deleteRoomBtn, pressed && { opacity: 0.6 }]}
+                  onPress={() => setDeleteStep(true)}
+                >
+                  <Text style={md.deleteRoomBtnText}>🗑 Xoá phòng</Text>
+                </Pressable>
+              ) : (
+                <View style={md.deleteConfirmPanel}>
+                  <Text style={md.deleteConfirmTitle}>Xác nhận xoá phòng {buildingCode ? `${buildingCode}-${room.id}` : room.id}?</Text>
+                  <Text style={md.deleteConfirmSub}>Toàn bộ dữ liệu phòng (hợp đồng, thanh toán, tin nhắn) sẽ bị xoá vĩnh viễn.</Text>
+                  <View style={md.deleteConfirmRow}>
+                    <Pressable style={({ pressed }) => [md.deleteConfirmCancel, pressed && { opacity: 0.7 }]} onPress={() => setDeleteStep(false)}>
+                      <Text style={md.deleteConfirmCancelText}>Huỷ</Text>
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [md.deleteConfirmOk, pressed && { opacity: 0.7 }]}
+                      onPress={() => { setDeleteStep(false); onDeleteRoom(room, handleClose); }}
+                    >
+                      <Text style={md.deleteConfirmOkText}>Xoá phòng</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )
+            )}
 
             {/* Check-in button — only for empty rooms */}
             {room.status === 'empty' && (
@@ -1527,6 +1558,7 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
   const { t } = useLanguage();
   const [open, setOpen] = useState(true);
   const [pillFilter, setPillFilter] = useState(null);
+  const [confirmDeleteBuilding, setConfirmDeleteBuilding] = useState(false);
   const cnt = countRooms(building);
   const pct = cnt.total > 0 ? Math.round((cnt.occupied / cnt.total) * 100) : 0;
 
@@ -1553,6 +1585,37 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
 
   const togglePill = key => setPillFilter(p => p === key ? null : key);
 
+  const handleDeleteRoom = (rid, dbRid) => {
+    const label = building.code ? `${building.code}-${rid}` : rid;
+    Alert.alert(
+      'Xoá phòng',
+      `Xác nhận xoá phòng ${label}?\n\nHành động này không thể hoàn tác.`,
+      [
+        { text: 'Huỷ', style: 'cancel' },
+        {
+          text: 'Xoá', style: 'destructive',
+          onPress: async () => {
+            if (!dbRid) {
+              Alert.alert('Lỗi', 'Phòng này chưa được lưu vào cơ sở dữ liệu.');
+              return;
+            }
+            try {
+              await supabase.from('tenant_history').update({ room_id: null }).eq('room_id', dbRid);
+              await supabase.from('issues').delete().eq('room_id', dbRid);
+              await supabase.from('messages').delete().eq('room_id', dbRid);
+              await supabase.from('payments').delete().eq('room_id', dbRid);
+              await supabase.from('tenants').update({ room_id: null }).eq('room_id', dbRid);
+              const { error } = await supabase.from('rooms').delete().eq('id', dbRid);
+              if (error) throw error;
+              await reload();
+            } catch (err) {
+              Alert.alert('Lỗi xoá phòng', err.message || JSON.stringify(err));
+            }
+          },
+        },
+      ]
+    );
+  };
 
   if (building.floors.length > 0 && !building.floors.some(fl => fl.rooms.some(matchRoom))) return null;
 
@@ -1633,9 +1696,30 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
 
       {/* Delete building — only shown when building has no rooms */}
       {cnt.total === 0 && (
-        <TouchableOpacity style={s.deleteBuildingBtn} onPress={() => onDeleteBuilding(building)} activeOpacity={0.8}>
-          <Text style={s.deleteBuildingText}>🗑 Xoá toà nhà</Text>
-        </TouchableOpacity>
+        !confirmDeleteBuilding ? (
+          <Pressable
+            style={({ pressed }) => [s.deleteBuildingBtn, pressed && { opacity: 0.6 }]}
+            onPress={() => setConfirmDeleteBuilding(true)}
+          >
+            <Text style={s.deleteBuildingText}>🗑 Xoá toà nhà</Text>
+          </Pressable>
+        ) : (
+          <View style={s.deleteBuildingConfirmPanel}>
+            <Text style={s.deleteBuildingConfirmTitle}>Xác nhận xoá toà nhà "{building.name}"?</Text>
+            <Text style={s.deleteBuildingConfirmSub}>Toàn bộ thông tin toà nhà sẽ bị xoá vĩnh viễn.</Text>
+            <View style={s.deleteBuildingConfirmRow}>
+              <Pressable style={({ pressed }) => [s.deleteBuildingConfirmCancel, pressed && { opacity: 0.7 }]} onPress={() => setConfirmDeleteBuilding(false)}>
+                <Text style={s.deleteBuildingConfirmCancelText}>Huỷ</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [s.deleteBuildingConfirmOk, pressed && { opacity: 0.7 }]}
+                onPress={() => { setConfirmDeleteBuilding(false); onDeleteBuilding(building); }}
+              >
+                <Text style={s.deleteBuildingConfirmOkText}>Xoá toà nhà</Text>
+              </Pressable>
+            </View>
+          </View>
+        )
       )}
 
       {/* Expanded content */}
@@ -1694,42 +1778,6 @@ function BuildingCard({ building, filter, search, onSelectRoom, onEditBuilding, 
                         <Text style={s.roomPrice}>{room.price} ₫</Text>
                       </View>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={s.roomDeleteBtn}
-                      onPress={() => {
-                        const bid = building.id;
-                        const rid = room.id;
-                        const dbRid = room.dbId || null;
-                        Alert.alert(
-                          'Xoá phòng',
-                          `Xác nhận xoá phòng ${building.code}-${room.id}?\n\nHành động này không thể hoàn tác.`,
-                          [
-                            { text: 'Huỷ', style: 'cancel' },
-                            {
-                              text: 'Xoá', style: 'destructive',
-                              onPress: async () => {
-                                setBuildings(prev => prev.map(b =>
-                                  b.id !== bid ? b : {
-                                    ...b,
-                                    floors: b.floors
-                                      .map(f => ({ ...f, rooms: f.rooms.filter(r => r.id !== rid) }))
-                                      .filter(f => f.rooms.length > 0),
-                                  }
-                                ));
-                                if (!dbRid) { await reload(); return; }
-                                await supabase.from('tenant_history').update({ room_id: null }).eq('room_id', dbRid);
-                                const { error } = await supabase.from('rooms').delete().eq('id', dbRid);
-                                if (error) { Alert.alert('Lỗi', 'Không xoá được phòng: ' + error.message); await reload(); }
-                              },
-                            },
-                          ]
-                        );
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
-                      activeOpacity={0.6}
-                    >
-                      <Text style={s.roomDeleteIcon}>🗑</Text>
-                    </TouchableOpacity>
                   </View>
                 );
               })}
@@ -1748,7 +1796,7 @@ const parseArea  = str => parseInt(str) || 0;
 // ─── Main Screen ──────────────────────────────────────────
 export default function RoomsScreen() {
   const { t } = useLanguage();
-  const { buildings, setBuildings, reload, loading } = useBuildings();
+  const { buildings, setBuildings, reload, loading, error: buildingsError } = useBuildings();
   const [search,       setSearch]       = useState('');
   const [filter,       setFilter]       = useState('all');
   const [selected,     setSelected]     = useState(null);
@@ -1762,7 +1810,8 @@ export default function RoomsScreen() {
 
   // Lấy staff name→id map một lần để gán staff cho building
   useEffect(() => {
-    supabase.from('staff').select('id, name').then(({ data }) => {
+    supabase.from('staff').select('id, name').then(({ data, error }) => {
+      if (error) { console.warn('[RoomsScreen] staff load error:', error.message); return; }
       if (data) setStaffNameMap(Object.fromEntries(data.map(s => [s.name, s.id])));
     });
   }, []);
@@ -1783,9 +1832,17 @@ export default function RoomsScreen() {
   const totalEmp      = allRooms.filter(r => r.status === 'empty').length;
   const totalIss      = allRooms.filter(r => r.status === 'maintenance' || r.status === 'urgent').length;
   const recipientCount  = allRooms.filter(r => r.tenant).length;
-  const existingTenants = allRooms
-    .filter(r => r.tenant)
-    .map(r => ({ id: r.id, name: r.tenant, cccd: r.tenantCccd || '', phone: r.phone || '', dob: r.tenantDob || '', email: '' }));
+
+  const [allTenants, setAllTenants] = useState([]);
+  useEffect(() => {
+    supabase.from('tenants').select('id, name, cccd, phone, dob, email').then(({ data }) => {
+      if (data) setAllTenants(data);
+    });
+  }, [buildings]); // re-fetch when buildings reload
+  const existingTenants = allTenants.map(t => ({
+    id: t.id, name: t.name || '', cccd: t.cccd || '',
+    phone: t.phone || '', dob: t.dob || '', email: t.email || '',
+  }));
 
   const handleSelectRoom = room => {
     const b = buildings.find(b => b.floors.some(fl => fl.rooms.some(r => r.id === room.id)));
@@ -1866,45 +1923,82 @@ export default function RoomsScreen() {
   // ── Check-in khách mới ──
   const handleCheckIn = async (roomId, tenantData) => {
     const dbRoomId = findDbRoomId(roomId);
+    if (!dbRoomId) {
+      Alert.alert('Lỗi', 'Không tìm thấy phòng trong cơ sở dữ liệu.');
+      return;
+    }
+
     const today    = new Date().toLocaleDateString('vi-VN');
     const cccdImgs = [tenantData.cccdFront, tenantData.cccdBack].filter(Boolean);
 
-    // Optimistic UI
-    setBuildings(prev => prev.map(b => ({
-      ...b,
-      floors: b.floors.map(f => ({
-        ...f,
-        rooms: f.rooms.map(r => r.id === roomId ? {
-          ...r, status: 'occupied',
-          tenant: tenantData.name, tenantCccd: tenantData.cccd,
-          phone: tenantData.phone, sinceDate: today,
-          residents: 1 + tenantData.roommates.length,
-          roommates: tenantData.roommates, cccdImages: cccdImgs,
-          emptySince: null, messages: [], paymentHistory: [], currentIssue: null,
-        } : r),
-      })),
-    })));
-    setCheckInRoom(null);
+    try {
+      // 1. Cập nhật trạng thái phòng
+      const { data: updatedRoom, error: roomErr } = await supabase
+        .from('rooms')
+        .update({ status: 'occupied', empty_since: null })
+        .eq('id', dbRoomId)
+        .select();
+      if (roomErr) throw roomErr;
+      if (!updatedRoom || updatedRoom.length === 0) {
+        throw new Error('Không cập nhật được trạng thái phòng. Room ID: ' + dbRoomId);
+      }
 
-    if (!dbRoomId) return;
+      // 2. Thêm khách thuê mới
+      const { data: tData, error: tErr } = await supabase
+        .from('tenants')
+        .insert([{
+          room_id:     dbRoomId,
+          name:        tenantData.name,
+          phone:       tenantData.phone,
+          cccd:        tenantData.cccd,
+          dob:         tenantData.dob,
+          email:       tenantData.email,
+          since_date:  today,
+          cccd_images: cccdImgs,
+        }])
+        .select('id')
+        .single();
+      if (tErr || !tData) throw tErr || new Error('Không lưu được thông tin khách thuê');
 
-    // Cập nhật trạng thái phòng
-    await supabase.from('rooms').update({ status: 'occupied', empty_since: null }).eq('id', dbRoomId);
+      // 3. Thêm người ở cùng
+      if (tenantData.roommates?.length > 0) {
+        const { error: rmErr } = await supabase
+          .from('roommates')
+          .insert(tenantData.roommates.map(rm => ({ tenant_id: tData.id, name: rm.name, cccd: rm.cccd })));
+        if (rmErr) console.warn('[CheckIn] roommates warn:', rmErr.message);
+      }
 
-    // Thêm khách thuê
-    const { data: tData, error: tErr } = await supabase.from('tenants').insert([{
-      room_id: dbRoomId, name: tenantData.name, phone: tenantData.phone,
-      cccd: tenantData.cccd, dob: tenantData.dob, email: tenantData.email,
-      since_date: today, cccd_images: cccdImgs,
-    }]).select('id').single();
+      // 4. Cập nhật UI ngay lập tức — không chờ reload để tránh race condition với realtime
+      setBuildings(prev => prev.map(b => ({
+        ...b,
+        floors: b.floors.map(f => ({
+          ...f,
+          rooms: f.rooms.map(r => {
+            if (r.dbId !== dbRoomId) return r;
+            return {
+              ...r,
+              status:     'occupied',
+              tenant:     tenantData.name,
+              tenantCccd: tenantData.cccd,
+              tenantDob:  tenantData.dob,
+              phone:      tenantData.phone,
+              sinceDate:  today,
+              residents:  1 + (tenantData.roommates?.length || 0),
+              roommates:  tenantData.roommates || [],
+              cccdImages: cccdImgs,
+              emptySince: null,
+            };
+          }),
+        })),
+      })));
 
-    if (tErr || !tData) { await reload(); return; }
+      // 5. Đóng modal
+      setCheckInRoom(null);
 
-    // Thêm người ở cùng
-    if (tenantData.roommates?.length > 0) {
-      await supabase.from('roommates').insert(
-        tenantData.roommates.map(rm => ({ tenant_id: tData.id, name: rm.name, cccd: rm.cccd }))
-      );
+      // 6. Sync Supabase ở background để đảm bảo dữ liệu đồng bộ
+      reload();
+    } catch (err) {
+      Alert.alert('Lỗi nhận phòng', err.message || JSON.stringify(err));
     }
   };
 
@@ -1949,23 +2043,90 @@ export default function RoomsScreen() {
     }).eq('id', msgId);
   };
 
-  const handleDeleteBuilding = building => {
-    Alert.alert(
-      'Xoá toà nhà',
-      `Bạn có chắc chắn muốn xoá toà nhà "${building.name}"?\n\nHành động này sẽ xoá toàn bộ thông tin toà nhà và không thể hoàn tác.`,
-      [
-        { text: 'Huỷ', style: 'cancel' },
-        {
-          text: 'Xoá toà nhà', style: 'destructive',
-          onPress: async () => {
-            setBuildings(prev => prev.filter(b => b.id !== building.id));
-            await supabase.from('tenant_history').update({ building_id: null }).eq('building_id', building.id);
-            const { error } = await supabase.from('buildings').delete().eq('id', building.id);
-            if (error) { Alert.alert('Lỗi', 'Không xoá được toà nhà: ' + error.message); await reload(); }
-          },
-        },
-      ]
-    );
+  const handleDeleteBuilding = async building => {
+    try {
+      // Nullify tenant_history references (ignore error if table doesn't exist)
+      await supabase.from('tenant_history').update({ building_id: null }).eq('building_id', building.id);
+
+      // landlord_contracts, building_investments cascade automatically via FK
+      const { data: deletedRows, error } = await supabase
+        .from('buildings')
+        .delete()
+        .eq('id', building.id)
+        .select();
+
+      if (error) throw error;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('Không xoá được toà nhà. Vui lòng thử lại.');
+      }
+
+      await reload();
+    } catch (err) {
+      Alert.alert('Lỗi xoá toà nhà', err.message || JSON.stringify(err));
+    }
+  };
+
+  const handleDeleteRoomFromModal = async (room, onSuccess) => {
+    console.log('[DeleteRoom] handler called, room:', room?.id, 'dbId:', room?.dbId);
+    const dbRid = room?.dbId || null;
+    if (!dbRid) {
+      Alert.alert('Lỗi', 'Không tìm thấy ID phòng trong cơ sở dữ liệu.\ndbId: ' + JSON.stringify(room?.dbId));
+      return;
+    }
+    try {
+      // Step 1: fetch tenant IDs so we can clean up roommates
+      const { data: roomTenants, error: tFetchErr } = await supabase.from('tenants').select('id').eq('room_id', dbRid);
+      if (tFetchErr) console.warn('[DeleteRoom] tenant fetch err:', tFetchErr.message);
+      const tenantIds = (roomTenants || []).map(t => t.id);
+      console.log('[DeleteRoom] tenantIds:', tenantIds);
+
+      // Step 2: delete roommates (child of tenants)
+      if (tenantIds.length > 0) {
+        const { error: rmErr } = await supabase.from('roommates').delete().in('tenant_id', tenantIds);
+        if (rmErr) console.warn('[DeleteRoom] roommates err:', rmErr.message);
+      }
+
+      // Step 3: nullify tenant_history.room_id if table exists
+      const { error: thErr } = await supabase.from('tenant_history').update({ room_id: null }).eq('room_id', dbRid);
+      if (thErr) console.warn('[DeleteRoom] tenant_history err (may not exist):', thErr.message);
+
+      // Step 4: delete other dependents
+      const { error: issErr } = await supabase.from('issues').delete().eq('room_id', dbRid);
+      if (issErr) console.warn('[DeleteRoom] issues err:', issErr.message);
+
+      const { error: msgErr } = await supabase.from('messages').delete().eq('room_id', dbRid);
+      if (msgErr) console.warn('[DeleteRoom] messages err:', msgErr.message);
+
+      const { error: payErr } = await supabase.from('payments').delete().eq('room_id', dbRid);
+      if (payErr) console.warn('[DeleteRoom] payments err:', payErr.message);
+
+      // Step 5: delete tenants
+      const { error: tenErr } = await supabase.from('tenants').delete().eq('room_id', dbRid);
+      if (tenErr) console.warn('[DeleteRoom] tenants err:', tenErr.message);
+
+      // Step 6: delete the room — this is the one that must succeed
+      console.log('[DeleteRoom] deleting room', dbRid);
+      const { data: deletedRows, error: roomErr } = await supabase
+        .from('rooms')
+        .delete()
+        .eq('id', dbRid)
+        .select();
+      if (roomErr) throw roomErr;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error(
+          'Không xoá được phòng — không có hàng nào bị xoá.\n' +
+          'Có thể do quyền truy cập Supabase (RLS) hoặc ID không tồn tại.\n' +
+          'Room ID: ' + dbRid
+        );
+      }
+
+      console.log('[DeleteRoom] room deleted successfully, rows:', deletedRows.length);
+      onSuccess?.();
+      await reload();
+    } catch (err) {
+      console.error('[DeleteRoom] FAILED:', err);
+      Alert.alert('Lỗi xoá phòng', err.message || JSON.stringify(err));
+    }
   };
 
   if (loading) {
@@ -1973,7 +2134,22 @@ export default function RoomsScreen() {
       <SafeAreaView style={s.safe}>
         <LinearGradient colors={['#1a1a2e', '#16213e']} style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
           <Text style={{ fontSize: 32 }}>🏢</Text>
-          <Text style={{ color: '#8892b0', fontSize: 15 }}>Đang tải dữ liệu...</Text>
+          <Text style={{ color: '#8892b0', fontSize: 15 }}>Đang tải dữ liệu từ Supabase...</Text>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
+
+  if (buildingsError) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <LinearGradient colors={['#1a1a2e', '#16213e']} style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 32 }}>
+          <Text style={{ fontSize: 32 }}>⚠️</Text>
+          <Text style={{ color: '#ff7675', fontSize: 15, fontWeight: '700', textAlign: 'center' }}>Không kết nối được Supabase</Text>
+          <Text style={{ color: '#8892b0', fontSize: 13, textAlign: 'center' }}>{buildingsError}</Text>
+          <TouchableOpacity onPress={reload} style={{ marginTop: 16, backgroundColor: 'rgba(79,172,254,0.15)', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12, borderWidth: 1, borderColor: 'rgba(79,172,254,0.3)' }}>
+            <Text style={{ color: '#4facfe', fontWeight: '700' }}>Thử lại</Text>
+          </TouchableOpacity>
         </LinearGradient>
       </SafeAreaView>
     );
@@ -2012,6 +2188,7 @@ export default function RoomsScreen() {
         staffName={selBuilding?.staff}
         onClose={() => { setSelected(null); setSelBuilding(null); }}
         onEditRoom={room => setRoomForm({ mode: 'edit', building: selBuilding, room })}
+        onDeleteRoom={handleDeleteRoomFromModal}
         onResolveMessage={handleResolveMessage}
         onSaveCccdImages={handleSaveCccdImages}
         onCheckout={handleCheckout}
@@ -2166,6 +2343,16 @@ const md = StyleSheet.create({
   infoStripDiv:    { width: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
   editBtn:         { marginTop: 12, backgroundColor: 'rgba(79,172,254,0.1)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(79,172,254,0.28)' },
   editBtnText:     { color: '#4facfe', fontWeight: '700', fontSize: 13 },
+  deleteRoomBtn:        { marginTop: 8, backgroundColor: 'rgba(255,118,117,0.08)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,118,117,0.3)' },
+  deleteRoomBtnText:    { color: '#ff7675', fontWeight: '700', fontSize: 13 },
+  deleteConfirmPanel:   { marginTop: 8, backgroundColor: 'rgba(255,118,117,0.06)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,118,117,0.3)' },
+  deleteConfirmTitle:   { color: '#ff7675', fontWeight: '700', fontSize: 13, marginBottom: 6 },
+  deleteConfirmSub:     { color: '#8892b0', fontSize: 12, marginBottom: 12 },
+  deleteConfirmRow:     { flexDirection: 'row', gap: 8 },
+  deleteConfirmCancel:  { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center', backgroundColor: 'rgba(136,146,176,0.12)', borderWidth: 1, borderColor: 'rgba(136,146,176,0.25)' },
+  deleteConfirmCancelText: { color: '#8892b0', fontWeight: '600', fontSize: 13 },
+  deleteConfirmOk:      { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center', backgroundColor: 'rgba(255,118,117,0.15)', borderWidth: 1, borderColor: 'rgba(255,118,117,0.4)' },
+  deleteConfirmOkText:  { color: '#ff7675', fontWeight: '700', fontSize: 13 },
   checkInBtn:      { marginTop: 10, backgroundColor: 'rgba(46,204,113,0.1)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(46,204,113,0.35)' },
   checkInBtnText:  { color: '#2ecc71', fontWeight: '700', fontSize: 13 },
   checkoutBtn:     { marginTop: 10, backgroundColor: 'rgba(231,76,60,0.08)', borderRadius: 10, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(231,76,60,0.3)' },
@@ -2388,8 +2575,8 @@ const s = StyleSheet.create({
   floorText:    { color: '#4facfe', fontSize: 13, fontWeight: '700' },
   floorCount:   { color: '#8892b0', fontSize: 12 },
 
-  roomRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, marginBottom: 8, borderLeftWidth: 4, overflow: 'hidden' },
-  roomMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingLeft: 12, paddingRight: 4 },
+  roomRow:    { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, marginBottom: 8, borderLeftWidth: 4 },
+  roomMain:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 },
   roomLeft:   { width: 72 },
   roomId:     { color: '#fff', fontSize: 14, fontWeight: '800' },
   roomType:   { color: '#8892b0', fontSize: 11, marginTop: 1 },
@@ -2408,9 +2595,17 @@ const s = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '700' },
   roomPrice:  { color: '#4facfe', fontSize: 12, fontWeight: '700' },
 
-  roomDeleteBtn:  { width: 48, paddingVertical: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,118,117,0.1)', borderLeftWidth: 1, borderLeftColor: 'rgba(255,118,117,0.25)' },
-  roomDeleteIcon: { fontSize: 17 },
+  roomDeleteBtn:  { position: 'absolute', right: 0, top: 0, bottom: 0, width: 52, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,118,117,0.12)', borderLeftWidth: 1, borderLeftColor: 'rgba(255,118,117,0.3)', borderTopRightRadius: 12, borderBottomRightRadius: 12 },
+  roomDeleteIcon: { fontSize: 18 },
 
   deleteBuildingBtn:  { marginTop: 8, borderRadius: 10, paddingVertical: 11, alignItems: 'center', backgroundColor: 'rgba(255,118,117,0.1)', borderWidth: 1, borderColor: 'rgba(255,118,117,0.35)' },
   deleteBuildingText: { color: '#ff7675', fontSize: 13, fontWeight: '700' },
+  deleteBuildingConfirmPanel:      { marginTop: 8, backgroundColor: 'rgba(255,118,117,0.06)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,118,117,0.3)' },
+  deleteBuildingConfirmTitle:      { color: '#ff7675', fontWeight: '700', fontSize: 13, marginBottom: 6 },
+  deleteBuildingConfirmSub:        { color: '#8892b0', fontSize: 12, marginBottom: 12 },
+  deleteBuildingConfirmRow:        { flexDirection: 'row', gap: 8 },
+  deleteBuildingConfirmCancel:     { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center', backgroundColor: 'rgba(136,146,176,0.12)', borderWidth: 1, borderColor: 'rgba(136,146,176,0.25)' },
+  deleteBuildingConfirmCancelText: { color: '#8892b0', fontWeight: '600', fontSize: 13 },
+  deleteBuildingConfirmOk:         { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center', backgroundColor: 'rgba(255,118,117,0.15)', borderWidth: 1, borderColor: 'rgba(255,118,117,0.4)' },
+  deleteBuildingConfirmOkText:     { color: '#ff7675', fontWeight: '700', fontSize: 13 },
 });

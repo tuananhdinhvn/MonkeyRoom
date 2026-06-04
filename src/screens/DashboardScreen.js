@@ -487,21 +487,27 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     const load = async () => {
-      const [
-        { data: pays },
-        { data: staff },
-        { data: history },
-        { data: tents },
-      ] = await Promise.all([
-        supabase.from('payments').select('*'),
-        supabase.from('staff').select('id, name, phone, role, gender, dob, active').eq('active', true),
-        supabase.from('tenant_history').select('*'),
-        supabase.from('tenants').select('id, name, dob, gender, room_id, phone, since_date'),
-      ]);
-      setPayments(pays || []);
-      setStaffList(staff || []);
-      setTenantHistory(history || []);
-      setAllTenants(tents || []);
+      try {
+        const [
+          { data: pays,    error: e1 },
+          { data: staff,   error: e2 },
+          { data: history, error: e3 },
+          { data: tents,   error: e4 },
+        ] = await Promise.all([
+          supabase.from('payments').select('*'),
+          supabase.from('staff').select('id, name, phone, role, gender, dob, active').eq('active', true),
+          supabase.from('tenant_history').select('*'),
+          supabase.from('tenants').select('id, name, dob, gender, room_id, phone, since_date'),
+        ]);
+        const err = e1 || e2 || e3 || e4;
+        if (err) { console.warn('[DashboardScreen] load error:', err.message); }
+        setPayments(pays || []);
+        setStaffList(staff || []);
+        setTenantHistory(history || []);
+        setAllTenants(tents || []);
+      } catch (err) {
+        console.warn('[DashboardScreen] load exception:', err?.message);
+      }
     };
     load();
   }, []);
