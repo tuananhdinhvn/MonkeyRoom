@@ -1291,7 +1291,7 @@ function RoomDetailModal({ room, buildingName, buildingCode, staffName, onClose,
                   <TouchableOpacity
                     style={md.checkoutConfirm}
                     activeOpacity={0.8}
-                    onPress={() => { onCheckout(room.id); handleClose(); }}
+                    onPress={() => { onCheckout(room); handleClose(); }}
                   >
                     <Text style={md.checkoutConfirmText}>{t('rooms.checkoutConfirmTitle')}</Text>
                   </TouchableOpacity>
@@ -1921,8 +1921,7 @@ export default function RoomsScreen() {
   };
 
   // ── Check-in khách mới ──
-  const handleCheckIn = async (roomId, tenantData) => {
-    const dbRoomId = findDbRoomId(roomId);
+  const handleCheckIn = async (dbRoomId, tenantData) => {
     if (!dbRoomId) {
       Alert.alert('Lỗi', 'Không tìm thấy phòng trong cơ sở dữ liệu.');
       return;
@@ -1932,6 +1931,13 @@ export default function RoomsScreen() {
     const cccdImgs = [tenantData.cccdFront, tenantData.cccdBack].filter(Boolean);
 
     try {
+      // 0. Kiểm tra phòng chưa có tenant trong DB (tránh insert trùng lặp)
+      const { data: existingTenants } = await supabase
+        .from('tenants').select('id').eq('room_id', dbRoomId).limit(1);
+      if (existingTenants && existingTenants.length > 0) {
+        throw new Error('Phòng này đã có khách thuê trong hệ thống. Vui lòng trả phòng trước khi nhận khách mới.');
+      }
+
       // 1. Cập nhật trạng thái phòng
       const { data: updatedRoom, error: roomErr } = await supabase
         .from('rooms')
@@ -1968,34 +1974,41 @@ export default function RoomsScreen() {
         if (rmErr) console.warn('[CheckIn] roommates warn:', rmErr.message);
       }
 
-      // 4. Cập nhật UI ngay lập tức — không chờ reload để tránh race condition với realtime
-      setBuildings(prev => prev.map(b => ({
-        ...b,
-        floors: b.floors.map(f => ({
-          ...f,
-          rooms: f.rooms.map(r => {
-            if (r.dbId !== dbRoomId) return r;
-            return {
-              ...r,
-              status:     'occupied',
-              tenant:     tenantData.name,
-              tenantCccd: tenantData.cccd,
-              tenantDob:  tenantData.dob,
-              phone:      tenantData.phone,
-              sinceDate:  today,
-              residents:  1 + (tenantData.roommates?.length || 0),
-              roommates:  tenantData.roommates || [],
-              cccdImages: cccdImgs,
-              emptySince: null,
-            };
-          }),
-        })),
-      })));
+      // 4. Cập nhật UI ngay lập tức
+      setBuildings(prev => {
+        let roomFound = false;
+        const allDbIds = prev.flatMap(b => b.floors.flatMap(f => f.rooms.map(r => r.dbId)));
+        const next = prev.map(b => ({
+          ...b,
+          floors: b.floors.map(f => ({
+            ...f,
+            rooms: f.rooms.map(r => {
+              if (r.dbId !== dbRoomId) return r;
+              roomFound = true;
+              return {
+                ...r,
+                status:     'occupied',
+                tenant:     tenantData.name,
+                tenantCccd: tenantData.cccd,
+                tenantDob:  tenantData.dob,
+                phone:      tenantData.phone,
+                sinceDate:  today,
+                residents:  1 + (tenantData.roommates?.length || 0),
+                roommates:  tenantData.roommates || [],
+                cccdImages: cccdImgs,
+                emptySince: null,
+              };
+            }),
+          })),
+        }));
+        console.log('[CheckIn] setBuildings — roomFound:', roomFound, '| dbRoomId:', dbRoomId, '| allDbIds:', allDbIds);
+        return next;
+      });
 
       // 5. Đóng modal
       setCheckInRoom(null);
 
-      // 6. Sync Supabase ở background để đảm bảo dữ liệu đồng bộ
+      // 6. Sync Supabase ở background
       reload();
     } catch (err) {
       Alert.alert('Lỗi nhận phòng', err.message || JSON.stringify(err));
@@ -2003,23 +2016,82 @@ export default function RoomsScreen() {
   };
 
   // ── Trả phòng ──
-  const handleCheckout = async roomId => {
-    const dbRoomId = findDbRoomId(roomId);
-    const today    = new Date().toLocaleDateString('vi-VN');
+  const handleCheckout = async room => {
+    const dbRoomId = room?.dbId;
+    if (!dbRoomId) return;
 
+    const today = new Date().toLocaleDateString('vi-VN');
+
+    // Tìm building_id trước khi thay đổi state
+    const ownerBuilding = buildings.find(b =>
+      b.floors.some(f => f.rooms.some(r => r.dbId === dbRoomId))
+    );
+    const buildingId = ownerBuilding?.id ?? null;
+
+    // Optimistic update — đóng phòng ngay lập tức
     setBuildings(prev => prev.map(b => ({
       ...b,
       floors: b.floors.map(f => ({
         ...f,
-        rooms: f.rooms.map(r => r.id === roomId
-          ? { ...r, status: 'empty', tenant: null, tenantCccd: null, phone: null, sinceDate: null, residents: null, roommates: [], cccdImages: [], paymentHistory: [], currentIssue: null, emptySince: today }
-          : r),
+        rooms: f.rooms.map(r => r.dbId !== dbRoomId ? r : {
+          ...r,
+          status:       'empty',
+          tenant:       null,
+          tenantCccd:   null,
+          tenantDob:    null,
+          phone:        null,
+          sinceDate:    null,
+          residents:    0,
+          roommates:    [],
+          cccdImages:   [],
+          paymentHistory: [],
+          emptySince:   today,
+        }),
       })),
     })));
 
-    if (!dbRoomId) return;
-    await supabase.from('rooms').update({ status: 'empty', empty_since: today }).eq('id', dbRoomId);
-    await supabase.from('tenants').update({ room_id: null }).eq('room_id', dbRoomId);
+    try {
+      // 1. Lấy thông tin tenant hiện tại từ DB
+      const { data: tenantRows, error: tFetchErr } = await supabase
+        .from('tenants').select('*').eq('room_id', dbRoomId);
+      if (tFetchErr) throw tFetchErr;
+      const tenant = tenantRows?.[0] ?? null;
+
+      if (tenant) {
+        // 2. Lưu lịch sử vào tenant_history
+        await supabase.from('tenant_history').insert([{
+          room_id:      dbRoomId,
+          building_id:  buildingId,
+          tenant_name:  tenant.name,
+          tenant_phone: tenant.phone,
+          tenant_cccd:  tenant.cccd,
+          since_date:   tenant.since_date,
+          move_out_date: today,
+        }]);
+
+        // 3. Tách FK trên payments và messages trước khi xóa tenant
+        //    (hai bảng này không có ON DELETE CASCADE)
+        await supabase.from('payments').update({ tenant_id: null }).eq('tenant_id', tenant.id);
+        await supabase.from('messages').update({ tenant_id: null }).eq('tenant_id', tenant.id);
+
+        // 4. Xóa roommates (có ON DELETE CASCADE nhưng xóa tường minh cho rõ)
+        await supabase.from('roommates').delete().eq('tenant_id', tenant.id);
+
+        // 5. Xóa tenant
+        const { error: delErr } = await supabase.from('tenants').delete().eq('id', tenant.id);
+        if (delErr) throw delErr;
+      }
+
+      // 5. Cập nhật trạng thái phòng
+      const { error: roomErr } = await supabase
+        .from('rooms').update({ status: 'empty', empty_since: today }).eq('id', dbRoomId);
+      if (roomErr) throw roomErr;
+
+      // 6. Sync lại
+      reload();
+    } catch (err) {
+      Alert.alert('Lỗi trả phòng', err.message || JSON.stringify(err));
+    }
   };
 
   // ── Xử lý sự cố ──
@@ -2175,10 +2247,10 @@ export default function RoomsScreen() {
       <CheckInModal
         visible={!!checkInRoom}
         room={checkInRoom}
-        buildingCode={checkInRoom ? buildings.find(b => b.floors.some(f => f.rooms.some(r => r.id === checkInRoom.id)))?.code : null}
+        buildingCode={checkInRoom ? buildings.find(b => b.floors.some(f => f.rooms.some(r => r.dbId === checkInRoom.dbId)))?.code : null}
         existingTenants={existingTenants}
         onClose={() => setCheckInRoom(null)}
-        onCheckIn={(data) => handleCheckIn(checkInRoom.id, data)}
+        onCheckIn={(data) => handleCheckIn(checkInRoom.dbId, data)}
       />
 
       <RoomDetailModal

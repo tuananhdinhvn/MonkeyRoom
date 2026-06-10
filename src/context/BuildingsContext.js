@@ -96,7 +96,8 @@ export function BuildingsProvider({ children }) {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState(null);
   const channelRef    = useRef(null);
-  const reloadVersion = useRef(0); // prevents stale reload from overwriting fresh data
+  const reloadVersion = useRef(0);
+  const debounceTimer = useRef(null);
 
   const reload = async () => {
     const myVersion = ++reloadVersion.current;
@@ -114,22 +115,32 @@ export function BuildingsProvider({ children }) {
     }
   };
 
+  // Debounced version for realtime events — waits 1s so rapid consecutive
+  // changes (e.g. room update → tenant insert) settle into one fetch.
+  const debouncedReload = () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => reload(), 1000);
+  };
+
   useEffect(() => {
     setLoading(true);
     reload().finally(() => setLoading(false));
 
     const channel = supabase
       .channel('buildings-watch')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'buildings' }, reload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' },     reload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' },   reload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' },  reload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' },  reload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' },    reload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'buildings' }, debouncedReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' },     debouncedReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tenants' },   debouncedReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' },  debouncedReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' },  debouncedReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' },    debouncedReload)
       .subscribe();
 
     channelRef.current = channel;
-    return () => supabase.removeChannel(channel);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
