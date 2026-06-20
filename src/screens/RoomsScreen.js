@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useBuildings } from '../context/BuildingsContext';
 import { useLanguage } from '../context/LanguageContext';
 import LanguageSwitcher from '../components/LanguageSwitcher';
@@ -767,15 +767,35 @@ const dp = StyleSheet.create({
   confirmText: { color: '#1a1a2e', fontWeight: '800', fontSize: 13 },
 });
 
+// ─── Check-In Field (module-level để tránh re-mount khi re-render) ────────────
+function CiField({ label, value, onChange, placeholder, keyboardType, required }) {
+  return (
+    <View style={ci.fieldWrap}>
+      <Text style={ci.fieldLabel}>
+        {label}{required && <Text style={{ color: '#e74c3c' }}> *</Text>}
+      </Text>
+      <TextInput
+        style={ci.fieldInput}
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor="#8892b0"
+        keyboardType={keyboardType || 'default'}
+      />
+    </View>
+  );
+}
+
 // ─── Check-In Modal ───────────────────────────────────────
 function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, onCheckIn }) {
   const { t } = useLanguage();
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdropOp = useRef(new Animated.Value(0)).current;
 
-  const [mode,        setMode]        = useState('new'); // 'new' | 'returning'
-  const [searchQ,     setSearchQ]     = useState('');
-  const [showResults, setShowResults] = useState(false);
+  const [mode,            setMode]            = useState('new'); // 'new' | 'returning'
+  const [searchQ,         setSearchQ]         = useState('');
+  const [showResults,     setShowResults]     = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState(null); // id trong tenant_history nếu là khách cũ
   const [name,          setName]          = useState('');
   const [dob,           setDob]           = useState('');
   const [showDobPicker, setShowDobPicker] = useState(false);
@@ -788,6 +808,7 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
 
   const resetForm = () => {
     setMode('new'); setSearchQ(''); setShowResults(false);
+    setSelectedHistoryId(null);
     setName(''); setDob(''); setCccd(''); setPhone(''); setEmail('');
     setCccdFront(null); setCccdBack(null); setRoommates([]);
   };
@@ -818,6 +839,8 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
     setName(t.name); setCccd(t.cccd || ''); setPhone(t.phone || '');
     setDob(t.dob || ''); setEmail(t.email || '');
     setSearchQ(t.name); setShowResults(false);
+    // Ghi nhớ ID bản ghi tenant_history nếu là khách cũ
+    setSelectedHistoryId(t.isOld ? t.id : null);
   };
 
   const pickCccdPhoto = async side => {
@@ -839,32 +862,17 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
   const canSubmit = name.trim() && cccd.trim() && phone.trim() && roommatesValid;
 
   const handleSubmit = () => {
-    console.log('[CheckIn] handleSubmit — canSubmit:', canSubmit, '| name:', name, '| cccd:', cccd, '| phone:', phone, '| dob:', dob);
     if (!canSubmit) return;
-    console.log('[CheckIn] calling onCheckIn');
     onCheckIn({
       name: name.trim(), dob: dob.trim(), cccd: cccd.trim(),
       phone: phone.trim(), email: email.trim(),
       cccdFront, cccdBack,
       roommates: roommates.filter(r => r.name.trim()),
+      historyId: selectedHistoryId, // null nếu khách mới, uuid nếu khách cũ
     });
   };
 
   const roomCode = room ? (buildingCode ? `${buildingCode}-${room.id}` : room.id) : '';
-
-  const CiField = ({ label, value, onChange, placeholder, keyboardType, required }) => (
-    <View style={ci.fieldWrap}>
-      <Text style={ci.fieldLabel}>{label}{required && <Text style={{ color: '#e74c3c' }}> *</Text>}</Text>
-      <TextInput
-        style={ci.fieldInput}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor="#8892b0"
-        keyboardType={keyboardType || 'default'}
-      />
-    </View>
-  );
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -928,7 +936,14 @@ function CheckInModal({ visible, room, buildingCode, existingTenants, onClose, o
                 <View style={ci.resultList}>
                   {searchResults.map(tr => (
                     <TouchableOpacity key={tr.id} style={ci.resultItem} onPress={() => fillFromExisting(tr)} activeOpacity={0.7}>
-                      <Text style={ci.resultName}>{tr.name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={ci.resultName}>{tr.name}</Text>
+                        {tr.isOld && (
+                          <View style={ci.oldBadge}>
+                            <Text style={ci.oldBadgeText}>Khách cũ</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={ci.resultMeta}>{tr.cccd} · {tr.phone}</Text>
                     </TouchableOpacity>
                   ))}
@@ -1064,6 +1079,8 @@ const ci = StyleSheet.create({
   resultMeta:    { color: '#8892b0', fontSize: 12, marginTop: 2 },
   resultEmpty:   { marginTop: 6, padding: 12, alignItems: 'center' },
   resultEmptyText: { color: '#8892b0', fontSize: 13 },
+  oldBadge:      { backgroundColor: 'rgba(243,156,18,0.15)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(243,156,18,0.3)' },
+  oldBadgeText:  { color: '#f39c12', fontSize: 10, fontWeight: '700' },
 
   sectionTitle:  { color: '#8892b0', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
   fieldWrap:     { marginBottom: 14 },
@@ -1833,19 +1850,46 @@ export default function RoomsScreen() {
   const totalIss      = allRooms.filter(r => r.status === 'maintenance' || r.status === 'urgent').length;
   const recipientCount  = allRooms.filter(r => r.tenant).length;
 
-  const [allTenants, setAllTenants] = useState([]);
+  const [allTenants,     setAllTenants]     = useState([]);
+  const [historyTenants, setHistoryTenants] = useState([]);
+
   useEffect(() => {
-    supabase.from('tenants').select('id, name, cccd, phone, dob, email').then(({ data }) => {
-      if (data) setAllTenants(data);
+    Promise.all([
+      supabase.from('tenants').select('id, name, cccd, phone, dob, email'),
+      supabase.from('tenant_history').select('id, tenant_name, tenant_cccd, tenant_phone, tenant_dob, tenant_email, move_out_date'),
+    ]).then(([{ data: active }, { data: history }]) => {
+      if (active)  setAllTenants(active);
+      if (history) setHistoryTenants(history);
     });
-  }, [buildings]); // re-fetch when buildings reload
-  const existingTenants = allTenants.map(t => ({
-    id: t.id, name: t.name || '', cccd: t.cccd || '',
-    phone: t.phone || '', dob: t.dob || '', email: t.email || '',
-  }));
+  }, [buildings]);
+
+  // Gộp khách đang thuê + khách cũ, ưu tiên khách đang thuê nếu trùng CCCD
+  const existingTenants = useMemo(() => {
+    const active = allTenants.map(t => ({
+      id: t.id, name: t.name || '', cccd: t.cccd || '',
+      phone: t.phone || '', dob: t.dob || '', email: t.email || '',
+      isOld: false,
+    }));
+    const activeCccds = new Set(active.map(a => a.cccd).filter(Boolean));
+    // Giữ bản mới nhất theo move_out_date cho mỗi CCCD
+    const oldByCccd = new Map();
+    (historyTenants || []).forEach(h => {
+      if (!h.tenant_cccd) return;
+      if (activeCccds.has(h.tenant_cccd)) return;
+      const prev = oldByCccd.get(h.tenant_cccd);
+      if (!prev || (h.move_out_date || '') > (prev.moveOutDate || '')) {
+        oldByCccd.set(h.tenant_cccd, {
+          id: h.id, name: h.tenant_name || '', cccd: h.tenant_cccd || '',
+          phone: h.tenant_phone || '', dob: h.tenant_dob || '', email: h.tenant_email || '',
+          isOld: true, moveOutDate: h.move_out_date || '',
+        });
+      }
+    });
+    return [...active, ...oldByCccd.values()];
+  }, [allTenants, historyTenants]);
 
   const handleSelectRoom = room => {
-    const b = buildings.find(b => b.floors.some(fl => fl.rooms.some(r => r.id === room.id)));
+    const b = buildings.find(b => b.floors.some(fl => fl.rooms.some(r => r.dbId === room.dbId)));
     setSelBuilding(b);
     setSelected(room);
   };
@@ -1974,6 +2018,11 @@ export default function RoomsScreen() {
         if (rmErr) console.warn('[CheckIn] roommates warn:', rmErr.message);
       }
 
+      // 3.5. Khách cũ quay lại → xóa bản ghi lịch sử tương ứng (chuyển sang đang ở)
+      if (tenantData.historyId) {
+        await supabase.from('tenant_history').delete().eq('id', tenantData.historyId);
+      }
+
       // 4. Cập nhật UI ngay lập tức
       setBuildings(prev => {
         let roomFound = false;
@@ -2058,8 +2107,29 @@ export default function RoomsScreen() {
       const tenant = tenantRows?.[0] ?? null;
 
       if (tenant) {
-        // 2. Lưu lịch sử vào tenant_history
-        await supabase.from('tenant_history').insert([{
+        // 2. Lưu lịch sử TRƯỚC — nếu lưu thất bại thì DỪNG, không xóa tenant
+
+        // Lấy lịch sử thanh toán của phòng
+        const { data: pmtRows } = await supabase
+          .from('payments').select('*').eq('room_id', dbRoomId).order('month');
+        const pmtList = pmtRows || [];
+        const paymentSummary = {
+          records:      pmtList.map(p => ({
+            month: p.month, paid: p.paid,
+            amount: p.amount ?? null, paid_at: p.paid_at ?? null, method: p.method ?? null,
+          })),
+          total_months: pmtList.length,
+          paid_count:   pmtList.filter(p => p.paid).length,
+          total_paid:   pmtList.filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0),
+          total_unpaid: pmtList.filter(p => !p.paid).reduce((s, p) => s + (p.amount || 0), 0),
+        };
+
+        // Tìm giá phòng từ buildings context
+        const roomCtx = ownerBuilding?.floors?.flatMap(f => f.rooms).find(r => r.dbId === dbRoomId);
+        const roomPrice = roomCtx?.price ?? null;
+
+        // 7 cột gốc — luôn tồn tại trong mọi phiên bản schema
+        const corePayload = {
           room_id:      dbRoomId,
           building_id:  buildingId,
           tenant_name:  tenant.name,
@@ -2067,14 +2137,28 @@ export default function RoomsScreen() {
           tenant_cccd:  tenant.cccd,
           since_date:   tenant.since_date,
           move_out_date: today,
+        };
+
+        // Thử lần 1: đầy đủ (bao gồm các cột optional cần migration)
+        const { error: histErr1 } = await supabase.from('tenant_history').insert([{
+          ...corePayload,
+          tenant_dob:      tenant.dob   ?? null,
+          tenant_email:    tenant.email ?? null,
+          payment_summary: paymentSummary,
+          room_price:      roomPrice,
         }]);
 
+        if (histErr1) {
+          // Thử lần 2: chỉ cột gốc (đảm bảo hoạt động dù chưa chạy migration)
+          const { error: histErr2 } = await supabase.from('tenant_history').insert([corePayload]);
+          if (histErr2) throw new Error('Không lưu được lịch sử khách hàng: ' + histErr2.message);
+        }
+
         // 3. Tách FK trên payments và messages trước khi xóa tenant
-        //    (hai bảng này không có ON DELETE CASCADE)
         await supabase.from('payments').update({ tenant_id: null }).eq('tenant_id', tenant.id);
         await supabase.from('messages').update({ tenant_id: null }).eq('tenant_id', tenant.id);
 
-        // 4. Xóa roommates (có ON DELETE CASCADE nhưng xóa tường minh cho rõ)
+        // 4. Xóa roommates
         await supabase.from('roommates').delete().eq('tenant_id', tenant.id);
 
         // 5. Xóa tenant

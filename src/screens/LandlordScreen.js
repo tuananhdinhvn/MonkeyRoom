@@ -333,27 +333,36 @@ function InvestmentModal({ visible, onClose, onSave }) {
 // ─── Main Screen ──────────────────────────────────────────
 export default function LandlordScreen() {
   const { buildings } = useBuildings();
-  const [selectedBuilding, setSelectedBuilding] = useState(null);
 
-  const [contract, setContract] = useState(null);
-  const [payments, setPayments] = useState([]);
-  const [investments, setInvestments] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // expandedId — toà nhà đang được mở; dataCache — cache dữ liệu theo building_id
+  const [expandedId,  setExpandedId]  = useState(null);
+  const [loadingId,   setLoadingId]   = useState(null);
+  const [dataCache,   setDataCache]   = useState({}); // { [buildingId]: { contract, payments, investments } }
 
-  const [contractModalVisible, setContractModalVisible] = useState(false);
-  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [contractModalVisible,   setContractModalVisible]   = useState(false);
+  const [paymentModalVisible,    setPaymentModalVisible]    = useState(false);
   const [investmentModalVisible, setInvestmentModalVisible] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
 
+  // Tiện ích truy cập dữ liệu của toà đang mở
+  const activeData    = expandedId ? (dataCache[expandedId] || {}) : {};
+  const contract      = activeData.contract    ?? null;
+  const payments      = activeData.payments    ?? [];
+  const investments   = activeData.investments ?? [];
+  const selectedBuilding = expandedId ? buildings.find(b => b.id === expandedId) : null;
+
+  // Tự mở toà đầu tiên khi buildings load
   useEffect(() => {
-    if (buildings && buildings.length > 0 && !selectedBuilding) {
-      setSelectedBuilding(buildings[0]);
+    if (buildings && buildings.length > 0 && !expandedId) {
+      const first = buildings[0];
+      setExpandedId(first.id);
+      fetchAll(first.id);
     }
   }, [buildings]);
 
   const fetchAll = useCallback(async (buildingId) => {
     if (!buildingId) return;
-    setLoading(true);
+    setLoadingId(buildingId);
     try {
       const [contractRes, paymentsRes, investmentsRes] = await Promise.all([
         supabase.from('landlord_contracts').select('*').eq('building_id', buildingId).maybeSingle(),
@@ -363,50 +372,51 @@ export default function LandlordScreen() {
       if (contractRes.error) throw contractRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
       if (investmentsRes.error) throw investmentsRes.error;
-      setContract(contractRes.data || null);
-      setPayments(paymentsRes.data || []);
-      setInvestments(investmentsRes.data || []);
+      setDataCache(prev => ({
+        ...prev,
+        [buildingId]: {
+          contract:    contractRes.data  || null,
+          payments:    paymentsRes.data  || [],
+          investments: investmentsRes.data || [],
+        },
+      }));
     } catch (err) {
       Alert.alert('Lỗi', err.message || 'Không tải được dữ liệu');
     } finally {
-      setLoading(false);
+      setLoadingId(null);
     }
   }, []);
 
-  useEffect(() => {
-    if (selectedBuilding) {
-      fetchAll(selectedBuilding.id);
+  const handleToggleBuilding = (b) => {
+    if (expandedId === b.id) {
+      setExpandedId(null);
+    } else {
+      setExpandedId(b.id);
+      if (!dataCache[b.id]) fetchAll(b.id);
     }
-  }, [selectedBuilding, fetchAll]);
+  };
 
   const handleSaveContract = async (data) => {
+    if (!selectedBuilding) return;
     try {
       if (contract) {
-        const { error } = await supabase
-          .from('landlord_contracts')
-          .update({ ...data, updated_at: new Date().toISOString() })
-          .eq('id', contract.id);
+        const { error } = await supabase.from('landlord_contracts')
+          .update({ ...data, updated_at: new Date().toISOString() }).eq('id', contract.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('landlord_contracts')
+        const { error } = await supabase.from('landlord_contracts')
           .insert({ ...data, building_id: selectedBuilding.id });
         if (error) throw error;
       }
       setContractModalVisible(false);
       fetchAll(selectedBuilding.id);
-    } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không lưu được hợp đồng');
-    }
+    } catch (err) { Alert.alert('Lỗi', err.message || 'Không lưu được hợp đồng'); }
   };
 
   const handleSavePayment = async (data) => {
+    if (!selectedBuilding) return;
     try {
-      const payload = {
-        ...data,
-        building_id: selectedBuilding.id,
-        contract_id: contract?.id || null,
-      };
+      const payload = { ...data, building_id: selectedBuilding.id, contract_id: contract?.id || null };
       if (selectedPayment) {
         const { error } = await supabase.from('landlord_payments').update(payload).eq('id', selectedPayment.id);
         if (error) throw error;
@@ -417,69 +427,196 @@ export default function LandlordScreen() {
       setPaymentModalVisible(false);
       setSelectedPayment(null);
       fetchAll(selectedBuilding.id);
-    } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không lưu được thanh toán');
-    }
+    } catch (err) { Alert.alert('Lỗi', err.message || 'Không lưu được thanh toán'); }
   };
 
-  const handleDeletePayment = (payment) => {
-    Alert.alert(
-      'Xoá thanh toán',
-      `Xoá kỳ "${payment.period_label}"?`,
-      [
-        { text: 'Huỷ', style: 'cancel' },
-        {
-          text: 'Xoá', style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase.from('landlord_payments').delete().eq('id', payment.id);
-              if (error) throw error;
-              fetchAll(selectedBuilding.id);
-            } catch (err) {
-              Alert.alert('Lỗi', err.message || 'Không xoá được');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeletePayment = async (payment) => {
+    if (!window.confirm(`Xoá kỳ "${payment.period_label}"?`)) return;
+    try {
+      const { error } = await supabase.from('landlord_payments').delete().eq('id', payment.id);
+      if (error) throw error;
+      fetchAll(selectedBuilding.id);
+    } catch (err) { Alert.alert('Lỗi', err.message || 'Không xoá được'); }
   };
 
   const handleSaveInvestment = async (data) => {
+    if (!selectedBuilding) return;
     try {
       const { error } = await supabase.from('building_investments').insert({ ...data, building_id: selectedBuilding.id });
       if (error) throw error;
       setInvestmentModalVisible(false);
       fetchAll(selectedBuilding.id);
-    } catch (err) {
-      Alert.alert('Lỗi', err.message || 'Không lưu được chi phí');
-    }
+    } catch (err) { Alert.alert('Lỗi', err.message || 'Không lưu được chi phí'); }
   };
 
-  const handleDeleteInvestment = (inv) => {
-    Alert.alert(
-      'Xoá chi phí',
-      `Xoá "${inv.description}"?`,
-      [
-        { text: 'Huỷ', style: 'cancel' },
-        {
-          text: 'Xoá', style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase.from('building_investments').delete().eq('id', inv.id);
-              if (error) throw error;
-              fetchAll(selectedBuilding.id);
-            } catch (err) {
-              Alert.alert('Lỗi', err.message || 'Không xoá được');
-            }
-          },
-        },
-      ]
+  const handleDeleteInvestment = async (inv) => {
+    if (!window.confirm(`Xoá "${inv.description}"?`)) return;
+    try {
+      const { error } = await supabase.from('building_investments').delete().eq('id', inv.id);
+      if (error) throw error;
+      fetchAll(selectedBuilding.id);
+    } catch (err) { Alert.alert('Lỗi', err.message || 'Không xoá được'); }
+  };
+
+  // ─── Render nội dung bên trong accordion của 1 toà nhà ────
+  const renderBuildingContent = (b) => {
+    const bData = dataCache[b.id] || {};
+    const bContract    = bData.contract    ?? null;
+    const bPayments    = bData.payments    ?? [];
+    const bInvestments = bData.investments ?? [];
+    const totalPaid      = bPayments.filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
+    const totalUnpaid    = bPayments.filter(p => !p.paid).reduce((s, p) => s + (p.amount || 0), 0);
+    const totalInvestment = bInvestments.reduce((s, i) => s + (i.amount || 0), 0);
+
+    if (loadingId === b.id) {
+      return (
+        <View style={s.inlineLoading}>
+          <ActivityIndicator color={ACCENT} size="small" />
+          <Text style={s.inlineLoadingText}>Đang tải...</Text>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        {/* ── Hợp đồng ── */}
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>📋 Hợp đồng</Text>
+            <TouchableOpacity style={s.sectionBtn} onPress={() => setContractModalVisible(true)}>
+              <Text style={s.sectionBtnText}>{bContract ? 'Chỉnh sửa' : '+ Thêm'}</Text>
+            </TouchableOpacity>
+          </View>
+          {bContract ? (
+            <View style={s.card}>
+              {[
+                { label: 'Bắt đầu',         value: bContract.start_date || '—' },
+                { label: 'Kết thúc',         value: bContract.end_date   || '—' },
+                { label: 'Tiền thuê / tháng', value: formatMoney(bContract.monthly_rent), accent: true },
+                { label: 'Tiền đặt cọc',     value: formatMoney(bContract.deposit) },
+                { label: 'Ngày đóng tiền',   value: `Ngày ${bContract.payment_day} hàng tháng` },
+                { label: 'Hình thức',         value: getPayFreqLabel(bContract.pay_frequency) },
+                ...(bContract.notes ? [{ label: 'Ghi chú', value: bContract.notes }] : []),
+              ].map((row, i, arr) => (
+                <View key={i} style={[s.contractRow, row.accent && s.contractHighlight, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
+                  <Text style={s.contractLabel}>{row.label}</Text>
+                  <Text style={[s.contractValue, row.accent && { color: ACCENT, fontWeight: '700' }, i === arr.length - 1 && { flex: 1, textAlign: 'right' }]}>{row.value}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={s.emptyCard}>
+              <Text style={s.emptyIcon}>📋</Text>
+              <Text style={s.emptyText}>Chưa có hợp đồng</Text>
+              <Text style={s.emptySubText}>Nhấn "+ Thêm" để tạo hợp đồng đầu tiên</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Lịch thanh toán ── */}
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>💰 Lịch thanh toán</Text>
+            <TouchableOpacity style={s.sectionBtn} onPress={() => { setSelectedPayment(null); setPaymentModalVisible(true); }}>
+              <Text style={s.sectionBtnText}>+ Ghi nhận</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={s.summaryRow}>
+            <View style={s.summaryItem}>
+              <Text style={s.summaryLabel}>Đã đóng</Text>
+              <Text style={[s.summaryValue, { color: '#2ecc71' }]}>{formatMoney(totalPaid)}</Text>
+            </View>
+            <View style={s.summaryDivider} />
+            <View style={s.summaryItem}>
+              <Text style={s.summaryLabel}>Còn nợ</Text>
+              <Text style={[s.summaryValue, { color: '#e74c3c' }]}>{formatMoney(totalUnpaid)}</Text>
+            </View>
+          </View>
+          {bPayments.length === 0 ? (
+            <View style={s.emptyCard}>
+              <Text style={s.emptyIcon}>💸</Text>
+              <Text style={s.emptyText}>Chưa có kỳ thanh toán</Text>
+              <Text style={s.emptySubText}>Nhấn "+ Ghi nhận" để thêm kỳ đầu tiên</Text>
+            </View>
+          ) : bPayments.map(payment => {
+            const icon = getPaymentIcon(payment);
+            const status = getPaymentStatus(payment);
+            return (
+              <TouchableOpacity
+                key={payment.id}
+                style={s.paymentCard}
+                onPress={() => { setSelectedPayment(payment); setPaymentModalVisible(true); }}
+                onLongPress={() => handleDeletePayment(payment)}
+              >
+                <View style={s.paymentLeft}>
+                  <Text style={{ fontSize: 20 }}>{icon}</Text>
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <Text style={s.paymentLabel}>{payment.period_label}</Text>
+                    {payment.due_date ? <Text style={s.paymentSub}>Hạn: {payment.due_date}</Text> : null}
+                    {payment.paid && payment.paid_date ? <Text style={[s.paymentSub, { color: '#2ecc71' }]}>Đã trả: {payment.paid_date}</Text> : null}
+                    {payment.notes ? <Text style={s.paymentSub}>{payment.notes}</Text> : null}
+                  </View>
+                </View>
+                <View style={s.paymentRight}>
+                  <Text style={[s.paymentAmount, status === 'overdue' && { color: '#e74c3c' }, status === 'paid' && { color: '#2ecc71' }]}>
+                    {formatMoney(payment.amount)}
+                  </Text>
+                  <View style={[s.paymentBadge,
+                    status === 'paid'    && { backgroundColor: 'rgba(46,204,113,0.2)' },
+                    status === 'overdue' && { backgroundColor: 'rgba(231,76,60,0.2)' },
+                    status === 'pending' && { backgroundColor: 'rgba(243,156,18,0.2)' },
+                  ]}>
+                    <Text style={[s.paymentBadgeText,
+                      status === 'paid'    && { color: '#2ecc71' },
+                      status === 'overdue' && { color: '#e74c3c' },
+                      status === 'pending' && { color: ACCENT },
+                    ]}>
+                      {status === 'paid' ? 'Đã đóng' : status === 'overdue' ? 'Quá hạn' : 'Chờ đóng'}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* ── Đầu tư & Cải tạo ── */}
+        <View style={[s.section, { marginBottom: 8 }]}>
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionTitle}>🏗️ Đầu tư & Cải tạo</Text>
+            <TouchableOpacity style={s.sectionBtn} onPress={() => setInvestmentModalVisible(true)}>
+              <Text style={s.sectionBtnText}>+ Thêm</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={[s.summaryRow, { marginBottom: 10 }]}>
+            <View style={s.summaryItem}>
+              <Text style={s.summaryLabel}>Tổng đầu tư</Text>
+              <Text style={[s.summaryValue, { color: ACCENT }]}>{formatMoney(totalInvestment)}</Text>
+            </View>
+          </View>
+          {bInvestments.length === 0 ? (
+            <View style={s.emptyCard}>
+              <Text style={s.emptyIcon}>🏗️</Text>
+              <Text style={s.emptyText}>Chưa có chi phí đầu tư</Text>
+              <Text style={s.emptySubText}>Nhấn "+ Thêm" để ghi nhận chi phí</Text>
+            </View>
+          ) : bInvestments.map(inv => {
+            const cat = getCategoryInfo(inv.category);
+            return (
+              <TouchableOpacity key={inv.id} style={s.investCard} onLongPress={() => handleDeleteInvestment(inv)}>
+                <View style={s.investIconWrap}><Text style={{ fontSize: 22 }}>{cat.icon}</Text></View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={s.investDesc}>{inv.description}</Text>
+                  <Text style={s.investMeta}>{cat.label}  ·  {inv.inv_date}</Text>
+                </View>
+                <Text style={[s.investAmount, { color: ACCENT }]}>{formatMoney(inv.amount)}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </>
     );
   };
-
-  const totalPaid = payments.filter(p => p.paid).reduce((sum, p) => sum + (p.amount || 0), 0);
-  const totalUnpaid = payments.filter(p => !p.paid).reduce((sum, p) => sum + (p.amount || 0), 0);
-  const totalInvestment = investments.reduce((sum, i) => sum + (i.amount || 0), 0);
 
   return (
     <LinearGradient colors={['#1a1a2e', '#16213e']} style={s.flex1}>
@@ -488,207 +625,43 @@ export default function LandlordScreen() {
 
         <View style={s.header}>
           <Text style={s.headerTitle}>🏡 Quản lý chủ nhà</Text>
+          <Text style={s.headerSub}>{(buildings || []).length} toà nhà đang quản lý</Text>
         </View>
 
-        {/* Building Selector */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.buildingScroll} contentContainerStyle={s.buildingScrollContent}>
-          {(buildings || []).map(b => {
-            const active = selectedBuilding?.id === b.id;
+        <ScrollView style={s.flex1} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+          {(buildings || []).map((b, idx) => {
+            const isExpanded = expandedId === b.id;
             return (
-              <TouchableOpacity
-                key={b.id}
-                style={[s.buildingChip, active && { backgroundColor: ACCENT, borderColor: ACCENT }]}
-                onPress={() => setSelectedBuilding(b)}
-              >
-                <Text style={[s.buildingChipText, active && { color: '#1a1a2e', fontWeight: '700' }]}>{b.name}</Text>
-              </TouchableOpacity>
+              <View key={b.id} style={[s.accordionCard, isExpanded && s.accordionCardOpen]}>
+                {/* ── Header luôn hiển thị ── */}
+                <TouchableOpacity
+                  style={s.accordionHeader}
+                  onPress={() => handleToggleBuilding(b)}
+                  activeOpacity={0.7}
+                >
+                  <View style={s.accordionLeft}>
+                    <View style={[s.accordionIconBox, isExpanded && { backgroundColor: 'rgba(243,156,18,0.2)' }]}>
+                      <Text style={{ fontSize: 18 }}>🏢</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.accordionName, isExpanded && { color: ACCENT }]}>{b.name}</Text>
+                      {b.address ? <Text style={s.accordionAddr} numberOfLines={1}>{b.address}</Text> : null}
+                    </View>
+                  </View>
+                  <Text style={[s.chevron, isExpanded && s.chevronOpen]}>›</Text>
+                </TouchableOpacity>
+
+                {/* ── Nội dung mở rộng ── */}
+                {isExpanded && (
+                  <View style={s.accordionBody}>
+                    {renderBuildingContent(b)}
+                  </View>
+                )}
+              </View>
             );
           })}
+          <View style={{ height: 32 }} />
         </ScrollView>
-
-        {loading ? (
-          <View style={s.loadingContainer}>
-            <ActivityIndicator color={ACCENT} size="large" />
-            <Text style={s.loadingText}>Đang tải...</Text>
-          </View>
-        ) : (
-          <ScrollView style={s.flex1} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-
-            {/* ── Section 1: Hợp đồng ─────────────────────────── */}
-            <View style={s.section}>
-              <View style={s.sectionHeader}>
-                <Text style={s.sectionTitle}>📋 Hợp đồng</Text>
-                <TouchableOpacity
-                  style={s.sectionBtn}
-                  onPress={() => setContractModalVisible(true)}
-                >
-                  <Text style={s.sectionBtnText}>{contract ? 'Chỉnh sửa' : '+ Thêm'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {contract ? (
-                <View style={s.card}>
-                  <View style={s.contractRow}>
-                    <Text style={s.contractLabel}>Bắt đầu</Text>
-                    <Text style={s.contractValue}>{contract.start_date || '—'}</Text>
-                  </View>
-                  <View style={s.contractRow}>
-                    <Text style={s.contractLabel}>Kết thúc</Text>
-                    <Text style={s.contractValue}>{contract.end_date || '—'}</Text>
-                  </View>
-                  <View style={[s.contractRow, s.contractHighlight]}>
-                    <Text style={s.contractLabel}>Tiền thuê / tháng</Text>
-                    <Text style={[s.contractValue, { color: ACCENT, fontWeight: '700' }]}>{formatMoney(contract.monthly_rent)}</Text>
-                  </View>
-                  <View style={s.contractRow}>
-                    <Text style={s.contractLabel}>Tiền đặt cọc</Text>
-                    <Text style={s.contractValue}>{formatMoney(contract.deposit)}</Text>
-                  </View>
-                  <View style={s.contractRow}>
-                    <Text style={s.contractLabel}>Ngày đóng tiền</Text>
-                    <Text style={s.contractValue}>Ngày {contract.payment_day} hàng tháng</Text>
-                  </View>
-                  <View style={s.contractRow}>
-                    <Text style={s.contractLabel}>Hình thức</Text>
-                    <Text style={s.contractValue}>{getPayFreqLabel(contract.pay_frequency)}</Text>
-                  </View>
-                  {contract.notes ? (
-                    <View style={[s.contractRow, { borderBottomWidth: 0 }]}>
-                      <Text style={s.contractLabel}>Ghi chú</Text>
-                      <Text style={[s.contractValue, { flex: 1, textAlign: 'right' }]}>{contract.notes}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : (
-                <View style={s.emptyCard}>
-                  <Text style={s.emptyIcon}>📋</Text>
-                  <Text style={s.emptyText}>Chưa có hợp đồng</Text>
-                  <Text style={s.emptySubText}>Nhấn "+ Thêm" để tạo hợp đồng đầu tiên</Text>
-                </View>
-              )}
-            </View>
-
-            {/* ── Section 2: Lịch thanh toán ──────────────────── */}
-            <View style={s.section}>
-              <View style={s.sectionHeader}>
-                <Text style={s.sectionTitle}>💰 Lịch thanh toán</Text>
-                <TouchableOpacity
-                  style={s.sectionBtn}
-                  onPress={() => { setSelectedPayment(null); setPaymentModalVisible(true); }}
-                >
-                  <Text style={s.sectionBtnText}>+ Ghi nhận</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={s.summaryRow}>
-                <View style={s.summaryItem}>
-                  <Text style={s.summaryLabel}>Đã đóng</Text>
-                  <Text style={[s.summaryValue, { color: '#2ecc71' }]}>{formatMoney(totalPaid)}</Text>
-                </View>
-                <View style={s.summaryDivider} />
-                <View style={s.summaryItem}>
-                  <Text style={s.summaryLabel}>Còn nợ</Text>
-                  <Text style={[s.summaryValue, { color: '#e74c3c' }]}>{formatMoney(totalUnpaid)}</Text>
-                </View>
-              </View>
-
-              {payments.length === 0 ? (
-                <View style={s.emptyCard}>
-                  <Text style={s.emptyIcon}>💸</Text>
-                  <Text style={s.emptyText}>Chưa có kỳ thanh toán</Text>
-                  <Text style={s.emptySubText}>Nhấn "+ Ghi nhận" để thêm kỳ đầu tiên</Text>
-                </View>
-              ) : (
-                payments.map(payment => {
-                  const icon = getPaymentIcon(payment);
-                  const status = getPaymentStatus(payment);
-                  return (
-                    <TouchableOpacity
-                      key={payment.id}
-                      style={s.paymentCard}
-                      onPress={() => { setSelectedPayment(payment); setPaymentModalVisible(true); }}
-                      onLongPress={() => handleDeletePayment(payment)}
-                    >
-                      <View style={s.paymentLeft}>
-                        <Text style={{ fontSize: 20 }}>{icon}</Text>
-                        <View style={{ marginLeft: 10, flex: 1 }}>
-                          <Text style={s.paymentLabel}>{payment.period_label}</Text>
-                          {payment.due_date ? <Text style={s.paymentSub}>Hạn: {payment.due_date}</Text> : null}
-                          {payment.paid && payment.paid_date ? <Text style={[s.paymentSub, { color: '#2ecc71' }]}>Đã trả: {payment.paid_date}</Text> : null}
-                          {payment.notes ? <Text style={s.paymentSub}>{payment.notes}</Text> : null}
-                        </View>
-                      </View>
-                      <View style={s.paymentRight}>
-                        <Text style={[s.paymentAmount, status === 'overdue' && { color: '#e74c3c' }, status === 'paid' && { color: '#2ecc71' }]}>
-                          {formatMoney(payment.amount)}
-                        </Text>
-                        <View style={[s.paymentBadge,
-                          status === 'paid' && { backgroundColor: 'rgba(46,204,113,0.2)' },
-                          status === 'overdue' && { backgroundColor: 'rgba(231,76,60,0.2)' },
-                          status === 'pending' && { backgroundColor: 'rgba(243,156,18,0.2)' },
-                        ]}>
-                          <Text style={[s.paymentBadgeText,
-                            status === 'paid' && { color: '#2ecc71' },
-                            status === 'overdue' && { color: '#e74c3c' },
-                            status === 'pending' && { color: ACCENT },
-                          ]}>
-                            {status === 'paid' ? 'Đã đóng' : status === 'overdue' ? 'Quá hạn' : 'Chờ đóng'}
-                          </Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-
-            {/* ── Section 3: Đầu tư & Cải tạo ─────────────────── */}
-            <View style={[s.section, { marginBottom: 32 }]}>
-              <View style={s.sectionHeader}>
-                <Text style={s.sectionTitle}>🏗️ Đầu tư & Cải tạo</Text>
-                <TouchableOpacity style={s.sectionBtn} onPress={() => setInvestmentModalVisible(true)}>
-                  <Text style={s.sectionBtnText}>+ Thêm</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={[s.summaryRow, { marginBottom: 12 }]}>
-                <View style={s.summaryItem}>
-                  <Text style={s.summaryLabel}>Tổng đầu tư</Text>
-                  <Text style={[s.summaryValue, { color: ACCENT }]}>{formatMoney(totalInvestment)}</Text>
-                </View>
-              </View>
-
-              {investments.length === 0 ? (
-                <View style={s.emptyCard}>
-                  <Text style={s.emptyIcon}>🏗️</Text>
-                  <Text style={s.emptyText}>Chưa có chi phí đầu tư</Text>
-                  <Text style={s.emptySubText}>Nhấn "+ Thêm" để ghi nhận chi phí</Text>
-                </View>
-              ) : (
-                investments.map(inv => {
-                  const cat = getCategoryInfo(inv.category);
-                  return (
-                    <TouchableOpacity
-                      key={inv.id}
-                      style={s.investCard}
-                      onLongPress={() => handleDeleteInvestment(inv)}
-                    >
-                      <View style={s.investIconWrap}>
-                        <Text style={{ fontSize: 22 }}>{cat.icon}</Text>
-                      </View>
-                      <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={s.investDesc}>{inv.description}</Text>
-                        <Text style={s.investMeta}>{cat.label}  ·  {inv.inv_date}</Text>
-                      </View>
-                      <Text style={[s.investAmount, { color: ACCENT }]}>{formatMoney(inv.amount)}</Text>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-
-          </ScrollView>
-        )}
 
         <ContractModal
           visible={contractModalVisible}
@@ -725,34 +698,83 @@ const s = StyleSheet.create({
     color: '#ccd6f6',
     letterSpacing: 0.3,
   },
-  buildingScroll: { flexGrow: 0 },
-  buildingScrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
-    flexDirection: 'row',
-  },
-  buildingChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  buildingChipText: {
+  headerSub: {
     color: '#8892b0',
     fontSize: 13,
-    fontWeight: '600',
+    marginTop: 2,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  scrollContent: { paddingHorizontal: 16, paddingTop: 8 },
+  accordionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  accordionCardOpen: {
+    borderColor: 'rgba(243,156,18,0.4)',
+    backgroundColor: 'rgba(243,156,18,0.04)',
+  },
+  accordionHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  accordionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
     gap: 12,
   },
-  loadingText: { color: '#8892b0', fontSize: 14 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
+  accordionIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  accordionName: {
+    color: '#ccd6f6',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  accordionAddr: {
+    color: '#8892b0',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  chevron: {
+    color: '#8892b0',
+    fontSize: 22,
+    fontWeight: '300',
+    transform: [{ rotate: '0deg' }],
+  },
+  chevronOpen: {
+    color: ACCENT,
+    transform: [{ rotate: '90deg' }],
+  },
+  accordionBody: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    paddingTop: 16,
+  },
+  inlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 10,
+  },
+  inlineLoadingText: {
+    color: '#8892b0',
+    fontSize: 13,
+  },
   section: { marginBottom: 20 },
   sectionHeader: {
     flexDirection: 'row',

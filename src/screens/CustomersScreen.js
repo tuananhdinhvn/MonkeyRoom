@@ -13,6 +13,10 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const SCREEN_H = Dimensions.get('window').height;
 
+function formatMoney(n) {
+  if (!n && n !== 0) return '—';
+  return Number(n).toLocaleString('vi-VN') + ' ₫';
+}
 
 // ─── Date Picker Modal ────────────────────────────────────
 function DatePickerModal({ visible, value, onConfirm, onClose }) {
@@ -168,7 +172,12 @@ const BUILDING_CODES = {
 
 function getRoomCode(building, room) {
   const code = BUILDING_CODES[building] || 'UNK';
-  const num  = room ? room.replace(/^[A-Za-z](?=\d)/, '') : '—';
+  if (!room || room === '—') return '—';
+  // DB room_id có thể dạng "4-2-203" hoặc "b1-1-1234-101" → chỉ lấy phần cuối
+  const parts = String(room).split('-');
+  const num = parts.length >= 2
+    ? parts[parts.length - 1]
+    : parts[0].replace(/^[A-Za-z](?=\d)/, '');
   return `${code}-${num}`;
 }
 
@@ -211,7 +220,27 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdrop   = useRef(new Animated.Value(0)).current;
   const openedId   = useRef(null);
-  const [visible, setVisible] = useState(false);
+  const [visible,        setVisible]        = useState(false);
+  const [stayHistory,    setStayHistory]    = useState([]);
+  const [expandedStayId, setExpandedStayId] = useState(null);
+
+  useEffect(() => {
+    if (!customer) { setStayHistory([]); return; }
+    const cccd  = customer.cccd;
+    const phone = customer.phone;
+    if (!cccd && !phone) { setStayHistory([]); return; }
+    setExpandedStayId(null);
+    const conds = [
+      cccd  ? `tenant_cccd.eq.${cccd}`   : null,
+      phone ? `tenant_phone.eq.${phone}` : null,
+    ].filter(Boolean).join(',');
+    supabase
+      .from('tenant_history')
+      .select('*, buildings(name, code)')
+      .or(conds)
+      .order('move_out_date', { ascending: false })
+      .then(({ data }) => { if (data) setStayHistory(data); });
+  }, [customer?.id]);
 
   useEffect(() => {
     if (customer && customer.id !== openedId.current) {
@@ -300,6 +329,7 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
                   <DtRow label={t('customers.customerId')}  value={getCustomerId(c.phone)} accent />
                   <DtRow label={t('customers.fullName')}    value={c.name} />
                   <DtRow label={t('customers.phone')}       value={c.phone} />
+                  <DtRow label="Số CCCD"                    value={c.cccd || '—'} />
                   <DtRow label={t('customers.email')}       value={c.email} />
                   <DtRow label={t('customers.birthday')}    value={c.dob} />
                 </View>
@@ -401,44 +431,117 @@ function CustomerDetailModal({ customer, onClose, onEdit }) {
               {/* Rental history */}
               <View style={dt.section}>
                 <Text style={dt.sectionTitle}>{t('customers.rentalHistory')}</Text>
-                {/* Current / last room */}
+
+                {/* Phòng hiện tại (đang ở) hoặc phòng gần nhất (khách cũ) */}
                 {c.building && c.room && (
-                  <View style={dt.rentalItem}>
-                    <View style={dt.rentalInfo}>
-                      <Text style={dt.rentalRoomCode}>{getRoomCode(c.building, c.room)}</Text>
-                      <Text style={dt.rentalBuilding}>{c.building}</Text>
-                      <Text style={dt.rentalDate}>
-                        {c.isFormer ? `${c.since} → ${c.moveOutDate}` : `${t('customers.from')} ${c.since}`}
-                      </Text>
-                      {c.isFormer && c.moveOutReason && (
-                        <Text style={dt.rentalNote}>{t('customers.moveoutNote')} {c.moveOutReason}</Text>
-                      )}
-                    </View>
-                    <View style={[dt.rentalBadge, c.isFormer ? dt.rentalBadgeLast : dt.rentalBadgeCurrent]}>
-                      <Text style={dt.rentalBadgeText}>{c.isFormer ? t('customers.lastRoom') : t('customers.currentlyStay')}</Text>
+                  <View style={dt.stayCard}>
+                    <View style={dt.stayCardHeader}>
+                      <View style={dt.stayCardLeft}>
+                        <Text style={dt.stayRoomCode}>{getRoomCode(c.building, c.room)}</Text>
+                        <Text style={dt.stayBuilding}>{c.building}</Text>
+                        <Text style={dt.stayDates}>
+                          {c.isFormer
+                            ? `${c.since || '?'} → ${c.moveOutDate || '?'}`
+                            : `Từ ${c.since || '?'}`}
+                        </Text>
+                        {/* Tóm tắt thanh toán phòng hiện tại (active tenant) */}
+                        {!c.isFormer && c.paymentHistory && c.paymentHistory.length > 0 && (() => {
+                          const paidN = c.paymentHistory.filter(p => p.paid).length;
+                          const total = c.paymentHistory.length;
+                          return (
+                            <Text style={dt.stayPayLine}>
+                              {paidN}/{total} tháng đã đóng
+                              {paidN < total ? ' · Còn nợ' : ' · Đầy đủ ✓'}
+                            </Text>
+                          );
+                        })()}
+                        {/* Tóm tắt thanh toán phòng cuối (former) */}
+                        {c.isFormer && c.paymentSummary && (
+                          <Text style={dt.stayPayLine}>
+                            {c.paymentSummary.paid_count}/{c.paymentSummary.total_months} tháng đã đóng
+                            {c.paymentSummary.total_unpaid > 0
+                              ? ` · Nợ ${formatMoney(c.paymentSummary.total_unpaid)}`
+                              : ' · Đầy đủ ✓'}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={[dt.stayBadge, c.isFormer ? dt.stayBadgeLast : dt.stayBadgeCurrent]}>
+                        <Text style={dt.stayBadgeText}>{c.isFormer ? 'Đã ở' : 'Đang ở ✓'}</Text>
+                      </View>
                     </View>
                   </View>
                 )}
-                {/* Past rooms */}
-                {c.rentalHistory && c.rentalHistory.length > 0
-                  ? c.rentalHistory.map((r, i) => (
-                      <View key={i} style={dt.rentalItem}>
-                        <View style={dt.rentalInfo}>
-                          <Text style={dt.rentalRoomCode}>{getRoomCode(r.building, r.room)}</Text>
-                          <Text style={dt.rentalBuilding}>{r.building}</Text>
-                          <Text style={dt.rentalDate}>{r.from} → {r.to}</Text>
-                        </View>
-                        <View style={[dt.rentalBadge, dt.rentalBadgePast]}>
-                          <Text style={dt.rentalBadgeText}>{t('customers.stayedHere')}</Text>
-                        </View>
+
+                {/* Lịch sử các phòng đã từng ở (từ tenant_history) */}
+                {stayHistory
+                  .filter(h => c.isFormer ? h.id !== c.id : true)
+                  .map((h) => {
+                    const isExp   = expandedStayId === h.id;
+                    const bName   = h.buildings?.name || h.building_id || '—';
+                    const code    = getRoomCode(bName, h.room_id);
+                    const ps      = h.payment_summary;
+                    return (
+                      <View key={h.id} style={dt.stayCard}>
+                        <TouchableOpacity
+                          style={dt.stayCardHeader}
+                          onPress={() => setExpandedStayId(isExp ? null : h.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={dt.stayCardLeft}>
+                            <Text style={dt.stayRoomCode}>{code}</Text>
+                            <Text style={dt.stayBuilding}>{bName}</Text>
+                            <Text style={dt.stayDates}>
+                              {h.since_date || '?'} → {h.move_out_date || '?'}
+                            </Text>
+                            {ps
+                              ? <Text style={dt.stayPayLine}>
+                                  {ps.paid_count}/{ps.total_months} tháng đã đóng
+                                  {ps.total_unpaid > 0
+                                    ? ` · Nợ ${formatMoney(ps.total_unpaid)}`
+                                    : ' · Đầy đủ ✓'}
+                                </Text>
+                              : <Text style={[dt.stayPayLine, { fontStyle: 'italic' }]}>Chưa có dữ liệu thanh toán</Text>
+                            }
+                          </View>
+                          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                            <View style={dt.stayBadgePast}><Text style={dt.stayBadgeText}>Đã ở</Text></View>
+                            {ps?.records?.length > 0 && (
+                              <Text style={dt.stayDetailBtn}>{isExp ? 'Ẩn ▴' : 'Chi tiết ▾'}</Text>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Bảng chi tiết thanh toán */}
+                        {isExp && ps?.records && (
+                          <View style={dt.stayPayTable}>
+                            <View style={dt.stayPayTableHead}>
+                              <Text style={[dt.stayPayCell, dt.stayPayCellHead, { flex: 1.2 }]}>Tháng</Text>
+                              <Text style={[dt.stayPayCell, dt.stayPayCellHead, { flex: 1.6 }]}>Số tiền</Text>
+                              <Text style={[dt.stayPayCell, dt.stayPayCellHead, { flex: 1.3 }]}>Ngày đóng</Text>
+                              <Text style={[dt.stayPayCell, dt.stayPayCellHead, { flex: 1 }]}>TT</Text>
+                            </View>
+                            {ps.records.map((p, j) => (
+                              <View key={j} style={[dt.stayPayTableRow, j % 2 === 0 && dt.stayPayTableRowAlt]}>
+                                <Text style={[dt.stayPayCell, { flex: 1.2 }]}>{p.month || '—'}</Text>
+                                <Text style={[dt.stayPayCell, { flex: 1.6 }]}>{p.amount ? formatMoney(p.amount) : '—'}</Text>
+                                <Text style={[dt.stayPayCell, { flex: 1.3 }]}>{p.paid_at || '—'}</Text>
+                                <Text style={[dt.stayPayCell, { flex: 1, fontWeight: '700', color: p.paid ? '#2ecc71' : '#e94560' }]}>
+                                  {p.paid ? '✓' : '✗ Nợ'}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
                       </View>
-                    ))
-                  : (!c.building && !c.room) && (
-                      <View style={dt.emptyBox}>
-                        <Text style={dt.emptyText}>{t('customers.noRentalHist')}</Text>
-                      </View>
-                    )
+                    );
+                  })
                 }
+
+                {stayHistory.length === 0 && !c.building && !c.room && (
+                  <View style={dt.emptyBox}>
+                    <Text style={dt.emptyText}>{t('customers.noRentalHist')}</Text>
+                  </View>
+                )}
               </View>
 
               <View style={{ height: 40 }} />
@@ -474,10 +577,13 @@ export default function CustomersScreen() {
       if (!data) return;
       setFormerCustomers(data.map(th => ({
         id:             th.id,
-        name:           th.tenant_name || '—',
+        name:           th.tenant_name  || '—',
         phone:          th.tenant_phone || '',
-        email:          '',
-        dob:            '',
+        cccd:           th.tenant_cccd  || '',
+        email:          th.tenant_email || '',
+        dob:            th.tenant_dob   || '',
+        paymentSummary: th.payment_summary || null,
+        roomPrice:      th.room_price      || null,
         building:       th.buildings?.name || th.building_id || '—',
         room:           th.room_id || '—',
         since:          th.since_date || '',
@@ -498,7 +604,7 @@ export default function CustomersScreen() {
         rentalHistory:  [],
       })));
     });
-  }, []);
+  }, [buildings]);
 
   // Derive current tenants from live buildings data
   const activeTenants = useMemo(() => {
@@ -523,14 +629,15 @@ export default function CustomersScreen() {
             idBack:  r.cccdImages?.[1] || null,
             paymentHistory: (r.paymentHistory || []).map(p => ({
               month:  p.month,
-              amount: r.price,
-              date:   '—',
-              method: p.paid ? 'Đã thanh toán' : 'Chưa thanh toán',
+              paid:   p.paid,
+              amount: p.amount || r.price,
+              paidAt: p.paidAt,
+              method: p.method,
             })),
             incidentHistory: (r.messages || [])
               .filter(m => m.resolved)
               .map(m => ({ issue: m.text, resolvedBy: m.resolvedBy || '—', resolvedAt: m.time })),
-            email: '', dob: '', isFormer: false,
+            cccd: r.tenantCccd || '', email: '', dob: r.tenantDob || '', isFormer: false,
             hasRequest: false, hasMoveout: false, hasUrgent: false,
           });
         });
@@ -547,6 +654,7 @@ export default function CustomersScreen() {
     return !q
       || c.name.toLowerCase().includes(q)
       || (c.phone && c.phone.includes(q))
+      || (c.cccd  && c.cccd.includes(q))
       || (c.room  && c.room.toLowerCase().includes(q))
       || (fullCode && fullCode.includes(q))
       || (c.email && c.email.toLowerCase().includes(q));
@@ -747,18 +855,26 @@ const dt = StyleSheet.create({
   formerBadge:   { backgroundColor: 'rgba(136,146,176,0.12)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(136,146,176,0.25)' },
   formerBadgeText: { color: '#8892b0', fontSize: 12, fontWeight: '700' },
 
-  // Rental history section
-  rentalItem:         { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10, gap: 12 },
-  rentalBadge:        { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, minWidth: 72, alignItems: 'center', borderWidth: 1 },
-  rentalBadgeCurrent: { backgroundColor: 'rgba(46,204,113,0.15)', borderColor: 'rgba(46,204,113,0.35)' },
-  rentalBadgeLast:    { backgroundColor: 'rgba(136,146,176,0.12)', borderColor: 'rgba(136,146,176,0.3)' },
-  rentalBadgePast:    { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' },
-  rentalBadgeText:    { fontSize: 11, fontWeight: '700', color: '#ccd6f6' },
-  rentalInfo:         { flex: 1 },
-  rentalRoomCode:     { color: '#4facfe', fontSize: 14, fontWeight: '800', letterSpacing: 0.4 },
-  rentalBuilding:     { color: '#8892b0', fontSize: 12, marginTop: 1 },
-  rentalDate:         { color: '#ccd6f6', fontSize: 12, marginTop: 3 },
-  rentalNote:         { color: '#f1c40f', fontSize: 11, marginTop: 2 },
+  // Stay history cards
+  stayCard:           { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 10, overflow: 'hidden' },
+  stayCardHeader:     { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', padding: 14 },
+  stayCardLeft:       { flex: 1, marginRight: 10 },
+  stayRoomCode:       { color: '#4facfe', fontSize: 14, fontWeight: '800', letterSpacing: 0.4 },
+  stayBuilding:       { color: '#8892b0', fontSize: 12, marginTop: 2 },
+  stayDates:          { color: '#ccd6f6', fontSize: 12, marginTop: 3 },
+  stayPayLine:        { color: '#8892b0', fontSize: 11, marginTop: 4 },
+  stayBadge:          { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1 },
+  stayBadgeCurrent:   { backgroundColor: 'rgba(46,204,113,0.15)', borderColor: 'rgba(46,204,113,0.35)' },
+  stayBadgeLast:      { backgroundColor: 'rgba(136,146,176,0.12)', borderColor: 'rgba(136,146,176,0.3)' },
+  stayBadgePast:      { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  stayBadgeText:      { fontSize: 11, fontWeight: '700', color: '#ccd6f6' },
+  stayDetailBtn:      { color: '#4facfe', fontSize: 11, fontWeight: '700' },
+  stayPayTable:       { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' },
+  stayPayTableHead:   { flexDirection: 'row', backgroundColor: 'rgba(79,172,254,0.1)', paddingVertical: 7, paddingHorizontal: 12 },
+  stayPayTableRow:    { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 12 },
+  stayPayTableRowAlt: { backgroundColor: 'rgba(255,255,255,0.03)' },
+  stayPayCell:        { color: '#ccd6f6', fontSize: 11, flex: 1 },
+  stayPayCellHead:    { color: '#8892b0', fontWeight: '700', fontSize: 10 },
 
   // Payment history table (new)
   historyTable:    { borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },

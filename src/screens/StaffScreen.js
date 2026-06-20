@@ -1165,11 +1165,12 @@ const s = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: '#1a1a2e' },
   container: { flex: 1, backgroundColor: '#0d0d1a' },
 
-  header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30, paddingBottom: 20 },
-  title:      { color: '#fff', fontSize: 22, fontWeight: '800' },
-  subtitle:   { color: '#8892b0', fontSize: 13, marginTop: 4 },
-  addBtn:     { backgroundColor: 'rgba(192,132,252,0.18)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(192,132,252,0.5)' },
-  addBtnText: { color: MGR_COLOR, fontWeight: '800', fontSize: 13 },
+  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30, paddingBottom: 20 },
+  title:       { color: '#fff', fontSize: 22, fontWeight: '800' },
+  subtitle:    { color: '#8892b0', fontSize: 13, marginTop: 4 },
+  headerRight: { flexDirection: 'column', alignItems: 'flex-end', gap: 8 },
+  addBtn:      { backgroundColor: 'rgba(192,132,252,0.18)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(192,132,252,0.5)' },
+  addBtnText:  { color: MGR_COLOR, fontWeight: '800', fontSize: 13 },
 
   summaryStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 16, marginTop: 16, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 8 },
   sumItem: { flex: 1, alignItems: 'center' },
